@@ -12,13 +12,13 @@ The Consortium wrapped eNaira upgradeable smart contracts(except for Bantu) are 
 - BNBChain testnet = 0xcB932bFF664b39D7c18765393435a4cA3293d0eB
 - Tron testnet = TCPeCzfLiZD7SJsNuo2vvq9Ec2wdTD682W
 
+## Deployments
+All evm-compliant solidity smart contracts are upgradeable and built with openzeppelin standards. For Tron contract, deployment is done using the tron-box in the `Tron-Contract` folder.
+
 ## Exchange Listing
 
 ## API Documentation
 
 ## License
 Software license can be found [here](https://github.com/ConvexityTeam/wrapcbdc/blob/main/LICENSE)
-# cNGN
-For wrap cbdc stablecoins
 
-- The directory TRON-CONTRACT has the contract and the deployment configuration for tron blockchain
