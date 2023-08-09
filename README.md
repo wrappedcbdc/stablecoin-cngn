@@ -18,3 +18,7 @@ The Consortium wrapped eNaira upgradeable smart contracts(except for Bantu) are 
 
 ## License
 Software license can be found [here](https://github.com/ConvexityTeam/wrapcbdc/blob/main/LICENSE)
+# cNGN
+For wrap cbdc stablecoins
+
+- The directory TRON-CONTRACT has the contract and the deployment configuration for tron blockchain
