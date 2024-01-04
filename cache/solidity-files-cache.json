@@ -1,12 +1,12 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/access/Ownable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/access/Ownable.sol": {
+      "lastModificationDate": 1704100423163,
       "contentHash": "e436cea06129be2c73cda4b1acc848b5",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/access/Ownable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -39,12 +39,12 @@
         "Ownable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/utils/Context.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/utils/Context.sol": {
+      "lastModificationDate": 1704100423165,
       "contentHash": "5f2c5c4b6af2dd4551027144797bc8be",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/utils/Context.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -75,12 +75,12 @@
         "Context"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+      "lastModificationDate": 1704100423163,
       "contentHash": "af7bd64e1cfefbf6cb07f2adc1a25392",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/ERC20.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -115,12 +115,12 @@
         "ERC20"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+      "lastModificationDate": 1704100423164,
       "contentHash": "ad7c2d0af148c8f9f097d65deeb4da6b",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/IERC20.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -151,12 +151,12 @@
         "IERC20"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
+      "lastModificationDate": 1704100423164,
       "contentHash": "909ab67fc5c25033fe6cd364f8c056f9",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -189,12 +189,12 @@
         "IERC20Metadata"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol": {
+      "lastModificationDate": 1704100423164,
       "contentHash": "3c98f8ccc741d97ece615ce32d638d4c",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -231,12 +231,12 @@
         "ERC20Permit"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol": {
+      "lastModificationDate": 1704100423164,
       "contentHash": "fb77f144244b9ab12533aa6ce85ef8c5",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -267,12 +267,12 @@
         "IERC20Permit"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol": {
+      "lastModificationDate": 1704100423165,
       "contentHash": "161aae4dc1450371d0f324488f66a9cf",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -305,12 +305,12 @@
         "EIP712"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/utils/cryptography/ECDSA.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/utils/cryptography/ECDSA.sol": {
+      "lastModificationDate": 1704100423165,
       "contentHash": "e240957102529c3ccf73bcf4527bcddc",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -343,12 +343,12 @@
         "ECDSA"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/utils/Counters.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/utils/Counters.sol": {
+      "lastModificationDate": 1704100423165,
       "contentHash": "74654e3ae5d7f39555055dfe244dab7a",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/utils/Counters.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -379,12 +379,12 @@
         "Counters"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/utils/Strings.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/utils/Strings.sol": {
+      "lastModificationDate": 1704100423165,
       "contentHash": "cf46906c4035f51639a22265066a9e78",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/utils/Strings.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -415,12 +415,12 @@
         "Strings"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol": {
+      "lastModificationDate": 1704100423164,
       "contentHash": "40467b3c6e3da2ddaae40817859a9827",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/token/ERC20/extensions/ERC20Snapshot.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -455,12 +455,12 @@
         "ERC20Snapshot"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/utils/Arrays.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/utils/Arrays.sol": {
+      "lastModificationDate": 1704100423164,
       "contentHash": "2bd89f9eb95c317b3b21cc83fde01a32",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/utils/Arrays.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -493,12 +493,12 @@
         "Arrays"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/utils/math/Math.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/utils/math/Math.sol": {
+      "lastModificationDate": 1704100423165,
       "contentHash": "fb23b534599db16bb969dc6afcdc4261",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/utils/math/Math.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -529,12 +529,12 @@
         "Math"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/security/Pausable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/security/Pausable.sol": {
+      "lastModificationDate": 1704100423163,
       "contentHash": "25c8108f36fdd472bc78d4c4af240c11",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/security/Pausable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -567,12 +567,12 @@
         "Pausable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/security/ReentrancyGuard.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/security/ReentrancyGuard.sol": {
+      "lastModificationDate": 1704100423163,
       "contentHash": "92f9448b23a90ea3bb932ee55cc3ccce",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/security/ReentrancyGuard.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -603,12 +603,12 @@
         "ReentrancyGuard"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts/utils/math/SafeMath.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts/utils/math/SafeMath.sol": {
+      "lastModificationDate": 1704100423165,
       "contentHash": "2337f0279507b5edf14a07067adf0d05",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts/utils/math/SafeMath.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -639,12 +639,12 @@
         "SafeMath"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol": {
+      "lastModificationDate": 1704100423159,
       "contentHash": "403ce8273abde646bff81558ddf512ad",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -678,12 +678,12 @@
         "OwnableUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol": {
+      "lastModificationDate": 1704100423162,
       "contentHash": "6200b84950eb05b4a92a39fd1d6e0f9b",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -716,12 +716,12 @@
         "ContextUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol": {
+      "lastModificationDate": 1704100423160,
       "contentHash": "2afbb3bd1e31b07461c103ef6b17fc7a",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -754,12 +754,12 @@
         "Initializable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol": {
+      "lastModificationDate": 1704100423162,
       "contentHash": "d64ce513e21812dc46640297b085cb46",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -790,12 +790,12 @@
         "AddressUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol": {
+      "lastModificationDate": 1704100423161,
       "contentHash": "8c58ae2b48b49da0634bc2db620540cf",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -830,12 +830,12 @@
         "ERC20BurnableUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol": {
+      "lastModificationDate": 1704100423161,
       "contentHash": "b80215e0e2745760a008309d175f0a1b",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -871,12 +871,12 @@
         "ERC20Upgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol": {
+      "lastModificationDate": 1704100423161,
       "contentHash": "a9ed3c7bc7d9ebb5e34f20829274f088",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -907,12 +907,12 @@
         "IERC20Upgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol": {
+      "lastModificationDate": 1704100423161,
       "contentHash": "9efcd5467a7f0bf533910ee8a267adb2",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -945,12 +945,12 @@
         "IERC20MetadataUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol": {
+      "lastModificationDate": 1704100423161,
       "contentHash": "5497a3b10bfe129d0f154b8923da73c3",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -986,12 +986,12 @@
         "ERC20SnapshotUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/ArraysUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/ArraysUpgradeable.sol": {
+      "lastModificationDate": 1704100423162,
       "contentHash": "531ed4e3e0b241b391703442b1e691c2",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/ArraysUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1025,12 +1025,12 @@
         "ArraysUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol": {
+      "lastModificationDate": 1704100423162,
       "contentHash": "2e908c762a799baea365e68a50500e2c",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1061,12 +1061,12 @@
         "CountersUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/StorageSlotUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/StorageSlotUpgradeable.sol": {
+      "lastModificationDate": 1704100423162,
       "contentHash": "731fafe5fdaca6e0749253ab7ce7d3b9",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/StorageSlotUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1097,12 +1097,12 @@
         "StorageSlotUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol": {
+      "lastModificationDate": 1704100423162,
       "contentHash": "b7e8dced6d44f376ea201e6259102b78",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1133,12 +1133,12 @@
         "MathUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol": {
+      "lastModificationDate": 1704100423160,
       "contentHash": "d1ceeaa35b60471b1c6e50d29d70354a",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1175,12 +1175,12 @@
         "ERC1967UpgradeUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/beacon/IBeaconUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/beacon/IBeaconUpgradeable.sol": {
+      "lastModificationDate": 1704100423160,
       "contentHash": "21bffd733b4ca013e125a0ffe2e52254",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/beacon/IBeaconUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1211,12 +1211,12 @@
         "IBeaconUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/interfaces/draft-IERC1822Upgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/interfaces/draft-IERC1822Upgradeable.sol": {
+      "lastModificationDate": 1704100423159,
       "contentHash": "a6883cfd85607b16c121a02728369eb3",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/interfaces/draft-IERC1822Upgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1247,12 +1247,12 @@
         "IERC1822ProxiableUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol": {
+      "lastModificationDate": 1704100423160,
       "contentHash": "d90c41255a0d82e2b6ef7f3cb211c744",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1287,12 +1287,12 @@
         "UUPSUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol": {
-      "lastModificationDate": 1677058076403,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/.deps/npm/@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol": {
+      "lastModificationDate": 1704100423160,
       "contentHash": "cbe53d6b803c1102081e00b3a0418ea3",
       "sourceName": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1326,547 +1326,12 @@
         "PausableUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/Chats.sol": {
-      "lastModificationDate": 1677241432210,
-      "contentHash": "17183143b1c1bd312dc0e6e558100709",
-      "sourceName": "contracts/Chats.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/utils/math/SafeMath.sol",
-        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "Chats",
-        "IchatsFactory",
-        "IchatsNFT"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/chatsFactory.sol": {
-      "lastModificationDate": 1677247559415,
-      "contentHash": "30ef41a203f6371a3c7675b597992981",
-      "sourceName": "contracts/chatsFactory.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./nft-chats.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "chatsFactory"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/nft-chats.sol": {
-      "lastModificationDate": 1677250277121,
-      "contentHash": "afcc6a08f9a5b59ba61800e7a31b209e",
-      "sourceName": "contracts/nft-chats.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol",
-        "@openzeppelin/contracts/utils/Counters.sol",
-        "@openzeppelin/contracts/token/ERC721/ERC721.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "chatsNFT"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/utils/Counters.sol": {
-      "lastModificationDate": 1677058174414,
-      "contentHash": "74654e3ae5d7f39555055dfe244dab7a",
-      "sourceName": "@openzeppelin/contracts/utils/Counters.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "Counters"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol": {
-      "lastModificationDate": 1677058174706,
-      "contentHash": "580a443491d9d70eb064b0130fc3cd01",
-      "sourceName": "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../ERC721.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "ERC721URIStorage"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/token/ERC721/ERC721.sol": {
-      "lastModificationDate": 1677058174694,
-      "contentHash": "21b9f3bdb3e60f56ea81361c37420136",
-      "sourceName": "@openzeppelin/contracts/token/ERC721/ERC721.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./IERC721.sol",
-        "./IERC721Receiver.sol",
-        "./extensions/IERC721Metadata.sol",
-        "../../utils/Address.sol",
-        "../../utils/Context.sol",
-        "../../utils/Strings.sol",
-        "../../utils/introspection/ERC165.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "ERC721"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/utils/Address.sol": {
-      "lastModificationDate": 1677058174406,
-      "contentHash": "ad714a6368ee7d43cded6bbe8af0b155",
-      "sourceName": "@openzeppelin/contracts/utils/Address.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.1"
-      ],
-      "artifacts": [
-        "Address"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/utils/Context.sol": {
-      "lastModificationDate": 1677058174414,
-      "contentHash": "5f2c5c4b6af2dd4551027144797bc8be",
-      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "Context"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/utils/Strings.sol": {
-      "lastModificationDate": 1677058174834,
-      "contentHash": "9c54c6c065d9e590fdcdd72c451425b9",
-      "sourceName": "@openzeppelin/contracts/utils/Strings.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "Strings"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/token/ERC721/IERC721.sol": {
-      "lastModificationDate": 1677058174778,
-      "contentHash": "cd8e72e5859bddd5fd26b2fb5c51c846",
-      "sourceName": "@openzeppelin/contracts/token/ERC721/IERC721.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../../utils/introspection/IERC165.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IERC721"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol": {
-      "lastModificationDate": 1677058174786,
-      "contentHash": "c22d4395e33763de693fd440c6fd10e1",
-      "sourceName": "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IERC721Receiver"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol": {
-      "lastModificationDate": 1677058174490,
-      "contentHash": "0e7db055ce108f9da7bb6686a00287c0",
-      "sourceName": "@openzeppelin/contracts/utils/introspection/ERC165.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./IERC165.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "ERC165"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol": {
-      "lastModificationDate": 1677058174782,
-      "contentHash": "efbc0d15b80a74e34dbe8da0f3e879bb",
-      "sourceName": "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../IERC721.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IERC721Metadata"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
-      "lastModificationDate": 1677058174730,
-      "contentHash": "03e6768535ac4da0e9756f1d8a4a018a",
-      "sourceName": "@openzeppelin/contracts/utils/introspection/IERC165.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IERC165"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/cngn.sol": {
-      "lastModificationDate": 1677058076814,
+    "/Users/usmandanbaba/Desktop/stablecoin/contracts/cngn.sol": {
+      "lastModificationDate": 1704100423166,
       "contentHash": "faef17dbc71a16ce10e3840c512c6bb1",
       "sourceName": "contracts/cngn.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1904,12 +1369,12 @@
         "cngn"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol": {
-      "lastModificationDate": 1677058177225,
+    "/Users/usmandanbaba/Desktop/stablecoin/node_modules/@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol": {
+      "lastModificationDate": 1704276664849,
       "contentHash": "403ce8273abde646bff81558ddf512ad",
       "sourceName": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1943,12 +1408,48 @@
         "OwnableUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol": {
-      "lastModificationDate": 1677058177245,
+    "/Users/usmandanbaba/Desktop/stablecoin/node_modules/@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol": {
+      "lastModificationDate": 1704276664227,
+      "contentHash": "a9ed3c7bc7d9ebb5e34f20829274f088",
+      "sourceName": "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol",
+      "solcConfig": {
+        "version": "0.8.23",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC20Upgradeable"
+      ]
+    },
+    "/Users/usmandanbaba/Desktop/stablecoin/node_modules/@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol": {
+      "lastModificationDate": 1704276664863,
       "contentHash": "cbe53d6b803c1102081e00b3a0418ea3",
       "sourceName": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -1982,124 +1483,12 @@
         "PausableUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol": {
-      "lastModificationDate": 1677058177261,
-      "contentHash": "4613af15d9cee52b0d785a274594659e",
-      "sourceName": "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../proxy/utils/Initializable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "ReentrancyGuardUpgradeable"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol": {
-      "lastModificationDate": 1677058177077,
-      "contentHash": "a9ed3c7bc7d9ebb5e34f20829274f088",
-      "sourceName": "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IERC20Upgradeable"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol": {
-      "lastModificationDate": 1677058177189,
-      "contentHash": "2afbb3bd1e31b07461c103ef6b17fc7a",
-      "sourceName": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../../utils/AddressUpgradeable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.2"
-      ],
-      "artifacts": [
-        "Initializable"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol": {
-      "lastModificationDate": 1677058177069,
+    "/Users/usmandanbaba/Desktop/stablecoin/node_modules/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol": {
+      "lastModificationDate": 1704276664205,
       "contentHash": "9efcd5467a7f0bf533910ee8a267adb2",
       "sourceName": "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -2132,12 +1521,88 @@
         "IERC20MetadataUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol": {
-      "lastModificationDate": 1677058175922,
+    "/Users/usmandanbaba/Desktop/stablecoin/node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol": {
+      "lastModificationDate": 1704276664668,
+      "contentHash": "2afbb3bd1e31b07461c103ef6b17fc7a",
+      "sourceName": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+      "solcConfig": {
+        "version": "0.8.23",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../../utils/AddressUpgradeable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.2"
+      ],
+      "artifacts": [
+        "Initializable"
+      ]
+    },
+    "/Users/usmandanbaba/Desktop/stablecoin/node_modules/@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol": {
+      "lastModificationDate": 1704276664915,
+      "contentHash": "4613af15d9cee52b0d785a274594659e",
+      "sourceName": "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol",
+      "solcConfig": {
+        "version": "0.8.23",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "storageLayout"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../proxy/utils/Initializable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ReentrancyGuardUpgradeable"
+      ]
+    },
+    "/Users/usmandanbaba/Desktop/stablecoin/node_modules/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol": {
+      "lastModificationDate": 1704276660333,
       "contentHash": "6200b84950eb05b4a92a39fd1d6e0f9b",
       "sourceName": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -2170,12 +1635,12 @@
         "ContextUpgradeable"
       ]
     },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol": {
-      "lastModificationDate": 1677058175854,
+    "/Users/usmandanbaba/Desktop/stablecoin/node_modules/@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol": {
+      "lastModificationDate": 1704276660088,
       "contentHash": "d64ce513e21812dc46640297b085cb46",
       "sourceName": "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol",
       "solcConfig": {
-        "version": "0.8.4",
+        "version": "0.8.23",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -2204,311 +1669,6 @@
       ],
       "artifacts": [
         "AddressUpgradeable"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/cngn2.sol": {
-      "lastModificationDate": 1677058076814,
-      "contentHash": "5003d739449a110a099f85f1de410c0f",
-      "sourceName": "contracts/cngn2.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-        "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol",
-        "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.4"
-      ],
-      "artifacts": [
-        "cngn2"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/contracts/interface/IChatsToken.sol": {
-      "lastModificationDate": 1677058076814,
-      "contentHash": "038f2ef69a4d7d6e421f567ce99ea469",
-      "sourceName": "contracts/interface/IChatsToken.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IChatsToken"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts/utils/math/SafeMath.sol": {
-      "lastModificationDate": 1677058174830,
-      "contentHash": "2337f0279507b5edf14a07067adf0d05",
-      "sourceName": "@openzeppelin/contracts/utils/math/SafeMath.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "SafeMath"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol": {
-      "lastModificationDate": 1677058177285,
-      "contentHash": "d90c41255a0d82e2b6ef7f3cb211c744",
-      "sourceName": "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../../interfaces/draft-IERC1822Upgradeable.sol",
-        "../ERC1967/ERC1967UpgradeUpgradeable.sol",
-        "./Initializable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "UUPSUpgradeable"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/interfaces/draft-IERC1822Upgradeable.sol": {
-      "lastModificationDate": 1677058176065,
-      "contentHash": "a6883cfd85607b16c121a02728369eb3",
-      "sourceName": "@openzeppelin/contracts-upgradeable/interfaces/draft-IERC1822Upgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IERC1822ProxiableUpgradeable"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol": {
-      "lastModificationDate": 1677058176301,
-      "contentHash": "d1ceeaa35b60471b1c6e50d29d70354a",
-      "sourceName": "@openzeppelin/contracts-upgradeable/proxy/ERC1967/ERC1967UpgradeUpgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../beacon/IBeaconUpgradeable.sol",
-        "../../interfaces/draft-IERC1822Upgradeable.sol",
-        "../../utils/AddressUpgradeable.sol",
-        "../../utils/StorageSlotUpgradeable.sol",
-        "../utils/Initializable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.2"
-      ],
-      "artifacts": [
-        "ERC1967UpgradeUpgradeable"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/utils/StorageSlotUpgradeable.sol": {
-      "lastModificationDate": 1677058177281,
-      "contentHash": "731fafe5fdaca6e0749253ab7ce7d3b9",
-      "sourceName": "@openzeppelin/contracts-upgradeable/utils/StorageSlotUpgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "StorageSlotUpgradeable"
-      ]
-    },
-    "/home/engrdanbaba/Desktop/cngn-upgradeable/node_modules/@openzeppelin/contracts-upgradeable/proxy/beacon/IBeaconUpgradeable.sol": {
-      "lastModificationDate": 1677058176969,
-      "contentHash": "21bffd733b4ca013e125a0ffe2e52254",
-      "sourceName": "@openzeppelin/contracts-upgradeable/proxy/beacon/IBeaconUpgradeable.sol",
-      "solcConfig": {
-        "version": "0.8.4",
-        "settings": {
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
-                "storageLayout"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "IBeaconUpgradeable"
       ]
     }
   }

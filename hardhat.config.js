@@ -4,7 +4,7 @@ require("@nomiclabs/hardhat-etherscan");
 require('dotenv').config()
 
 module.exports = {
-  solidity: "0.8.4",
+  solidity: "0.8.23",
   networks: {
     mumbai: {
       url: process.env.RPC_URL,
