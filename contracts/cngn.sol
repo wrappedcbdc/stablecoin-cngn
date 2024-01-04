@@ -2,16 +2,14 @@
 // OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/ERC20.sol)
 
 pragma solidity ^0.8.4;
-pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
-contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20MetadataUpgradeable, PausableUpgradeable,ReentrancyGuardUpgradeable {
+contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20MetadataUpgradeable, PausableUpgradeable {
     mapping(address => uint256) private _balances;
 
     mapping(address => mapping(address => uint256)) private _allowances;
