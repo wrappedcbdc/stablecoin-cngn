@@ -95,6 +95,7 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
 
     function transfer(address to, uint256 amount) public virtual override whenNotPaused returns (bool) {
         require(!isBlackListed[msg.sender]);
+        require(!isBlackListed[to]);
         address owner = _msgSender();
         _transfer(owner, to, amount);
         return true;
@@ -112,6 +113,7 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
 
     function transferFrom(address from, address to, uint256 amount) public virtual override whenNotPaused returns (bool) {
         require(!isBlackListed[from]);
+        require(!isBlackListed[to]);
         address spender = _msgSender();
         _spendAllowance(from, spender, amount);
         _transfer(from, to, amount);
@@ -137,6 +139,7 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
     }
 
     function mint(uint256 _amount, address _mintTo) public virtual onlyOwner returns (bool) {
+        require(!isBlackListed[_mintTo]);
         _mint(_mintTo, _amount);
         return true;
     }
