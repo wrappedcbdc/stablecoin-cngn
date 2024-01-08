@@ -44,7 +44,6 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
         __ERC20_init("cNGN", "cNGN");
         __Ownable_init();
         __Pausable_init();
-        __ReentrancyGuard_init();
     }
 
 
@@ -112,6 +111,7 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
     }
 
     function transferFrom(address from, address to, uint256 amount) public virtual override whenNotPaused returns (bool) {
+        require(!isBlackListed[msg.sender]);
         require(!isBlackListed[from]);
         require(!isBlackListed[to]);
         address spender = _msgSender();
