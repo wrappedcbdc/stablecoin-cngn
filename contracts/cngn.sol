@@ -44,7 +44,6 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
         __ERC20_init("cNGN", "cNGN");
         __Ownable_init();
         __Pausable_init();
-        __ReentrancyGuard_init();
     }
 
 
