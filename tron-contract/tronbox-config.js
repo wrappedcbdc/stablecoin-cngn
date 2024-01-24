@@ -1,13 +1,12 @@
+require('dotenv').config()
 module.exports = {
     networks: {
       development: {
-        privateKey: 'your private key',
+        privateKey: process.env.PRIVATE_KEY_NILE,
         userFeePercentage: 100, // The percentage of resource consumption ratio.
         feeLimit: 100000000, // The TRX consumption limit for the deployment and trigger, unit is SUN
-        fullNode: 'https://api.nileex.io',
-        solidityNode: 'https://api.nileex.io',
-        eventServer: 'https://event.nileex.io',
-        network_id: '*'
+        fullHost: 'https://nile.trongrid.io/',
+        network_id: '3'
       },
       compilers: {
         solc: {
