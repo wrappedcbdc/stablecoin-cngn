@@ -7,9 +7,9 @@ One of tne most promising uses of this new technology is its ability to act as a
 ## Blockchain
 The Consortium wrapped Naira upgradeable smart contracts(except for Bantu) are currently deployed on the following blockchain testnets protocols;
 - Bantu testnet = GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI
-- Ethereum testnet = 0xbB4a67214dbb2bD6D22E03e1fE90B9834B71cF08
-- Polygon mumbai = 0x74D545eDE995989db82Ef229b35909766ef1cFD3
-- BNBChain testnet = 0x787e037D81Ba5C55335EC551c48F14F68D313dc7
+- Ethereum testnet = 0xfc04797591cb814cE30a57F8dD40A398019AFb5C
+- Polygon mumbai = 0xB63799521b6FaBAbAd2F6fbBceCe3EAc894599bB
+- BNBChain testnet = 0xf9e3cdA88632A797cD42C8CE46560944D0b4713e
 - Tron testnet = THo5cGd3ume8heoz7VWWAbVsXrd7aL1be8
 
 ## Deployments

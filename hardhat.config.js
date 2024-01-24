@@ -6,32 +6,32 @@ require('dotenv').config()
 module.exports = {
   solidity: "0.8.23",
   networks: {
-    mumbai: {
-      url: process.env.RPC_URL,
-      accounts: [process.env.PRIVATE_KEY]
-    },
+    // mumbai: {
+    //   url: process.env.POLYGON_TESTNET,
+    //   accounts: [process.env.EVM_PRIVATE_KEY]
+    // },
   //   polygon: {
   //     url: process.env.BLOCKCHAINSERV,
   //     accounts: [process.env.PRIVATE_KEY]
   // },
   // bsctestnet: {
-  //   url: process.env.BSC_URL,
-  //   accounts: [process.env.PRIVATE_KEY]
+  //   url: process.env.BSC_TESTNET,
+  //   accounts: [process.env.EVM_PRIVATE_KEY]
   // },
-  // goerli: {
-  //   url: process.env.ETH_URL,
-  //   accounts: [process.env.PRIVATE_KEY]
-  // }
+  goerli: {
+    url: process.env.ETH_TESTNET,
+    accounts: [process.env.EVM_PRIVATE_KEY]
+  }
   },
-  // etherscan: {
-  //   apiKey: { goerli: process.env.REAL_ETHERSCAN_API_KEY}
-  // },
-  // etherscan: {
-  //   apiKey: process.env.BSCSCAN_API_KEY
-  // },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY
+    apiKey: { goerli: process.env.ETH_API_KEY}
   },
+  // etherscan: {
+  //   apiKey: process.env.BSC_API_KEY
+  // },
+  // etherscan: {
+  //   apiKey: process.env.POLYGON_API_KEY
+  // },
   
   paths: {
     sources: "./contracts",

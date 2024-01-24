@@ -1327,8 +1327,8 @@
       ]
     },
     "/Users/usmandanbaba/Desktop/stablecoin/contracts/cngn.sol": {
-      "lastModificationDate": 1704100423166,
-      "contentHash": "faef17dbc71a16ce10e3840c512c6bb1",
+      "lastModificationDate": 1704716270663,
+      "contentHash": "bbd66fae5f4b9c053dcdb5d7345da1f2",
       "sourceName": "contracts/cngn.sol",
       "solcConfig": {
         "version": "0.8.23",
@@ -1359,7 +1359,6 @@
         "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol",
         "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol",
         "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
-        "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol",
         "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol"
       ],
       "versionPragmas": [

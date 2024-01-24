@@ -368,7 +368,7 @@ contract cngn is  Ownable, IERC20, IERC20Metadata, Pausable,ReentrancyGuard {
     }
 
     function decimals() public view virtual override returns (uint8) {
-        return 6;
+        return 18;
     }
 
     function totalSupply() public view virtual override returns (uint256) {
@@ -381,6 +381,7 @@ contract cngn is  Ownable, IERC20, IERC20Metadata, Pausable,ReentrancyGuard {
 
     function transfer(address to, uint256 amount) public virtual override whenNotPaused returns (bool) {
         require(!isBlackListed[msg.sender]);
+        require(!isBlackListed[to]);
         address owner = _msgSender();
         _transfer(owner, to, amount);
         return true;
@@ -397,7 +398,9 @@ contract cngn is  Ownable, IERC20, IERC20Metadata, Pausable,ReentrancyGuard {
     }
 
     function transferFrom(address from, address to, uint256 amount) public virtual override whenNotPaused returns (bool) {
+        require(!isBlackListed[msg.sender]);
         require(!isBlackListed[from]);
+        require(!isBlackListed[to]);
         address spender = _msgSender();
         _spendAllowance(from, spender, amount);
         _transfer(from, to, amount);
@@ -423,6 +426,7 @@ contract cngn is  Ownable, IERC20, IERC20Metadata, Pausable,ReentrancyGuard {
     }
 
     function mint(uint256 _amount, address _mintTo) public virtual onlyOwner returns (bool) {
+        require(!isBlackListed[_mintTo]);
         _mint(_mintTo, _amount);
         return true;
     }
