@@ -8,11 +8,12 @@ The cNGN is a compliant stablecoin backed 1:1 to the Naira with regulatory super
 
 ## Blockchain
 The Consortium wrapped Naira upgradeable smart contracts(except for Bantu) are currently deployed on the following blockchain protocols;
-Main-Nets
+
+### Main-Nets
 - Bantu = GDNY3KNWBKYSDLJK43FWHONAGRJT3CV7I3YZIAIVZGF2NG5HKDP5KS7U
 - BNBChain = 0xe6cD0ECD7Bd28904aCdeb3B793a832d68B245631
 
-Test-Nets
+### Test-Nets
 - Bantu = GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI
 - Ethereum = 0xfc04797591cb814cE30a57F8dD40A398019AFb5C
 - Polygon mumbai = 0xB63799521b6FaBAbAd2F6fbBceCe3EAc894599bB
