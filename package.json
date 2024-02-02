@@ -11,6 +11,7 @@
     "@ethereumjs/tx": "^3.5.2",
     "@ethersproject/experimental": "^5.7.0",
     "@nomiclabs/hardhat-etherscan": "^3.1.0",
+    "@nomiclabs/hardhat-ethers": "2.2.3",
     "@openzeppelin/contracts-ethereum-package": "^3.0.0",
     "@openzeppelin/contracts-upgradeable": "^4.8.0-rc.1",
     "@openzeppelin/upgrades": "^2.8.0",
@@ -43,7 +44,7 @@
     "chai-as-promised": "^7.1.1",
     "hardhat": "^2.11.2",
     "nodemon": "^2.0.16",
-    "swagger": "^0.0.1",
+    "swagger": "^0.7.5",
     "swagger-ui-express": "^4.5.0"
   },
   "scripts": {
