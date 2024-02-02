@@ -81,7 +81,7 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
     }
 
     function decimals() public view virtual override returns (uint8) {
-        return 18;
+        return 6;
     }
 
     function totalSupply() public view virtual override returns (uint256) {

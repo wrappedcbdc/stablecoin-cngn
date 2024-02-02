@@ -1,2 +1,7 @@
 .env
+
+#folders
+.openzeppelin/
+cache/
 node_modules/
+artifacts/
