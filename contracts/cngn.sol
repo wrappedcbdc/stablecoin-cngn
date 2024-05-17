@@ -10,19 +10,32 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
 contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20MetadataUpgradeable, PausableUpgradeable {
-    mapping(address => uint256) private _balances;
 
+    mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
-    mapping (address => bool) private isBlackListed;
+    mapping(address => bool) private isBlackListed;
+    mapping(address => mapping(address => uint256)) private isMintAllow;
+
+    modifier proxyAdmin() {
+    
+        _
+    }
+
+    modifier mintAllow() {
+        mintAllowStatus(_msgSender());
+        _
+    }
 
     uint256 private _totalSupply;
-
     string private _name;
     string private _symbol;
 
     event DestroyedBlackFunds(address _blackListedUser, uint _balance);
     event AddedBlackList(address _user);
     event RemovedBlackList(address _user);
+    event AddedWhiteList(address _user);
+    event RemovedWhiteList(address _user);
+    event AddedMintAllow(address _user, uint _amount);
 
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -40,7 +53,7 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
     }
 
 
-         function initialize() initializer public {
+    function initialize() initializer public {
         __ERC20_init("cNGN", "cNGN");
         __Ownable_init();
         __Pausable_init();
@@ -60,6 +73,33 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
     function removeBlackList (address _clearedUser) public virtual onlyOwner returns (bool) {
         isBlackListed[_clearedUser] = false;
         emit RemovedBlackList(_clearedUser);
+        return true;
+    }
+
+     function getWhiteListStatus(address _maker) external view returns (bool) {
+        return isWhiteListed[_maker];
+    }
+  
+    function addWhiteList (address _notEvilUser) public virtual onlyProxy returns(bool) {
+        isWhiteListed[_notEvilUser] = true;
+        emit AddedWhiteList(_notEvilUser);
+        return true;
+    }
+
+    function removeWhiteList (address _clearedUser) public virtual onlyProxy returns (bool) {
+        isWhiteListed[_clearedUser] = false;
+        emit RemovedWhiteList(_clearedUser);
+        return true;
+    }
+
+    function mintAllowStatus(address _minter) external view returns (bool) {
+        require(isMintAllow[_minter][_minter] >= 0);
+        return true;
+    }
+
+    function addMintAllow (address _user, uint256 _amount) public virtual onlyProxy returns(bool) {
+        isMintAllow[_user][_user] += _amount;
+        emit AddedMintAllow(_user, _amount);
         return true;
     }
 
@@ -145,7 +185,22 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
     }
 
     function burn (uint256 _amount) public virtual onlyOwner returns (bool) {
-        _burn(msg.sender, _amount);
+        _burn(_msgSender(), _amount);
+        return true;
+    }
+
+    function mintByUser(uint256 _amount, address _mintTo) public virtual mintAllow returns (bool) {
+        require(!isBlackListed[_mintTo]);
+        require(!isWhiteListed[_mintTo]);
+        require(isMintAllow[_minter][_minter] =< _amount);
+        isMintAllow[_minter][_minter] -= _amount;
+        _mint(_mintTo, _amount);
+        return true;
+    }
+
+    function burnByUser (uint256 _amount) public virtual returns (bool) {
+        require(!isBlackListed[_msgSender()]);
+        _burn(_msgSender(), _amount);
         return true;
     }
 
