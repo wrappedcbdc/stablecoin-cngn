@@ -8,67 +8,102 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+import "./IOperations.sol";
 
-contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20MetadataUpgradeable, PausableUpgradeable {
+contract cngn is
+    Initializable,
+    OwnableUpgradeable,
+    IERC20Upgradeable,
+    IERC20MetadataUpgradeable,
+    PausableUpgradeable
+{
     mapping(address => uint256) private _balances;
-
     mapping(address => mapping(address => uint256)) private _allowances;
-    mapping (address => bool) private isBlackListed;
+    mapping(address => bool) private isBlackListed;
+    mapping(address => bool) private isWhiteListed;
+    mapping(address => mapping(address => uint256)) private isMintAllow;
+    // address private _trustedForwarder;
 
     uint256 private _totalSupply;
-
     string private _name;
     string private _symbol;
+    address trustedForwarderContract;
+    address adminOperationsContract;
 
-    event DestroyedBlackFunds(address _blackListedUser, uint _balance);
+    event DestroyedBlackFunds(address _blackListedUser, uint256 _balance);
     event AddedBlackList(address _user);
     event RemovedBlackList(address _user);
+    event AddedWhiteList(address _user);
+    event RemovedWhiteList(address _user);
+    event AddedMintAllow(address _user, uint256 _amount);
 
-
-    /// @custom:oz-upgrades-unsafe-allow constructor
+    /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable
     constructor() {
-    _disableInitializers();
-}
+        _disableInitializers();
+    }
 
-    function __ERC20_init(string memory name_, string memory symbol_) internal onlyInitializing {
+    modifier onlyDeployerOrForwarder() {
+        require(
+            msg.sender == owner() || isTrustedForwarder(msg.sender),
+            "Caller is not the deployer or the trusted forwarder"
+        );
+        _;
+    }
+
+    function __ERC20_init(
+        string memory name_,
+        string memory symbol_
+    ) internal onlyInitializing {
         __ERC20_init_unchained(name_, symbol_);
     }
 
-    function __ERC20_init_unchained(string memory name_, string memory symbol_) internal onlyInitializing {
+    function __ERC20_init_unchained(
+        string memory name_,
+        string memory symbol_
+    ) internal onlyInitializing {
         _name = name_;
         _symbol = symbol_;
     }
 
-
-         function initialize() initializer public {
+    function initialize(
+        address _trustedForwarderContract,
+        address _adminOperationsContract
+    ) public initializer {
         __ERC20_init("cNGN", "cNGN");
         __Ownable_init();
         __Pausable_init();
+        trustedForwarderContract = _trustedForwarderContract;
+        adminOperationsContract = _adminOperationsContract;
     }
 
-
-    function getBlackListStatus(address _maker) external view returns (bool) {
-        return isBlackListed[_maker];
+    function isTrustedForwarder(
+        address forwarder
+    ) public view virtual returns (bool) {
+        return forwarder == trustedForwarderContract;
     }
-  
-    function addBlackList (address _evilUser) public virtual onlyOwner returns(bool) {
-        isBlackListed[_evilUser] = true;
-        emit AddedBlackList(_evilUser);
+
+    function msgSender() internal view returns (address payable signer) {
+        if (msg.data.length >= 20 && isTrustedForwarder(msg.sender)) {
+            assembly {
+                signer := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+        } else {
+            signer = payable(msg.sender);
+        }
+        return signer;
+    }
+
+    function updateAdminOperationsAddress(
+        address _newAdmin
+    ) public virtual onlyOwner returns (bool) {
+        adminOperationsContract = _newAdmin;
         return true;
     }
 
-    function removeBlackList (address _clearedUser) public virtual onlyOwner returns (bool) {
-        isBlackListed[_clearedUser] = false;
-        emit RemovedBlackList(_clearedUser);
-        return true;
-    }
-
-    function destroyBlackFunds (address _blackListedUser) public virtual onlyOwner returns (bool) {
-        require(isBlackListed[_blackListedUser]);
-        uint dirtyFunds = balanceOf(_blackListedUser);
-        _balances[_blackListedUser] = 0;
-        _totalSupply -= dirtyFunds;
-        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+    function updateForwarderContract(
+        address _newForwarderContract
+    ) public virtual onlyOwner returns (bool) {
+        trustedForwarderContract = _newForwarderContract;
         return true;
     }
 
@@ -88,49 +123,73 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
         return _totalSupply;
     }
 
-    function balanceOf(address account) public view virtual override returns (uint256) {
+    function balanceOf(
+        address account
+    ) public view virtual override returns (uint256) {
         return _balances[account];
     }
 
-    function transfer(address to, uint256 amount) public virtual override whenNotPaused returns (bool) {
-        require(!isBlackListed[msg.sender]);
-        require(!isBlackListed[to]);
+    function transfer(
+        address to,
+        uint256 amount
+    ) public virtual override whenNotPaused returns (bool) {
+        require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
+        require(!IAdmin(adminOperationsContract).isBlackListed(to));
         address owner = _msgSender();
         _transfer(owner, to, amount);
         return true;
     }
 
-    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+    function allowance(
+        address owner,
+        address spender
+    ) public view virtual override returns (uint256) {
         return _allowances[owner][spender];
     }
 
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+    function approve(
+        address spender,
+        uint256 amount
+    ) public virtual override returns (bool) {
         address owner = _msgSender();
         _approve(owner, spender, amount);
         return true;
     }
 
-    function transferFrom(address from, address to, uint256 amount) public virtual override whenNotPaused returns (bool) {
-        require(!isBlackListed[msg.sender]);
-        require(!isBlackListed[from]);
-        require(!isBlackListed[to]);
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public virtual override whenNotPaused returns (bool) {
+        require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
+        require(!IAdmin(adminOperationsContract).isBlackListed(from));
+        require(!IAdmin(adminOperationsContract).isBlackListed(to));
         address spender = _msgSender();
         _spendAllowance(from, spender, amount);
         _transfer(from, to, amount);
         return true;
     }
 
-    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+    function increaseAllowance(
+        address spender,
+        uint256 addedValue
+    ) public virtual returns (bool) {
         address owner = _msgSender();
         _approve(owner, spender, allowance(owner, spender) + addedValue);
         return true;
     }
 
-    
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+    function decreaseAllowance(
+        address spender,
+        uint256 subtractedValue
+    ) public virtual returns (bool) {
         address owner = _msgSender();
         uint256 currentAllowance = allowance(owner, spender);
-        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+
+        require(
+            currentAllowance >= subtractedValue,
+            "ERC20: decreased allowance below zero"
+        );
         unchecked {
             _approve(owner, spender, currentAllowance - subtractedValue);
         }
@@ -138,35 +197,69 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
         return true;
     }
 
-    function mint(uint256 _amount, address _mintTo) public virtual onlyOwner returns (bool) {
-        require(!isBlackListed[_mintTo]);
+    // function burn(uint256 _amount) public virtual onlyOwner returns (bool) {
+    //     _burn(_msgSender(), _amount);
+    //     return true;
+    // }
+
+    function mint(
+        uint256 _amount,
+        address _mintTo
+    ) public virtual onlyDeployerOrForwarder returns (bool) {
+        address signer = msgSender();
+        require(
+            !IAdmin(adminOperationsContract).isBlackListed(signer),
+            "User is blaclisted"
+        );
+        require(
+            !IAdmin(adminOperationsContract).isBlackListed(_mintTo),
+            "Receiver is blaclisted"
+        );
+        require(
+            IAdmin(adminOperationsContract).canMint(signer),
+            "Minter not authorized to sign"
+        );
+        require(
+            IAdmin(adminOperationsContract).mintAmount(signer) == _amount,
+            "Attempting to mint more than allowed"
+        );
         _mint(_mintTo, _amount);
+        IAdmin(adminOperationsContract).RemoveCanMint(signer);
         return true;
     }
 
-    function burn (uint256 _amount) public virtual onlyOwner returns (bool) {
-        _burn(msg.sender, _amount);
+    function burnByUser(
+        uint256 _amount
+    ) public virtual onlyDeployerOrForwarder returns (bool) {
+        _burn(_msgSender(), _amount);
         return true;
     }
 
-    function pause () public virtual onlyOwner whenNotPaused returns (bool) {
+    function pause() public virtual onlyOwner whenNotPaused returns (bool) {
         _pause();
         return true;
     }
 
-    function unPause () public virtual onlyOwner whenPaused returns (bool) {
+    function unPause() public virtual onlyOwner whenPaused returns (bool) {
         _unpause();
         return true;
     }
 
-    function _transfer(address from, address to, uint256 amount) internal virtual {
+    function _transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
 
         _beforeTokenTransfer(from, to, amount);
 
         uint256 fromBalance = _balances[from];
-        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
+        require(
+            fromBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
         unchecked {
             _balances[from] = fromBalance - amount;
             // Overflow not possible: the sum of all balances is capped by totalSupply, and the sum is preserved by
@@ -212,7 +305,11 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
         _afterTokenTransfer(account, address(0), amount);
     }
 
-    function _approve(address owner, address spender, uint256 amount) internal virtual {
+    function _approve(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
         require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
 
@@ -220,19 +317,34 @@ contract cngn is Initializable, OwnableUpgradeable, IERC20Upgradeable, IERC20Met
         emit Approval(owner, spender, amount);
     }
 
-    function _spendAllowance(address owner, address spender, uint256 amount) internal virtual {
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
         uint256 currentAllowance = allowance(owner, spender);
         if (currentAllowance != type(uint256).max) {
-            require(currentAllowance >= amount, "ERC20: insufficient allowance");
+            require(
+                currentAllowance >= amount,
+                "ERC20: insufficient allowance"
+            );
             unchecked {
                 _approve(owner, spender, currentAllowance - amount);
             }
         }
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual {}
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
 
-    function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual {}
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
 
     uint256[45] private __gap;
 }
