@@ -11,14 +11,18 @@ The Consortium wrapped Naira upgradeable smart contracts(except for Bantu) are c
 
 ### Main-Nets
 - Bantu = GDNY3KNWBKYSDLJK43FWHONAGRJT3CV7I3YZIAIVZGF2NG5HKDP5KS7U
-- BNBChain = 0xe6cD0ECD7Bd28904aCdeb3B793a832d68B245631
+- BNBChain = 
 
 ### Test-Nets
-- Bantu = GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI
-- Ethereum = 0xfc04797591cb814cE30a57F8dD40A398019AFb5C
-- Polygon mumbai = 0xB63799521b6FaBAbAd2F6fbBceCe3EAc894599bB
-- BNBChain = 0xf9e3cdA88632A797cD42C8CE46560944D0b4713e
-- Tron = THo5cGd3ume8heoz7VWWAbVsXrd7aL1be8
+#### Bantu 
+Contract Address = GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI
+#### BNBChain
+Forwarder Contract Address = 0x860b7b5c830cB3332965326cAc2B25457E4725e8
+Admin Contract Address = 0x28C5a61CE4A882AbCBF89018979096298797443B
+cNGN Contract Address = 0xf5A987F4cE325f318cA1b395268f904F66d1622f
+#### Ethereum
+#### Polygon mumbai 
+#### Tron 
 
 ## Deployments
 All evm-compliant solidity smart contracts are upgradeable and built with openzeppelin standards. For Tron contract, deployment is done using the tron-box in the `Tron-Contract` folder.
