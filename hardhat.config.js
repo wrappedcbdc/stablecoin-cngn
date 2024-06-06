@@ -22,16 +22,16 @@ module.exports = {
       url: process.env.BSC_MAINNET,
       accounts: [process.env.EVM_PRIVATE_KEY]
     },
-  goerli: {
-    url: process.env.ETH_TESTNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
-  }
+  // goerli: {
+  //   url: process.env.ETH_TESTNET,
+  //   accounts: [process.env.EVM_PRIVATE_KEY]
+  // }
   },
   // etherscan: {
   //   apiKey: { goerli: process.env.ETH_API_KEY}
   // },
   etherscan: {
-    apiKey: process.env.BSC_API_KEY
+    apiKey: "RXASATC5GEMWRHARSDNFF5Y6E8JWGJUCUV"
   },
   // etherscan: {
   //   apiKey: process.env.POLYGON_API_KEY
