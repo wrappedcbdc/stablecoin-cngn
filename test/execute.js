@@ -6,9 +6,9 @@ const abi = require('./abi');
 const execute = async () => {
     try {
         const provider = new ethers.providers.JsonRpcProvider(process.env.BSC_MAINNET);
-        const userPrivateKey = "6c21bea5bf396fea16086bb6fc4f75f52ffd0a77f62865b511718b3bb2ce1060";
+        const userPrivateKey = "userpk";
         const signer = new ethers.Wallet(userPrivateKey, provider);
-        const signer2 = new ethers.Wallet("0cef0c137c64172ed1f9acf5aaae51b8c78663a094a7c80a930564235e934ebf", provider);
+        const signer2 = new ethers.Wallet("adminpk", provider);
         
         const parsedAmount = ethers.utils.parseUnits("5000000", 6);
         const functionArgs = [parsedAmount, "0x1333946C8F7e30A74f6934645188bf75A13688Be"];
