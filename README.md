@@ -7,10 +7,10 @@ One of tne most promising uses of this new technology is its ability to act as a
 ## Blockchain
 The Consortium wrapped eNaira upgradeable smart contracts(except for Bantu) are currently deployed on the following blockchain testnets protocols;
 - Bantu testnet = GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI
-- Ethereum testnet = 0xcB932bFF664b39D7c18765393435a4cA3293d0eB
-- Polygon mumbai = 0x53883380d13524BA3a76AA74B6De3B508c689352
-- BNBChain testnet = 0xcB932bFF664b39D7c18765393435a4cA3293d0eB
-- Tron testnet = TCPeCzfLiZD7SJsNuo2vvq9Ec2wdTD682W
+- Assetchain testnet = 0xc125329d053761c9d4Fb167986027a8eeeCCF73f
+- Ethereum testnet = 0xE29eF5C6Bf2E263d9ac1Ef343C0E47f1168C1d84
+- Polygon mumbai = 0x30A413288F7865ab916663D12833Df836c21fA9E
+- BNBChain testnet = 0x28b0e321de52825Ff56861A4109a24351768186c
 
 ## Deployments
 All evm-compliant solidity smart contracts are upgradeable and built with openzeppelin standards. For Tron contract, deployment is done using the tron-box in the `Tron-Contract` folder.
