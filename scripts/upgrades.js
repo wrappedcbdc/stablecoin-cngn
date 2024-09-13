@@ -7,6 +7,7 @@ async function main() {
  
     console.log("Deploying cngn upgrades contract...");
     const upgradeableCngn = await upgrades.upgradeProxy("replace with proxy contract address", cngn,{
+
        kind: "transparent"
     });
     await upgradeableCngn.deployed();
