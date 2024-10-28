@@ -31,9 +31,9 @@ POLYGON
 Forwarder Contract Address =  0xc125329d053761c9d4Fb167986027a8eeeCCF73f  
 cNGN Contract Address = 0x30A413288F7865ab916663D12833Df836c21fA9E  
 
-## Financial Institutions
-
-## OffTakers/Exchange Listing
+BASE
+Forwarder Contract Address =  0x515f6c252b0c3c562714b4B357A98dd66c7b3dE8  
+cNGN Contract Address = 0xc125329d053761c9d4Fb167986027a8eeeCCF73f
 
 ## License
 Software license can be found [here](https://github.com/asc-africa/stablecoin/blob/main/LICENSE)
