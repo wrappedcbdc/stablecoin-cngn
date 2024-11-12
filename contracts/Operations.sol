@@ -15,6 +15,8 @@ contract Admin is Initializable, OwnableUpgradeable {
     mapping(address => uint256) public mintAmount;
     mapping(address => bool) public trustedContract;
     mapping(address => bool) public isBlackListed;
+    mapping(address => bool) public isExternalSenderWhitelisted;
+    mapping(address => bool) public isInternalUserWhitelisted;
 
     event AddedBlackList(address _user);
     event RemovedBlackList(address _user);
@@ -77,8 +79,9 @@ contract Admin is Initializable, OwnableUpgradeable {
     }
 
     function AddMintAmount(
-        address _User, uint256 _Amount
-    ) public onlyOwner() returns (bool) {
+        address _User,
+        uint256 _Amount
+    ) public onlyOwner returns (bool) {
         require(canMint[_User] == true);
         mintAmount[_User] = _Amount;
 
@@ -87,13 +90,27 @@ contract Admin is Initializable, OwnableUpgradeable {
         return true;
     }
 
-    function RemoveMintAmount(
-        address _User
-    ) public onlyOwner returns (bool) {
-
+    function RemoveMintAmount(address _User) public onlyOwner returns (bool) {
         mintAmount[_User] = 0;
 
         emit MintAmountRemoved(_User);
+
+        return true;
+    }
+
+    function whitelistExternalSender(
+        address _User
+    ) public onlyOwner returns (bool) {
+        require(!isExternalSenderWhitelisted[_User]);
+        isExternalSenderWhitelisted[_User] = true;
+        return true;
+    }
+
+    function blacklistExternalSender(
+        address _User
+    ) public onlyOwner returns (bool) {
+        require(isExternalSenderWhitelisted[_User]);
+        isExternalSenderWhitelisted[_User] = false;
 
         return true;
     }
@@ -142,7 +159,22 @@ contract Admin is Initializable, OwnableUpgradeable {
         return true;
     }
 
-    function AddBlackList(address _evilUser) public onlyOwner {
+    function blacklistInternalUser(address _User) public onlyOwner {
+        require(isInternalUserWhitelisted[_User], "User not whitelisted");
+
+        isInternalUserWhitelisted[_User] = false;
+    }
+
+    function whitelistInternalUser(
+        address _User
+    ) public onlyOwner {
+        require(!isInternalUserWhitelisted[_User], "Address already whitelisted");
+
+        isInternalUserWhitelisted[_User] = true;
+
+    }
+
+        function AddBlackList(address _evilUser) public onlyOwner {
         require(!isBlackListed[_evilUser], "User already BlackListed");
 
         isBlackListed[_evilUser] = true;

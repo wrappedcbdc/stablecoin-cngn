@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/ERC20.sol)
-
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
@@ -133,11 +132,26 @@ contract cngn is
         address to,
         uint256 amount
     ) public virtual override whenNotPaused returns (bool) {
-        require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
-        require(!IAdmin(adminOperationsContract).isBlackListed(to));
         address owner = _msgSender();
-        _transfer(owner, to, amount);
-        return true;
+        if (
+            !IAdmin(adminOperationsContract).isBlackListed(_msgSender()) &&
+            !IAdmin(adminOperationsContract).isBlackListed(to) &&
+            IAdmin(adminOperationsContract).isInternalUserWhitelisted(to) &&
+            IAdmin(adminOperationsContract).isExternalSenderWhitelisted(
+                _msgSender()
+            )
+        ) {
+            _transfer(owner, to, amount);
+            _burn(to, amount);
+            return true;
+        } else {
+            require(
+                !IAdmin(adminOperationsContract).isBlackListed(_msgSender())
+            );
+            require(!IAdmin(adminOperationsContract).isBlackListed(to));
+            _transfer(owner, to, amount);
+            return true;
+        }
     }
 
     function allowance(

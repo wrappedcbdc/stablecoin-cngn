@@ -21,7 +21,6 @@ contract MinimalForwarder is EIP712, Ownable {
         address from;
         address to;
         uint256 value;
-        uint256 gas;
         uint256 nonce;
         bytes data;
     }
@@ -61,7 +60,6 @@ contract MinimalForwarder is EIP712, Ownable {
                 req.from,
                 req.to,
                 req.value,
-                req.gas,
                 req.nonce,
                 req.data
             )
@@ -81,6 +79,7 @@ contract MinimalForwarder is EIP712, Ownable {
             IAdmin(adminOperationsContract).canForward(req.from),
             "You are not allowed to use this tx route"
         );
+        
         require(
             !IAdmin(adminOperationsContract).isBlackListed(_msgSender()),
             "Relayer is blacklisted"
@@ -98,15 +97,14 @@ contract MinimalForwarder is EIP712, Ownable {
         _nonces[req.from] = req.nonce + 1;
 
         (bool success, bytes memory returndata) = req.to.call{
-            gas: req.gas,
             value: req.value
         }(abi.encodePacked(req.data, req.from));
 
-        if (gasleft() <= req.gas / 63) {
-            assembly {
-                invalid()
-            }
-        }
+        // if (gasleft() <= req.gas / 63) {
+        //     assembly {
+        //         invalid()
+        //     }
+        // }
 
         return (success, returndata);
     }
