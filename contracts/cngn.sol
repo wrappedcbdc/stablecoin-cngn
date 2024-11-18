@@ -38,10 +38,10 @@ contract cngn is
     event RemovedWhiteList(address _user);
     event AddedMintAllow(address _user, uint256 _amount);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable
-    constructor() {
-        _disableInitializers();
-    }
+    // /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable
+    /// constructor() {
+    //  _disableInitializers();
+    // }
 
     modifier onlyDeployerOrForwarder() {
         require(
@@ -74,6 +74,8 @@ contract cngn is
         __Ownable_init();
         __Pausable_init();
         __ReentrancyGuard_init(); // Initialize ReentrancyGuardUpgradeable
+
+        // _disableInitializers();
         trustedForwarderContract = _trustedForwarderContract;
         adminOperationsContract = _adminOperationsContract;
     }

@@ -6,29 +6,21 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol"; // Added ReentrancyGuard for reentrancy protection
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IOperations.sol";
 
 /**
  * @title Forwarder Smart Contract
- * @author Pascal Marco Caversaccio, pascal.caversaccio@hotmail.ch
  * @dev Simple forwarder for extensible meta-transaction forwarding.
  * This contract has been updated with security improvements.
  */
-
-contract MinimalForwarder is
-    EIP712,
-    Ownable,
-    Pausable,
-    ReentrancyGuard // Implementing ReentrancyGuard here
-{
+contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
     using ECDSA for bytes32;
 
     struct ForwardRequest {
         address from;
         address to;
         uint256 value;
-        uint256 gas;
         uint256 nonce;
         bytes data;
     }
@@ -39,19 +31,17 @@ contract MinimalForwarder is
 
     bytes32 public constant _TYPEHASH =
         keccak256(
-            "ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data)"
+            "ForwardRequest(address from,address to,uint256 value,uint256 nonce,bytes data)"
         );
 
     mapping(address => uint256) private _nonces;
 
-    // Constructor
     constructor(
         address _adminOperationsContract
     ) EIP712("MinimalForwarder", "0.0.1") {
         adminOperationsContract = _adminOperationsContract;
     }
 
-    // Admin can update the admin operations address
     function updateAdminOperationsAddress(
         address _newAdmin
     ) public virtual onlyOwner returns (bool) {
@@ -59,25 +49,16 @@ contract MinimalForwarder is
         return true;
     }
 
-    // Get the nonce for a given address
     function getNonce(address from) public view returns (uint256) {
         return _nonces[from];
     }
 
-    // Verify the signature of the ForwardRequest
     function verify(
         ForwardRequest calldata req,
         bytes calldata signature
     ) public view returns (bool) {
         bytes32 messagehash = keccak256(
-            abi.encodePacked(
-                req.from,
-                req.to,
-                req.value,
-                req.gas,
-                req.nonce,
-                req.data
-            )
+            abi.encodePacked(req.from, req.to, req.value, req.nonce, req.data)
         );
         address signer = messagehash.toEthSignedMessageHash().recover(
             signature
@@ -86,12 +67,10 @@ contract MinimalForwarder is
         return ((_nonces[req.from] == req.nonce && signer == req.from));
     }
 
-    // Execute the forward request with additional security checks
-    function execute(
+    function _executeTransaction(
         ForwardRequest calldata req,
         bytes calldata signature
-    ) public payable onlyOwner nonReentrant returns (bool, bytes memory) {
-        // Added nonReentrant modifier
+    ) private returns (bool, bytes memory) {
         require(
             IAdmin(adminOperationsContract).canForward(req.from),
             "You are not allowed to use this tx route"
@@ -108,15 +87,70 @@ contract MinimalForwarder is
             verify(req, signature),
             "MinimalForwarder: signature does not match request"
         );
+
         bytes32 txHash = keccak256(
-            abi.encode(
-                req.from,
-                req.to,
-                req.value,
-                req.gas,
-                req.nonce,
-                req.data
-            )
+            abi.encode(req.from, req.to, req.value, req.nonce, req.data)
         );
-        _preventReplay(txHash); // Prevent replay attacks for this transaction
+        _preventReplay(txHash);
         _nonces[req.from] = req.nonce + 1;
+
+        (bool success, bytes memory returndata) = req.to.call{value: req.value}(
+            abi.encodePacked(req.data, req.from)
+        );
+
+        return (success, returndata);
+    }
+
+    function executeByOwner(
+        ForwardRequest calldata req,
+        bytes calldata signature
+    ) public payable onlyOwner nonReentrant returns (bool, bytes memory) {
+        return _executeTransaction(req, signature);
+    }
+
+    function executeByBridge(
+        ForwardRequest calldata req,
+        bytes calldata signature
+    )
+        public
+        payable
+        onlyAuthorizedBridge
+        nonReentrant
+        returns (bool, bytes memory)
+    {
+        return _executeTransaction(req, signature);
+    }
+
+    receive() external payable {}
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    function authorizeBridge(address bridgeAddress) external onlyOwner {
+        authorizedBridges[bridgeAddress] = true;
+    }
+
+    function deauthorizeBridge(address bridgeAddress) external onlyOwner {
+        authorizedBridges[bridgeAddress] = false;
+    }
+
+    modifier onlyAuthorizedBridge() {
+        require(authorizedBridges[msg.sender], "Unauthorized bridge");
+        _;
+    }
+
+    function _preventReplay(bytes32 txHash) internal {
+        require(!processedTxHashes[txHash], "Replay attack prevented");
+        processedTxHashes[txHash] = true;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == adminOperationsContract, "Not an admin");
+        _;
+    }
+}

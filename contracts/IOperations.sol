@@ -56,3 +56,4 @@ interface IAdmin {
     function AddBlackList(address evilUser) external returns (bool);
 
     function RemoveBlackList(address clearedUser) external returns (bool);
+}

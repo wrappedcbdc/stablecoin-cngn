@@ -4,9 +4,15 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
 
-  // address gotten after tesnet deployment, we will need it for verification, same process for maiinet
-  const minimalForwarderAddress = "0x397551C510FBEae4908EdA2262F11761660E30e9";
-  const adminContractAddress = "0xAF8d581E4eEAF9087a2302FF2fc524591d72c89d ";
+  // Corrected: Use ethers.providers.JsonRpcProvider
+  const provider = new ethers.providers.JsonRpcProvider(
+    "https://eth-sepolia.g.alchemy.com/v2/PvbeyL6n-V9RJeoFJouD_wrr1uX_cg_e"
+  );
+  provider.hasENS = () => false; // Disable ENS features in the provider
+
+  // Address gotten after testnet deployment, we will need it for verification, same process for mainnet
+  // const adminContractAddress = "0x11132f1e1786d8918E69cEAB1d4d7D26A1a25cD2";
+  // const trustedForwarderContract = "0x041b518B83AcF6f0a3AfD03afe448C16C84CaADe";
 
   // Deploy the MinimalForwarder contract with the adminContract address
   const MinimalForwarder = await ethers.getContractFactory("MinimalForwarder");
@@ -26,7 +32,7 @@ async function main() {
   console.log("Admin contract deployed to:", admin.address);
 
   // Deploy the cngn contract via proxy
-  const cngnContract = await ethers.getContractFactory("cngn");
+  const cngnContract = await ethers.getContractFactory("cngn"); // Move this line before calling `deployProxy`
   console.log("Deploying cngn contract...");
   const cngn = await upgrades.deployProxy(
     cngnContract,
