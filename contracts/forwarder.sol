@@ -9,6 +9,12 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IOperations.sol";
 
+// Declare events
+event BridgeAuthorized(address indexed bridgeAddress);
+event BridgeDeauthorized(address indexed bridgeAddress);
+event AdminOperationsAddressUpdated(address indexed newAdminAddress);
+
+
 /**
  * @title Forwarder Smart Contract
  * @dev Simple forwarder for extensible meta-transaction forwarding.
@@ -46,6 +52,7 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         address _newAdmin
     ) public virtual onlyOwner returns (bool) {
         adminOperationsContract = _newAdmin;
+        emit AdminOperationsAddressUpdated(_newAdmin);  // Emit event
         return true;
     }
 
@@ -101,7 +108,7 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         return (success, returndata);
     }
 
-    function executeByOwner(
+    function execute(
         ForwardRequest calldata req,
         bytes calldata signature
     ) public payable onlyOwner nonReentrant returns (bool, bytes memory) {
@@ -121,8 +128,6 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         return _executeTransaction(req, signature);
     }
 
-    receive() external payable {}
-
     function pause() external onlyOwner {
         _pause();
     }
@@ -133,10 +138,12 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
 
     function authorizeBridge(address bridgeAddress) external onlyOwner {
         authorizedBridges[bridgeAddress] = true;
+        emit BridgeAuthorized(bridgeAddress);  // Emit event
     }
 
     function deauthorizeBridge(address bridgeAddress) external onlyOwner {
         authorizedBridges[bridgeAddress] = false;
+        emit BridgeDeauthorized(bridgeAddress);  // Emit event
     }
 
     modifier onlyAuthorizedBridge() {
@@ -153,4 +160,6 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         require(msg.sender == adminOperationsContract, "Not an admin");
         _;
     }
+
+    receive() external payable {}
 }
