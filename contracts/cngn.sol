@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/ERC20.sol)
+
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol"; // Added for reentrancy protection
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
@@ -14,14 +16,14 @@ contract cngn is
     OwnableUpgradeable,
     IERC20Upgradeable,
     IERC20MetadataUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable // Added for reentrancy protection
 {
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
     mapping(address => bool) private isBlackListed;
     mapping(address => bool) private isWhiteListed;
     mapping(address => mapping(address => uint256)) private isMintAllow;
-    // address private _trustedForwarder;
 
     uint256 private _totalSupply;
     string private _name;
@@ -36,10 +38,10 @@ contract cngn is
     event RemovedWhiteList(address _user);
     event AddedMintAllow(address _user, uint256 _amount);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable
-    constructor() {
-        _disableInitializers();
-    }
+    // /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable
+    /// constructor() {
+    //  _disableInitializers();
+    // }
 
     modifier onlyDeployerOrForwarder() {
         require(
@@ -71,6 +73,9 @@ contract cngn is
         __ERC20_init("cNGN", "cNGN");
         __Ownable_init();
         __Pausable_init();
+        __ReentrancyGuard_init(); // Initialize ReentrancyGuardUpgradeable
+
+        // _disableInitializers();
         trustedForwarderContract = _trustedForwarderContract;
         adminOperationsContract = _adminOperationsContract;
     }
@@ -128,30 +133,16 @@ contract cngn is
         return _balances[account];
     }
 
+    // Added nonReentrant modifier to prevent reentrancy attacks
     function transfer(
         address to,
         uint256 amount
-    ) public virtual override whenNotPaused returns (bool) {
+    ) public virtual override whenNotPaused nonReentrant returns (bool) {
+        require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
+        require(!IAdmin(adminOperationsContract).isBlackListed(to));
         address owner = _msgSender();
-        if (
-            !IAdmin(adminOperationsContract).isBlackListed(_msgSender()) &&
-            !IAdmin(adminOperationsContract).isBlackListed(to) &&
-            IAdmin(adminOperationsContract).isInternalUserWhitelisted(to) &&
-            IAdmin(adminOperationsContract).isExternalSenderWhitelisted(
-                _msgSender()
-            )
-        ) {
-            _transfer(owner, to, amount);
-            _burn(to, amount);
-            return true;
-        } else {
-            require(
-                !IAdmin(adminOperationsContract).isBlackListed(_msgSender())
-            );
-            require(!IAdmin(adminOperationsContract).isBlackListed(to));
-            _transfer(owner, to, amount);
-            return true;
-        }
+        _transfer(owner, to, amount);
+        return true;
     }
 
     function allowance(
@@ -170,11 +161,12 @@ contract cngn is
         return true;
     }
 
+    // Added nonReentrant modifier to prevent reentrancy attacks
     function transferFrom(
         address from,
         address to,
         uint256 amount
-    ) public virtual override whenNotPaused returns (bool) {
+    ) public virtual override whenNotPaused nonReentrant returns (bool) {
         require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
         require(!IAdmin(adminOperationsContract).isBlackListed(from));
         require(!IAdmin(adminOperationsContract).isBlackListed(to));
@@ -211,23 +203,19 @@ contract cngn is
         return true;
     }
 
-    // function burn(uint256 _amount) public virtual onlyOwner returns (bool) {
-    //     _burn(_msgSender(), _amount);
-    //     return true;
-    // }
-
     function mint(
         uint256 _amount,
         address _mintTo
-    ) public virtual onlyDeployerOrForwarder returns (bool) {
+    ) public virtual onlyDeployerOrForwarder nonReentrant returns (bool) {
+        // Added nonReentrant modifier for reentrancy protection
         address signer = msgSender();
         require(
             !IAdmin(adminOperationsContract).isBlackListed(signer),
-            "User is blaclisted"
+            "User is blacklisted"
         );
         require(
             !IAdmin(adminOperationsContract).isBlackListed(_mintTo),
-            "Receiver is blaclisted"
+            "Receiver is blacklisted"
         );
         require(
             IAdmin(adminOperationsContract).canMint(signer),
@@ -244,7 +232,8 @@ contract cngn is
 
     function burnByUser(
         uint256 _amount
-    ) public virtual onlyDeployerOrForwarder returns (bool) {
+    ) public virtual onlyDeployerOrForwarder nonReentrant returns (bool) {
+        // Added nonReentrant modifier for reentrancy protection
         _burn(_msgSender(), _amount);
         return true;
     }
@@ -276,8 +265,6 @@ contract cngn is
         );
         unchecked {
             _balances[from] = fromBalance - amount;
-            // Overflow not possible: the sum of all balances is capped by totalSupply, and the sum is preserved by
-            // decrementing then incrementing.
             _balances[to] += amount;
         }
 
@@ -293,7 +280,6 @@ contract cngn is
 
         _totalSupply += amount;
         unchecked {
-            // Overflow not possible: balance + amount is at most totalSupply + amount, which is checked above.
             _balances[account] += amount;
         }
         emit Transfer(address(0), account, amount);
@@ -310,7 +296,6 @@ contract cngn is
         require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
         unchecked {
             _balances[account] = accountBalance - amount;
-            // Overflow not possible: amount <= accountBalance <= totalSupply.
             _totalSupply -= amount;
         }
 
@@ -352,7 +337,7 @@ contract cngn is
         address from,
         address to,
         uint256 amount
-    ) internal virtual {}
+    ) internal virtual whenNotPaused {}
 
     function _afterTokenTransfer(
         address from,
