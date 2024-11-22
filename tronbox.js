@@ -11,9 +11,16 @@ module.exports = {
       network_id: "2", // Shasta testnet
     },
   },
+
+  contracts_directory: "./contracts/", // Ensure this points to the correct directory
+  contracts_build_directory: "./build/contracts/",
+
+  // contracts_directory: "./tron-contract/contracts",
+  // migrations_directory: "./tron-contract/migrations",
+
   compilers: {
     solc: {
-      version: "0.8.0",
+      version: "0.8.11",
     },
   },
   // solc compiler optimize

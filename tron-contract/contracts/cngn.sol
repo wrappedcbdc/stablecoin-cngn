@@ -8,7 +8,13 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "./IOperations.sol";
+
+// import "../../contracts/IOperations.sol";
+
+// import "./IOperations.sol";
+import "../IOperations.sol";
+
+// import "IOperations.sol";
 
 contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
     mapping(address => uint256) private _balances;
@@ -87,7 +93,7 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         return _symbol;
     }
 
-    function decimals() public view override returns (uint8) {
+    function decimals() public pure override returns (uint8) {
         return 6;
     }
 

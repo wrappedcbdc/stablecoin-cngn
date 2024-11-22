@@ -1,0 +1,766 @@
+{
+  "contractName": "IERC20MetadataUpgradeable",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "spender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "Approval",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "value",
+          "type": "uint256"
+        }
+      ],
+      "name": "Transfer",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "spender",
+          "type": "address"
+        }
+      ],
+      "name": "allowance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "spender",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "approve",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "balanceOf",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "decimals",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "name",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "symbol",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "totalSupply",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "transfer",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "transferFrom",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "sourceMap": "",
+  "deployedSourceMap": "",
+  "source": "// SPDX-License-Identifier: MIT\n// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)\n\npragma solidity ^0.8.0;\n\nimport \"../IERC20Upgradeable.sol\";\n\n/**\n * @dev Interface for the optional metadata functions from the ERC20 standard.\n *\n * _Available since v4.1._\n */\ninterface IERC20MetadataUpgradeable is IERC20Upgradeable {\n    /**\n     * @dev Returns the name of the token.\n     */\n    function name() external view returns (string memory);\n\n    /**\n     * @dev Returns the symbol of the token.\n     */\n    function symbol() external view returns (string memory);\n\n    /**\n     * @dev Returns the decimals places of the token.\n     */\n    function decimals() external view returns (uint8);\n}\n",
+  "sourcePath": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol",
+  "ast": {
+    "absolutePath": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol",
+    "exportedSymbols": {
+      "IERC20MetadataUpgradeable": [
+        11215
+      ],
+      "IERC20Upgradeable": [
+        10778
+      ]
+    },
+    "id": 11216,
+    "license": "MIT",
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 11192,
+        "literals": [
+          "solidity",
+          "^",
+          "0.8",
+          ".0"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "110:23:63"
+      },
+      {
+        "absolutePath": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol",
+        "file": "../IERC20Upgradeable.sol",
+        "id": 11193,
+        "nameLocation": "-1:-1:-1",
+        "nodeType": "ImportDirective",
+        "scope": 11216,
+        "sourceUnit": 10779,
+        "src": "135:34:63",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "abstract": false,
+        "baseContracts": [
+          {
+            "baseName": {
+              "id": 11195,
+              "name": "IERC20Upgradeable",
+              "nodeType": "IdentifierPath",
+              "referencedDeclaration": 10778,
+              "src": "327:17:63"
+            },
+            "id": 11196,
+            "nodeType": "InheritanceSpecifier",
+            "src": "327:17:63"
+          }
+        ],
+        "canonicalName": "IERC20MetadataUpgradeable",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 11194,
+          "nodeType": "StructuredDocumentation",
+          "src": "171:116:63",
+          "text": " @dev Interface for the optional metadata functions from the ERC20 standard.\n _Available since v4.1._"
+        },
+        "fullyImplemented": false,
+        "id": 11215,
+        "linearizedBaseContracts": [
+          11215,
+          10778
+        ],
+        "name": "IERC20MetadataUpgradeable",
+        "nameLocation": "298:25:63",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "documentation": {
+              "id": 11197,
+              "nodeType": "StructuredDocumentation",
+              "src": "351:54:63",
+              "text": " @dev Returns the name of the token."
+            },
+            "functionSelector": "06fdde03",
+            "id": 11202,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "name",
+            "nameLocation": "419:4:63",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 11198,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "423:2:63"
+            },
+            "returnParameters": {
+              "id": 11201,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11200,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 11202,
+                  "src": "449:13:63",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 11199,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "449:6:63",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "448:15:63"
+            },
+            "scope": 11215,
+            "src": "410:54:63",
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "documentation": {
+              "id": 11203,
+              "nodeType": "StructuredDocumentation",
+              "src": "470:56:63",
+              "text": " @dev Returns the symbol of the token."
+            },
+            "functionSelector": "95d89b41",
+            "id": 11208,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "symbol",
+            "nameLocation": "540:6:63",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 11204,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "546:2:63"
+            },
+            "returnParameters": {
+              "id": 11207,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11206,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 11208,
+                  "src": "572:13:63",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 11205,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "572:6:63",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "571:15:63"
+            },
+            "scope": 11215,
+            "src": "531:56:63",
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "documentation": {
+              "id": 11209,
+              "nodeType": "StructuredDocumentation",
+              "src": "593:65:63",
+              "text": " @dev Returns the decimals places of the token."
+            },
+            "functionSelector": "313ce567",
+            "id": 11214,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "decimals",
+            "nameLocation": "672:8:63",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 11210,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "680:2:63"
+            },
+            "returnParameters": {
+              "id": 11213,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11212,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 11214,
+                  "src": "706:5:63",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint8",
+                    "typeString": "uint8"
+                  },
+                  "typeName": {
+                    "id": 11211,
+                    "name": "uint8",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "706:5:63",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint8",
+                      "typeString": "uint8"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "705:7:63"
+            },
+            "scope": 11215,
+            "src": "663:50:63",
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "scope": 11216,
+        "src": "288:427:63",
+        "usedErrors": []
+      }
+    ],
+    "src": "110:606:63"
+  },
+  "legacyAST": {
+    "absolutePath": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol",
+    "exportedSymbols": {
+      "IERC20MetadataUpgradeable": [
+        11215
+      ],
+      "IERC20Upgradeable": [
+        10778
+      ]
+    },
+    "id": 11216,
+    "license": "MIT",
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 11192,
+        "literals": [
+          "solidity",
+          "^",
+          "0.8",
+          ".0"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "110:23:63"
+      },
+      {
+        "absolutePath": "contracts/.deps/npm/@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol",
+        "file": "../IERC20Upgradeable.sol",
+        "id": 11193,
+        "nameLocation": "-1:-1:-1",
+        "nodeType": "ImportDirective",
+        "scope": 11216,
+        "sourceUnit": 10779,
+        "src": "135:34:63",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "abstract": false,
+        "baseContracts": [
+          {
+            "baseName": {
+              "id": 11195,
+              "name": "IERC20Upgradeable",
+              "nodeType": "IdentifierPath",
+              "referencedDeclaration": 10778,
+              "src": "327:17:63"
+            },
+            "id": 11196,
+            "nodeType": "InheritanceSpecifier",
+            "src": "327:17:63"
+          }
+        ],
+        "canonicalName": "IERC20MetadataUpgradeable",
+        "contractDependencies": [],
+        "contractKind": "interface",
+        "documentation": {
+          "id": 11194,
+          "nodeType": "StructuredDocumentation",
+          "src": "171:116:63",
+          "text": " @dev Interface for the optional metadata functions from the ERC20 standard.\n _Available since v4.1._"
+        },
+        "fullyImplemented": false,
+        "id": 11215,
+        "linearizedBaseContracts": [
+          11215,
+          10778
+        ],
+        "name": "IERC20MetadataUpgradeable",
+        "nameLocation": "298:25:63",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "documentation": {
+              "id": 11197,
+              "nodeType": "StructuredDocumentation",
+              "src": "351:54:63",
+              "text": " @dev Returns the name of the token."
+            },
+            "functionSelector": "06fdde03",
+            "id": 11202,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "name",
+            "nameLocation": "419:4:63",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 11198,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "423:2:63"
+            },
+            "returnParameters": {
+              "id": 11201,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11200,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 11202,
+                  "src": "449:13:63",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 11199,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "449:6:63",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "448:15:63"
+            },
+            "scope": 11215,
+            "src": "410:54:63",
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "documentation": {
+              "id": 11203,
+              "nodeType": "StructuredDocumentation",
+              "src": "470:56:63",
+              "text": " @dev Returns the symbol of the token."
+            },
+            "functionSelector": "95d89b41",
+            "id": 11208,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "symbol",
+            "nameLocation": "540:6:63",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 11204,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "546:2:63"
+            },
+            "returnParameters": {
+              "id": 11207,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11206,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 11208,
+                  "src": "572:13:63",
+                  "stateVariable": false,
+                  "storageLocation": "memory",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_string_memory_ptr",
+                    "typeString": "string"
+                  },
+                  "typeName": {
+                    "id": 11205,
+                    "name": "string",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "572:6:63",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_string_storage_ptr",
+                      "typeString": "string"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "571:15:63"
+            },
+            "scope": 11215,
+            "src": "531:56:63",
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          },
+          {
+            "documentation": {
+              "id": 11209,
+              "nodeType": "StructuredDocumentation",
+              "src": "593:65:63",
+              "text": " @dev Returns the decimals places of the token."
+            },
+            "functionSelector": "313ce567",
+            "id": 11214,
+            "implemented": false,
+            "kind": "function",
+            "modifiers": [],
+            "name": "decimals",
+            "nameLocation": "672:8:63",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 11210,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "680:2:63"
+            },
+            "returnParameters": {
+              "id": 11213,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 11212,
+                  "mutability": "mutable",
+                  "name": "",
+                  "nameLocation": "-1:-1:-1",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 11214,
+                  "src": "706:5:63",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_uint8",
+                    "typeString": "uint8"
+                  },
+                  "typeName": {
+                    "id": 11211,
+                    "name": "uint8",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "706:5:63",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint8",
+                      "typeString": "uint8"
+                    }
+                  },
+                  "visibility": "internal"
+                }
+              ],
+              "src": "705:7:63"
+            },
+            "scope": 11215,
+            "src": "663:50:63",
+            "stateMutability": "view",
+            "virtual": false,
+            "visibility": "external"
+          }
+        ],
+        "scope": 11216,
+        "src": "288:427:63",
+        "usedErrors": []
+      }
+    ],
+    "src": "110:606:63"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.8.11+commit.b01f3284.mod.Emscripten.clang"
+  },
+  "networks": {},
+  "schemaVersion": "2.0.1",
+  "updatedAt": "2024-11-22T02:00:08.349Z"
+}

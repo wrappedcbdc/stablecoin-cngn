@@ -119,7 +119,7 @@ contract cngn is
         return _symbol;
     }
 
-    function decimals() public view virtual override returns (uint8) {
+    function decimals() public pure virtual override returns (uint8) {
         return 6;
     }
 
