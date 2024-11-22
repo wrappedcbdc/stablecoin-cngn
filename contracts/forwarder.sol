@@ -9,12 +9,6 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IOperations.sol";
 
-// Declare events
-event BridgeAuthorized(address indexed bridgeAddress);
-event BridgeDeauthorized(address indexed bridgeAddress);
-event AdminOperationsAddressUpdated(address indexed newAdminAddress);
-
-
 /**
  * @title Forwarder Smart Contract
  * @dev Simple forwarder for extensible meta-transaction forwarding.
@@ -22,6 +16,11 @@ event AdminOperationsAddressUpdated(address indexed newAdminAddress);
  */
 contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
     using ECDSA for bytes32;
+
+    // Declare events
+    event BridgeAuthorized(address indexed bridgeAddress);
+    event BridgeDeauthorized(address indexed bridgeAddress);
+    event AdminOperationsAddressUpdated(address indexed newAdminAddress);
 
     struct ForwardRequest {
         address from;
@@ -52,7 +51,7 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         address _newAdmin
     ) public virtual onlyOwner returns (bool) {
         adminOperationsContract = _newAdmin;
-        emit AdminOperationsAddressUpdated(_newAdmin);  // Emit event
+        emit AdminOperationsAddressUpdated(_newAdmin); // Emit event
         return true;
     }
 
@@ -138,12 +137,12 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
 
     function authorizeBridge(address bridgeAddress) external onlyOwner {
         authorizedBridges[bridgeAddress] = true;
-        emit BridgeAuthorized(bridgeAddress);  // Emit event
+        emit BridgeAuthorized(bridgeAddress); // Emit event
     }
 
     function deauthorizeBridge(address bridgeAddress) external onlyOwner {
         authorizedBridges[bridgeAddress] = false;
-        emit BridgeDeauthorized(bridgeAddress);  // Emit event
+        emit BridgeDeauthorized(bridgeAddress); // Emit event
     }
 
     modifier onlyAuthorizedBridge() {
