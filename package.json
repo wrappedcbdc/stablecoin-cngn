@@ -42,7 +42,7 @@
     "@openzeppelin/hardhat-upgrades": "^1.21.0",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
-    "hardhat": "^2.11.2",
+    "hardhat": "^2.22.15",
     "nodemon": "^2.0.16",
     "swagger": "^0.7.5",
     "swagger-ui-express": "^4.5.0"

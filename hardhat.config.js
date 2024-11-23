@@ -10,18 +10,30 @@ module.exports = {
     //   url: process.env.POLYGON_TESTNET,
     //   accounts: [process.env.EVM_PRIVATE_KEY]
     // },
-  //   polygon: {
-  //     url: process.env.BLOCKCHAINSERV,
-  //     accounts: [process.env.PRIVATE_KEY]
-  // },
   // bsctestnet: {
   //   url: process.env.BSC_TESTNET,
   //   accounts: [process.env.EVM_PRIVATE_KEY]
   // },
+  polygon: {
+    url: process.env.POLYGON_MAINNET,
+    accounts: [process.env.EVM_PRIVATE_KEY]
+ },
+  ethmainnet: {
+    url: process.env.ETH_MAINNET,
+    accounts: [process.env.EVM_PRIVATE_KEY]
+    },
   bscmainnet: {
       url: process.env.BSC_MAINNET,
       accounts: [process.env.EVM_PRIVATE_KEY]
     },
+  basemainnet: {
+      url: process.env.BSC_MAINNET,
+      accounts: [process.env.EVM_PRIVATE_KEY]
+    },
+  assetchainmainnet: {
+    url: process.env.ASSETCHAIN_MAINNET,
+    accounts: [process.env.EVM_PRIVATE_KEY]
+  }
   // goerli: {
   //   url: process.env.ETH_TESTNET,
   //   accounts: [process.env.EVM_PRIVATE_KEY]
@@ -30,12 +42,12 @@ module.exports = {
   // etherscan: {
   //   apiKey: { goerli: process.env.ETH_API_KEY}
   // },
-  etherscan: {
-    apiKey: "RXASATC5GEMWRHARSDNFF5Y6E8JWGJUCUV"
-  },
   // etherscan: {
-  //   apiKey: process.env.POLYGON_API_KEY
+  //   apiKey: process.env.API_KEY
   // },
+  etherscan: {
+    apiKey: process.env.POLYGON_API_KEY
+  },
   
   paths: {
     sources: "./contracts",
