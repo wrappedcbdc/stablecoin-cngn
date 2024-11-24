@@ -241,7 +241,11 @@ contract cngn is
             "Attempting to mint more than allowed"
         );
         _mint(_mintTo, _amount);
-        IAdmin(adminOperationsContract).RemoveCanMint(signer);
+
+        bool removed = IAdmin(adminOperationsContract).removeCanMint(signer);
+        require(removed, "Failed to revoke minting authorization");
+
+        
         return true;
     }
 
