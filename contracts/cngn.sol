@@ -31,13 +31,6 @@ contract cngn is
     address trustedForwarderContract;
     address adminOperationsContract;
 
-    event DestroyedBlackFunds(address indexed _blackListedUser, uint256 _balance);
-    event AddedBlackList(address indexed _user);
-    event RemovedBlackList(address indexed _user);
-    event AddedWhiteList(address indexed _user);
-    event RemovedWhiteList(address indexed _user);
-    event AddedMintAllow(address indexed _user, uint256 _amount);
-
     // /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() initializer {}
