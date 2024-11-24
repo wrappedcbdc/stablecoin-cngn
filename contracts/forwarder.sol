@@ -82,6 +82,10 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
             "Relayer is blacklisted"
         );
         require(
+            !IAdmin(adminOperationsContract).isBlackListed(req.from),
+            "Blacklisted"
+        );
+        require(
             IAdmin(adminOperationsContract).canMint(req.from),
             "Minter not authorized to sign"
         );
