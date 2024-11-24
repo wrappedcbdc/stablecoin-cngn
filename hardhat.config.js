@@ -1,10 +1,24 @@
 require("@nomiclabs/hardhat-ethers");
 require("@openzeppelin/hardhat-upgrades");
 require("@nomiclabs/hardhat-etherscan");
-require('dotenv').config()
+require("dotenv").config();
 
 module.exports = {
-  solidity: "0.8.23",
+  solidity: {
+    version: "0.8.23",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      outputSelection: {
+        "*": {
+          "*": ["metadata", "evm.bytecode", "evm.sourceMap"],
+        },
+      },
+    },
+  },
+
   networks: {
     // mumbai: {
     //   url: process.env.POLYGON_TESTNET,
@@ -53,9 +67,9 @@ module.exports = {
     sources: "./contracts",
     tests: "./test",
     cache: "./cache",
-    artifacts: "./artifacts"
+    artifacts: "./artifacts",
   },
   mocha: {
-    timeout: 20000
-  }
+    timeout: 20000,
+  },
 };
