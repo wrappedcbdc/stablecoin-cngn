@@ -35,11 +35,6 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
     mapping(address => bool) public authorizedBridges; // Track authorized bridge contracts
     mapping(bytes32 => bool) public processedTxHashes; // Prevent replay attacks
 
-    bytes32 public constant _TYPEHASH =
-        keccak256(
-            "ForwardRequest(address from,address to,uint256 value,uint256 nonce,bytes data)"
-        );
-
     mapping(address => uint256) private _nonces;
 
     constructor(
