@@ -110,7 +110,7 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
     function execute(
         ForwardRequest calldata req,
         bytes calldata signature
-    ) public payable onlyOwner nonReentrant returns (bool, bytes memory) {
+    ) public payable onlyOwner whenNotPaused nonReentrant returns (bool, bytes memory) {
         return _executeTransaction(req, signature);
     }
 
@@ -127,11 +127,11 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         return _executeTransaction(req, signature);
     }
 
-    function pause() external onlyOwner {
+    function pause() external onlyOwner whenNotPaused {
         _pause();
     }
 
-    function unpause() external onlyOwner {
+    function unpause() external onlyOwner whenPaused {
         _unpause();
     }
 
