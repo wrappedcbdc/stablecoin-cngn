@@ -155,10 +155,5 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         processedTxHashes[txHash] = true;
     }
 
-    modifier onlyAdmin() {
-        require(msg.sender == adminOperationsContract, "Not an admin");
-        _;
-    }
-
     receive() external payable {}
 }
