@@ -21,9 +21,6 @@ contract cngn is
 {
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
-    mapping(address => bool) private isBlackListed;
-    mapping(address => bool) private isWhiteListed;
-    mapping(address => mapping(address => uint256)) private isMintAllow;
 
     uint256 private _totalSupply;
     string private _name;
