@@ -39,9 +39,8 @@ contract cngn is
     event AddedMintAllow(address _user, uint256 _amount);
 
     // /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable
-    /// constructor() {
-    //  _disableInitializers();
-    // }
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() initializer {}
 
     modifier onlyDeployerOrForwarder() {
         require(
@@ -245,7 +244,7 @@ contract cngn is
         bool removed = IAdmin(adminOperationsContract).removeCanMint(signer);
         require(removed, "Failed to revoke minting authorization");
 
-        
+
         return true;
     }
 

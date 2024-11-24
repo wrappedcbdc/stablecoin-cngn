@@ -39,6 +39,9 @@ contract Admin is
     event WhitelistedInternalUser(address indexed _user);
     event BlackListedInternalUser(address indexed _user);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() initializer {}
+
     // Initializer function for upgradeable contracts
     function initialize() public initializer {
         __Ownable_init();
