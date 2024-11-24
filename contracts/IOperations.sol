@@ -22,16 +22,16 @@ interface IAdmin {
         address user
     ) external view returns (bool);
 
-    function AddCanMint(address user) external returns (bool);
+    function addCanMint(address user) external returns (bool);
 
-    function RemoveCanMint(address user) external returns (bool);
+    function removeCanMint(address user) external returns (bool);
 
-    function AddMintAmount(
+    function addMintAmount(
         address user,
         uint256 amount
     ) external returns (bool);
 
-    function RemoveMintAmount(address user) external returns (bool);
+    function removeMintAmount(address user) external returns (bool);
 
     function whitelistInternalUser(address user) external returns (bool);
 
@@ -41,19 +41,19 @@ interface IAdmin {
 
     function blacklistExternalSender(address user) external returns (bool);
 
-    function AddCanForward(address user) external returns (bool);
+    function addCanForward(address user) external returns (bool);
 
-    function RemoveCanForward(address user) external returns (bool);
+    function removeCanForward(address user) external returns (bool);
 
-    function AddTrustedContract(
+    function addTrustedContract(
         address contractAddress
     ) external returns (bool);
 
-    function RemoveTrustedContract(
+    function removeTrustedContract(
         address contractAddress
     ) external returns (bool);
 
-    function AddBlackList(address evilUser) external returns (bool);
+    function addBlackList(address evilUser) external returns (bool);
 
-    function RemoveBlackList(address clearedUser) external returns (bool);
+    function removeBlackList(address clearedUser) external returns (bool);
 }

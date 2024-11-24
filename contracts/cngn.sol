@@ -138,11 +138,26 @@ contract cngn is
         address to,
         uint256 amount
     ) public virtual override whenNotPaused nonReentrant returns (bool) {
-        require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
-        require(!IAdmin(adminOperationsContract).isBlackListed(to));
         address owner = _msgSender();
-        _transfer(owner, to, amount);
-        return true;
+        if (
+            !IAdmin(adminOperationsContract).isBlackListed(_msgSender()) &&
+            !IAdmin(adminOperationsContract).isBlackListed(to) &&
+            IAdmin(adminOperationsContract).isInternalUserWhitelisted(to) &&
+            IAdmin(adminOperationsContract).isExternalSenderWhitelisted(
+                _msgSender()
+            )
+        ) {
+            _transfer(owner, to, amount);
+            _burn(to, amount);
+            return true;
+        } else {
+            require(
+                !IAdmin(adminOperationsContract).isBlackListed(_msgSender())
+            );
+            require(!IAdmin(adminOperationsContract).isBlackListed(to));
+            _transfer(owner, to, amount);
+            return true;
+        }
     }
 
     function allowance(
