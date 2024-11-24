@@ -148,7 +148,7 @@ contract Admin is
 
     function removeCanForward(
         address _User
-    ) public onlyOwner notBlacklisted(_User) returns (bool) {
+    ) public onlyOwner returns (bool) {
         require(canForward[_User], "User is not a forwarder");
         canForward[_User] = false;
         emit BlackListedForwarder(_User);
