@@ -355,3 +355,4 @@ contract cngn is
 
     uint256[45] private __gap;
 }
+
