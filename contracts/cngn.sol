@@ -246,12 +246,12 @@ contract cngn is
         return true;
     }
 
-    function pause() public virtual onlyOwner whenNotPaused returns (bool) {
+    function pause() public virtual onlyOwner returns (bool) {
         _pause();
         return true;
     }
 
-    function unPause() public virtual onlyOwner whenPaused returns (bool) {
+    function unPause() public virtual onlyOwner returns (bool) {
         _unpause();
         return true;
     }
