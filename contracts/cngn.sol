@@ -11,7 +11,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import "./IOperations.sol";
 
-contract cngn is
+contract Cngn is
     Initializable,
     OwnableUpgradeable,
     IERC20Upgradeable,

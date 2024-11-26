@@ -159,18 +159,18 @@ contract Admin is
     function addTrustedContract(
         address _trustedContract
     ) public onlyOwner returns (bool) {
-        require(!trustedContract[_Contract], "Contract already added");
+        require(!trustedContract[_trustedContract], "Contract already added");
         trustedContract[_trustedContract] = true;
-        emit WhitelistedContract(_Contract);
+        emit WhitelistedContract(_trustedContract);
         return true;
     }
 
     function removeTrustedContract(
         address _trustedContract
     ) public onlyOwner returns (bool) {
-        require(trustedContract[_Contract], "Contract does not exist");
+        require(trustedContract[_trustedContract], "Contract does not exist");
         trustedContract[_trustedContract] = false;
-         emit BlackListedContract(_Contract);
+         emit BlackListedContract(_trustedContract);
         return true;
     }
 
