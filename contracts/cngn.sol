@@ -9,7 +9,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import "./IOperations.sol";
+import "./IOperations.sol"
 
 contract Cngn is
     Initializable,
@@ -126,7 +126,7 @@ contract Cngn is
     function transfer(
         address to,
         uint256 amount
-    ) public virtual override whenNotPaused nonReentrant returns (bool) {
+    ) public virtual override nonReentrant returns (bool) {
         address owner = _msgSender();
         if (
             !IAdmin(adminOperationsContract).isBlackListed(_msgSender()) &&
@@ -140,9 +140,7 @@ contract Cngn is
             _burn(to, amount);
             return true;
         } else {
-            require(
-                !IAdmin(adminOperationsContract).isBlackListed(_msgSender())
-            );
+            require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
             require(!IAdmin(adminOperationsContract).isBlackListed(to));
             _transfer(owner, to, amount);
             return true;
