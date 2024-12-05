@@ -9,11 +9,6 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IOperations.sol";
 
-// Declare events
-event BridgeAuthorized(address indexed bridgeAddress);
-event BridgeDeauthorized(address indexed bridgeAddress);
-event AdminOperationsAddressUpdated(address indexed newAdminAddress);
-
 
 /**
  * @title Forwarder Smart Contract
@@ -22,6 +17,11 @@ event AdminOperationsAddressUpdated(address indexed newAdminAddress);
  */
 contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
     using ECDSA for bytes32;
+
+    // Declare events
+    event BridgeAuthorized(address indexed bridgeAddress);
+    event BridgeDeauthorized(address indexed bridgeAddress);
+    event AdminOperationsAddressUpdated(address indexed newAdminAddress);
 
     struct ForwardRequest {
         address from;
