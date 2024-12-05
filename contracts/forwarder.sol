@@ -127,11 +127,11 @@ contract MinimalForwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         return _executeTransaction(req, signature);
     }
 
-    function pause() external onlyOwner whenNotPaused {
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external onlyOwner whenPaused {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
