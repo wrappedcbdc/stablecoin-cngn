@@ -21,7 +21,7 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
     event BridgeAuthorized(address indexed bridgeAddress);
     event BridgeDeauthorized(address indexed bridgeAddress);
     event AdminOperationsAddressUpdated(address indexed newAdminAddress);
-    event executed(bool indexed success, bytes indexed returnData);
+    event executed(bool indexed success, bytes returnData);
     
     struct ForwardRequest {
         address from;
@@ -54,8 +54,6 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         _CHAIN_ID = block.chainid;
         _DOMAIN_SEPARATOR = _calculateDomainSeparator();
         adminOperationsContract = _adminOperationsContract;
-        authorizedBridges[msg.sender] = true;
-
     }
 
     function _calculateDomainSeparator() internal view returns (bytes32) {
