@@ -1,42 +1,37 @@
 const { ethers, upgrades, run } = require("hardhat");
+require("dotenv").config();
 
 async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
 
-  // Corrected: Use ethers.providers.JsonRpcProvider
-  const provider = new ethers.providers.JsonRpcProvider(
-    "https://eth-sepolia.g.alchemy.com/v2/PvbeyL6n-V9RJeoFJouD_wrr1uX_cg_e"
-  );
-  provider.hasENS = () => false; // Disable ENS features in the provider
-
-  // Address gotten after testnet deployment, we will need it for verification, same process for mainnet
-  // const adminContractAddress = "0x11132f1e1786d8918E69cEAB1d4d7D26A1a25cD2";
-  // const trustedForwarderContract = "0x041b518B83AcF6f0a3AfD03afe448C16C84CaADe";
-
-  // Deploy the MinimalForwarder contract with the adminContract address
-  const MinimalForwarder = await ethers.getContractFactory("MinimalForwarder");
-  console.log("Deploying MinimalForwarder contract...");
-  const minimalForwarder = await MinimalForwarder.deploy(adminContractAddress);
-  await minimalForwarder.deployed();
-  console.log(
-    "MinimalForwarder contract deployed to:",
-    minimalForwarder.address
-  );
+  //eth address
+//  const admin = '0xd461A6d3CbCA4372eb3f82e66A4587CfeE700852'
+//   const forwarder = '0xB9898Ec4Aa765f5D1dBC05b3B0cFEd1E51c4f302'
 
   // Deploy the Admin contract
   const Admin = await ethers.getContractFactory("Admin");
   console.log("Deploying Admin contract...");
-  const admin = await Admin.deploy();
+  const admin = await upgrades.deployProxy(Admin);
   await admin.deployed();
   console.log("Admin contract deployed to:", admin.address);
 
+  // Deploy the MinimalForwarder contract with the adminContract address
+  const Forwarder = await ethers.getContractFactory("Forwarder");
+  console.log("Deploying Forwarder contract...");
+  const forwarder = await Forwarder.deploy(admin.address);
+  await forwarder.deployed();
+  console.log(
+    "Forwarder contract deployed to:",
+    forwarder.address
+  );
+
   // Deploy the cngn contract via proxy
-  const cngnContract = await ethers.getContractFactory("cngn"); // Move this line before calling `deployProxy`
+  const cngnContract = await ethers.getContractFactory("Cngn"); // Move this line before calling `deployProxy`
   console.log("Deploying cngn contract...");
   const cngn = await upgrades.deployProxy(
     cngnContract,
-    [minimalForwarder.address, admin.address],
+    [forwarder.address, admin.address],
     {
       initializer: "initialize",
       kind: "transparent",

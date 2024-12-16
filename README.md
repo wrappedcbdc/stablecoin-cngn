@@ -13,6 +13,11 @@ cNGN is currently deployed on the following blockchain protocols;
 | Network | cNGN Contract Address |
 | ------- | ---------------------- |
 | BANTU   | GD6G2NT7CQHPIYHA52KZHWB6ONNWTSGZOOLTRLRASENM2VWSF6CHYFRX |
+| ASSETCHAIN   | 0x908dB68fc1Ab198FA5001632dbA3675770602206 |
+| BASE       | 0x476Cb0aF41C26b1e3FEfb3B6168Df9D4Ed644a9a           |
+| BNBCHAIN   | 0xa8AEA66B361a8d53e8865c62D142167Af28Af058           |
+| ETHEREUM   | 0xE812925f127264449c773f30c974438753EF6772           |
+| POLYGON    | 0x908dB68fc1Ab198FA5001632dbA3675770602206          |
 
 ### Test-Nets
 
@@ -20,10 +25,10 @@ cNGN is currently deployed on the following blockchain protocols;
 | ---------- | ---------------------------------------------------- |
 | BANTU      | GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI |
 | ASSETCHAIN | 0xc125329d053761c9d4Fb167986027a8eeeCCF73f           |
+| BASE       | 0xc125329d053761c9d4Fb167986027a8eeeCCF73f           |
 | BNBCHAIN   | 0x28b0e321de52825Ff56861A4109a24351768186c           |
 | ETHEREUM   | 0xE29eF5C6Bf2E263d9ac1Ef343C0E47f1168C1d84           |
 | POLYGON    | 0x30A413288F7865ab916663D12833Df836c21fA9E          |
-| BASE       | 0xc125329d053761c9d4Fb167986027a8eeeCCF73f           |
 
 
 ## License
