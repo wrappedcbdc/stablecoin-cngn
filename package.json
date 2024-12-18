@@ -1,61 +1,37 @@
 {
-  "name": "CHATS-blockchain",
+  "name": "cNGN-Token",
   "version": "1.0.0",
-  "description": "ERC20 Stablecoin integration with Convexity Humanitarian Aids Transfer Solution",
-  "main": "server.js",
+  "description": "ERC20 Stablecoin for WrappedCBDC",
   "directories": {
     "test": "test"
   },
   "dependencies": {
-    "@ethereumjs/common": "^2.6.5",
-    "@ethereumjs/tx": "^3.5.2",
-    "@ethersproject/experimental": "^5.7.0",
-    "@nomiclabs/hardhat-ethers": "2.2.3",
-    "@nomiclabs/hardhat-etherscan": "^3.1.0",
-    "@openzeppelin/contracts-ethereum-package": "^3.0.0",
-    "@openzeppelin/contracts-upgradeable": "^4.8.0-rc.1",
-    "@openzeppelin/upgrades": "^2.8.0",
     "@truffle/hdwallet-provider": "^2.0.9",
     "bl": "^4.0.3",
-    "body-parser": "^1.19.0",
-    "compression": "^1.7.4",
-    "cookie-parser": "^1.4.5",
-    "defender-relay-client": "^1.24.0",
     "dotenv": "^8.6.0",
-    "eth-permit": "^0.2.1",
-    "ethers": "^5.4.1",
-    "express": "^4.17.1",
-    "express-fileupload": "^1.2.0",
-    "helmet": "^4.1.1",
-    "ipfs-http-client": "^47.0.1",
+    "ethers": "^5.7.2",
     "latest": "^0.2.0",
-    "morgan": "^1.10.0",
-    "swagger-jsdoc": "^6.2.5",
     "tronbox": "^3.1.0",
     "tronweb": "^6.0.0",
-    "winston": "^3.7.2",
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
-    "@openzeppelin/cli": "^2.8.2",
+    "@nomicfoundation/hardhat-verify": "^2.0.12",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@openzeppelin/contracts": "^4.9.6",
-    "@openzeppelin/hardhat-upgrades": "^1.21.0",
+    "@openzeppelin/contracts-upgradeable": "^4.8.0-rc.1",
+    "@openzeppelin/hardhat-upgrades": "1.21.0",
+    "@openzeppelin/upgrades": "^2.8.0",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
-    "hardhat": "^2.22.15",
-    "nodemon": "^2.0.16",
-    "swagger": "^0.7.5",
-    "swagger-ui-express": "^4.5.0"
+    "hardhat": "^2.22.15"
   },
   "scripts": {
-    "test": "mocha",
-    "start": "nodemon server.js",
-    "dev": "nodemon server.js"
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/convexityteam/token-chats.git"
+    "url": "https://github.com/wrappedcbdc/stablecoin-cngn"
   },
   "keywords": [
     "Blockchain",
@@ -63,6 +39,6 @@
     "ERC20",
     "Token"
   ],
-  "author": "Charles Okaformbah - CHATS Blockchain Team",
+  "author": "Charles Okaformbah - cNGN Blockchain Team",
   "license": "ISC"
 }

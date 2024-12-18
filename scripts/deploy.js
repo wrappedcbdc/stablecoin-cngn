@@ -1,14 +1,6 @@
-const { ethers, upgrades, run } = require("hardhat");
-require("dotenv").config();
+const { ethers, upgrades } = require("hardhat");
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log("Deploying contracts with the account:", deployer.address);
-
-  //eth address
-//  const admin = '0xd461A6d3CbCA4372eb3f82e66A4587CfeE700852'
-//   const forwarder = '0xB9898Ec4Aa765f5D1dBC05b3B0cFEd1E51c4f302'
-
   // Deploy the Admin contract
   const Admin = await ethers.getContractFactory("Admin");
   console.log("Deploying Admin contract...");
