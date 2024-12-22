@@ -118,7 +118,7 @@ module.exports = {
 //     },
   // bscmainnet: {
   //     url:  process.env.ETH_MAINNET,
-  //     accounts: ['0x140b4d147b2ef487480093b82dc0f76e03d4e4eb783fe4130258977b29e6085d'],
+  //     accounts: [''],
   //     gasPrice: 3000000000 
   //   },
   basemainnet: {
@@ -132,7 +132,7 @@ module.exports = {
 },
   etherscan: {
     apiKey: {
-      'base': 'ac9490a4-58d7-4aed-a39a-3ac8076ee984'
+      'base': ''
     }
   },
   paths: {
