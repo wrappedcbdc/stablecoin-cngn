@@ -8,7 +8,16 @@ async function main() {
   await admin.deployed();
   console.log("Admin contract deployed to:", admin.address);
 
-  // Deploy the MinimalForwarder contract with the adminContract address
+
+  // Automatically verify the proxy implementation
+  const implementationAddress = await upgrades.erc1967.getImplementationAddress(admin.address);
+  console.log("Implementation address:", implementationAddress);
+
+  await hre.run("verify:verify", {
+    address: implementationAddress,
+  });
+
+  // Deploy the Forwarder contract with the adminContract address
   const Forwarder = await ethers.getContractFactory("Forwarder");
   console.log("Deploying Forwarder contract...");
   const forwarder = await Forwarder.deploy(admin.address);
@@ -17,6 +26,10 @@ async function main() {
     "Forwarder contract deployed to:",
     forwarder.address
   );
+
+  await hre.run("verify:verify", {
+      address: forwarder.address,
+    });
 
   // Deploy the cngn contract via proxy
   const cngnContract = await ethers.getContractFactory("Cngn"); // Move this line before calling `deployProxy`

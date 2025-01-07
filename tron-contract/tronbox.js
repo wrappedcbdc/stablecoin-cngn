@@ -20,24 +20,24 @@ module.exports = {
     //   network_id: '1'
     // },
     shasta: {
-      privateKey: process.env.EVM_PRIVATE_KEY_TESTNET,
-      // userFeePercentage: 50,
-      feeLimit: 2000 * 1e6,
-      fullHost: 'https://api.shasta.trongrid.io',
-      userFeePercentage: 100, // The percentage of resource consumption ratio.
-      feeLimit: 100000000, // The TRX consumption limit for the deployment and trigger, unit is SUN
-      // fullNode: 'https://api.nileex.io',
-      // solidityNode: 'https://api.nileex.io',
-      // eventServer: 'https://event.nileex.io',
+      privateKey: process.env.TRON_PRIVATE_KEY_TESTNET,
+      fullHost: 'https://api.shasta.trongrid.io/wallet/deploycontract',
+      headers: {
+        'TRON-PRO-API-KEY': process.env.TRONGRID_API_KEY, // Add your API key
+        'Content-Type': 'application/json'
+      },
+      userFeePercentage: 10, // The percentage of resource consumption ratio.
+      feeLimit: 200000000, // The TRX consumption limit for the deployment and trigger, unit is SUN
       network_id: '*'
     },
     nile: {
-      privateKey: process.env.EVM_PRIVATE_KEY_TESTNET,
-      userFeePercentage: 20, // The percentage of resource consumption ratio.
-      feeLimit: 400000000, // The TRX consumption limit for the deployment and trigger, unit is SUN
-      fullNode: 'https://api.nileex.io',
-      solidityNode: 'https://api.nileex.io',
-      eventServer: 'https://event.nileex.io',
+      privateKey: process.env.TRON_PRIVATE_KEY_TESTNET,
+      userFeePercentage: 5,
+      feeLimit: 400000000,
+      fullHost: 'https://nile.trongrid.io',
+      headers: {
+        'TRON-PRO-API-KEY': process.env.TRONGRID_API_KEY,
+      },
       network_id: '*'
     },
   },
@@ -51,5 +51,4 @@ module.exports = {
      evmVersion: 'istanbul'
     },
   },
-};
-
+}

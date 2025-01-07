@@ -3,10 +3,10 @@ const { ethers, upgrades } = require("hardhat");
 async function main() {
 
    const gas = await ethers.provider.getGasPrice();
-   const cngn = await ethers.getContractFactory("cngn");
+   const cngn = await ethers.getContractFactory("Admin");
  
     console.log("Deploying cngn upgrades contract...");
-    const upgradeableCngn = await upgrades.upgradeProxy("replace with proxy contract address", cngn,{
+    const upgradeableCngn = await upgrades.upgradeProxy("", cngn,{
        kind: "transparent"
     });
     await upgradeableCngn.deployed();

@@ -111,7 +111,8 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
                 )
             )
         ).recover(signature);
-        return (signer == req.from && req.nonce == _nonces[req.from]);
+        // return (signer == req.from && req.nonce == _nonces[req.from]);
+        return (signer == req.from);
     }
 
     function authorizeBridge(address bridgeAddress) external onlyOwner {

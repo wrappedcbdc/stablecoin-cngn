@@ -1,38 +1,23 @@
-// const { artifacts, upgrades } = require("hardhat");
 require("dotenv").config();
-var adminDeploy = artifacts.require("../tron-contract/contracts/Admin")
-var forwarderDeploy = artifacts.require("../tron-contract/contracts/Forwarder")
-var cNGNDeploy = artifacts.require("../tron-contract/contracts/Cngn")
+const { deployProxy } = require('@openzeppelin/truffle-upgrades'); // Import OpenZeppelin upgrades library
 
-module.exports = async function(deployer) {
+const Admin = artifacts.require("Admin");
+const Forwarder = artifacts.require("Forwarder");
+const cNGN = artifacts.require("cNGN");
+
+module.exports = async function (deployer) {
     console.log("Deploying Admin contract...");
-    const admin = await deployer.deploy(adminDeploy);
-    await admin.deployed();
+    const admin = await deployProxy(Admin);
     console.log("Admin contract deployed to:", admin.address);
 
     console.log("Deploying Forwarder contract...");
-    const forwarder = deployer.deploy(forwarderDeploy, admin.address);
-    await forwarder.deployed();
-    console.log(
-      "Forwarder contract deployed to:",
-      forwarder.address
-    );
+    const forwarder = await deployer.deploy(Forwarder, admin.address);
+    console.log("Forwarder contract deployed to:", forwarder.address);
 
-    const cngnContract = await ethers.getContractFactory("Cngn")
-    console.log("Deploying cngn contract...")
-    const cngn = await deployer.deploy(
-      cNGNDeploy,
-      [forwarder.address, admin.address],
-      {
-        initializer: "initialize",
-        kind: "transparent",
-        unsafeAllow: ["delegatecall"],
-      }
-    );
-  
-    await cngn.deployed();
-    console.log("Upgradeable cngn Contract deployed to:", cngn.address)
-
-  // const a = deployer.deploy(cNGN)
-  // console.log(a)
+    console.log("Deploying cNGN contract with proxy...");
+    const cNGNProxy = await deployProxy(cNGN, [forwarder.address, admin.address], {
+        deployer,
+        initializer: "initialize", // Ensure your contract has an `initialize` function
+    });
+    console.log("cNGN Proxy deployed to:", cNGNProxy.address);
 };
