@@ -135,7 +135,10 @@ etherscan: {
   enabled: true,
   apiKey: {
       ethmainnet: process.env.ETH_API_KEY,
-      base: process.env.BASE_API_KEY
+      base: process.env.BASE_API_KEY,
+      baseSepolia: process.env.BASE_API_KEY,
+      polygonAmoy: process.env.POLYGON_API_KEY,
+      bscTestnet: process.env.BSC_API_KEY
     }
   },
   paths: {

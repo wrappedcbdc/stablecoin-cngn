@@ -20,7 +20,7 @@ async function main() {
   // Deploy the Forwarder contract with the adminContract address
   const Forwarder = await ethers.getContractFactory("Forwarder");
   console.log("Deploying Forwarder contract...");
-  const forwarder = await Forwarder.deploy(admin.address);
+  const forwarder = await Forwarder.deploy(admin);
   await forwarder.deployed();
   console.log(
     "Forwarder contract deployed to:",
@@ -36,11 +36,11 @@ async function main() {
   console.log("Deploying cngn contract...");
   const cngn = await upgrades.deployProxy(
     cngnContract,
-    [forwarder.address, admin.address],
+    [forwarder.address, admin],
     {
       initializer: "initialize",
       kind: "transparent",
-      unsafeAllow: ["delegatecall"],
+      // unsafeAllow: ["delegatecall"],
     }
   );
 
