@@ -113,20 +113,20 @@ module.exports = {
     url:  process.env.POLYGON_MAINNET,
     accounts: [process.env.EVM_PRIVATE_KEY]
  },
-  ethmainnet: {
+  eth: {
     url: process.env.ETH_MAINNET,
     accounts: [process.env.EVM_PRIVATE_KEY]
     },
-  bscmainnet: {
+  bsc: {
       url:  process.env.BSC_MAINNET,
       accounts: [process.env.EVM_PRIVATE_KEY],
       gasPrice: 3000000000 
     },
-  basemainnet: {
+  base: {
       url:  process.env.BASE_MAINNET,
       accounts: [process.env.EVM_PRIVATE_KEY]
     },
-  assetchainmainnet: {
+  assetchain: {
     url: process.env.ASSETCHAIN_MAINNET,
     accounts: [process.env.EVM_PRIVATE_KEY]
   }
@@ -134,10 +134,13 @@ module.exports = {
 etherscan: {
   enabled: true,
   apiKey: {
-      ethmainnet: process.env.ETH_API_KEY,
+      mainnet: process.env.ETH_API_KEY,
+      sepolia: process.env.ETH_API_KEY,
       base: process.env.BASE_API_KEY,
       baseSepolia: process.env.BASE_API_KEY,
+      polygon: process.env.POLYGON_API_KEY,
       polygonAmoy: process.env.POLYGON_API_KEY,
+      bsc: process.env.BSC_API_KEY,
       bscTestnet: process.env.BSC_API_KEY
     }
   },
