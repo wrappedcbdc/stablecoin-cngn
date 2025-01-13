@@ -16,12 +16,12 @@ async function main() {
 
 
   // Automatically verify the Admin proxy implementation
-  const adminImplementationAddress = await upgrades.erc1967.getImplementationAddress(admin.address);
-  console.log("Admin Implementation address:", adminImplementationAddress);
+  // const adminImplementationAddress = await upgrades.erc1967.getImplementationAddress(admin.address);
+  // console.log("Admin Implementation address:", adminImplementationAddress);
 
-  await hre.run("verify:verify", {
-    address: adminImplementationAddress,
-  });
+  // await hre.run("verify:verify", {
+  //   address: adminImplementationAddress,
+  // });
 
   // Deploy the Forwarder contract with the adminContract address
   const Forwarder = await ethers.getContractFactory("Forwarder");
@@ -33,10 +33,10 @@ async function main() {
     forwarder.address
   );
 
-  await hre.run("verify:verify", {
-      address: forwarder.address,
-      constructorArguments: [admin.address]
-    });
+  // await hre.run("verify:verify", {
+  //     address: forwarder.address,
+  //     constructorArguments: [admin.address]
+  //   });
 
   // Deploy the cngn contract via proxy
   const cngnContract = await ethers.getContractFactory("Cngn"); // Move this line before calling `deployProxy`
@@ -55,12 +55,12 @@ async function main() {
   console.log("Upgradeable cngn Contract deployed to:", cngn.address);
 
     // Automatically verify the Admin proxy implementation
-    const cngnImplementationAddress = await upgrades.erc1967.getImplementationAddress(admin.address);
-    console.log("cNGN Implementation address:", cngnImplementationAddress);
-  await hre.run("verify:verify", {
-      address: cngnImplementationAddress,
-      constructorArguments: [forwarder.address,admin.address], 
-    });
+  //   const cngnImplementationAddress = await upgrades.erc1967.getImplementationAddress(admin.address);
+  //   console.log("cNGN Implementation address:", cngnImplementationAddress);
+  // await hre.run("verify:verify", {
+  //     address: cngnImplementationAddress,
+  //     constructorArguments: [forwarder.address,admin.address], 
+  //   });
 }
 
 main()
