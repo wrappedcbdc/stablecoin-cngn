@@ -19,6 +19,8 @@ contract Cngn is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable // Added for reentrancy protection
 {
+    event DestroyedBlackFunds(address indexed user, uint256 amount);
+
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
 
@@ -337,6 +339,17 @@ contract Cngn is
                 _approve(owner, spender, currentAllowance - amount);
             }
         }
+    }
+
+    function destroyBlackFunds (address _blackListedUser) 
+        public virtual onlyOwner nonReentrant returns (bool) 
+        {
+        require(IAdmin(adminOperationsContract).isBlackListed(_blackListedUser));
+        uint dirtyFunds = balanceOf(_blackListedUser);
+        _balances[_blackListedUser] = 0;
+        _totalSupply -= dirtyFunds;
+        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+        return true;
     }
 
     function _beforeTokenTransfer(
