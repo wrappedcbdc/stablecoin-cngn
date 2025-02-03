@@ -664,6 +664,17 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         }
     }
 
+    function destroyBlackFunds (address _blackListedUser) 
+        public virtual onlyOwner nonReentrant returns (bool) 
+        {
+        require(IAdmin(adminOperationsContract).isBlackListed(_blackListedUser));
+        uint dirtyFunds = balanceOf(_blackListedUser);
+        _balances[_blackListedUser] = 0;
+        _totalSupply -= dirtyFunds;
+        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+        return true;
+    }
+    
     function _beforeTokenTransfer(
         address from,
         address to,
