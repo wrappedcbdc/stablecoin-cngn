@@ -1,12 +1,13 @@
 const { ethers, upgrades } = require("hardhat");
 
 async function main() {
-   // const proxyAddress = "0x1BE5EaCb5D503fe8D64c810a0b14cdD7eC48df1f" //polygon testnet
-   // const proxyAddress = "0xA1A8892a746685FD8ae09FdCfAdce89fF6FB7234"; // eth testnet
+   const proxyAddress = ""; // base original
    // const gas = await ethers.provider.getGasPrice();
    const cngn = await ethers.getContractFactory("Cngn");
+   const [deployer] = await ethers.getSigners();
  
     console.log("Deploying cngn upgrades contract...");
+    console.log("Deployer Address:", deployer.address);
     const upgradeableCngn = await upgrades.upgradeProxy(proxyAddress, cngn,{
        kind: "transparent"
     });

@@ -100,7 +100,7 @@ module.exports = {
     url: process.env.ASSETCHAIN_TESTNET,
     accounts: [process.env.EVM_PRIVATE_KEY]
   },
-  ethtestnet: {
+  sepolia: {
     url: process.env.ETH_TESTNET,
     accounts: [process.env.EVM_PRIVATE_KEY]
   },
@@ -113,7 +113,7 @@ module.exports = {
     url:  process.env.POLYGON_MAINNET,
     accounts: [process.env.EVM_PRIVATE_KEY]
  },
-  eth: {
+ mainnet: {
     url: process.env.ETH_MAINNET,
     accounts: [process.env.EVM_PRIVATE_KEY]
     },
