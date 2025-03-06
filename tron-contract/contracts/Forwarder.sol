@@ -89,7 +89,9 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
     }
 
     function _preventReplay(bytes32 txHash) internal {
+        // Check if this transaction hash has been processed before
         require(!processedTxHashes[txHash], "Replay attack prevented");
+        // Mark this transaction hash as processed
         processedTxHashes[txHash] = true;
     }
 
@@ -98,6 +100,7 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         view
         returns (bool)
     {
+        // Recover the signer's address from the signature using EIP-712 typed data
         address signer = _hashTypedDataV4(
             keccak256(
                 abi.encode(
@@ -111,8 +114,10 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
                 )
             )
         ).recover(signature);
-        // return (signer == req.from && req.nonce == _nonces[req.from]);
-        return (signer == req.from);
+        
+        // Verify both the signer matches the from address AND the nonce is correct
+        // This prevents both signature forgery and replay attacks
+        return (signer == req.from && req.nonce == _nonces[req.from]);
     }
 
     function authorizeBridge(address bridgeAddress) external onlyOwner {
@@ -129,42 +134,52 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         ForwardRequest calldata req,
         bytes calldata signature
     ) internal returns (bool, bytes memory) {
+        // Check if the sender is authorized to use this forwarding route
         require(
             IAdmin(adminOperationsContract).canForward(req.from),
             "You are not allowed to use this tx route"
         );
+        // Verify the relayer is not blacklisted
         require(
             !IAdmin(adminOperationsContract).isBlackListed(_msgSender()),
             "Relayer is blacklisted"
         );
+        // Verify the transaction signer is not blacklisted
         require(
             !IAdmin(adminOperationsContract).isBlackListed(req.from),
             "Blacklisted"
         );
+        // Verify the signer has minting privileges
         require(
             IAdmin(adminOperationsContract).canMint(req.from),
             "Minter not authorized to sign"
         );
-          require(
+        // Verify the signature matches and nonce is correct
+        require(
             verify(req, signature),
-            "Forwarder: signature does not match request"
+            "Forwarder: signature does not match request or invalid nonce"
         );
 
+        // Create a unique transaction hash to prevent replay attacks
         bytes32 txHash = keccak256(
             abi.encode(req.from, req.to, req.value, req.nonce, req.data)
         );
+        // Check and mark this transaction as processed to prevent replays
         _preventReplay(txHash);
+        // Increment the nonce for the sender to prevent future replay attacks
         _nonces[req.from] = req.nonce + 1;
 
+        // Execute the actual transaction
         (bool success, bytes memory returndata) = req.to.call{value: req.value}(
             abi.encodePacked(req.data, req.from)
         );
 
-        if (success == true) {
-            emit executed(success, "execution is a success");
-        }
-        else {
-            emit executed(success, returndata);
+        // Emit appropriate event based on transaction outcome
+        if (success) {
+            emit executed(true, "Transaction executed successfully");
+        } else {
+            // Include the error data for debugging when transaction fails
+            emit executed(false, returndata);
         }
 
         return (success, returndata);

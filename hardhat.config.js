@@ -3,11 +3,31 @@ require('@nomicfoundation/hardhat-verify');
 require('@nomiclabs/hardhat-ethers');
 require('@openzeppelin/hardhat-upgrades');
 
+/**
+ * Hardhat Configuration
+ * 
+ * This configuration uses a consolidated set of Solidity compiler versions:
+ * - 0.8.28: Primary version for new development
+ * - 0.8.0: For compatibility with existing 0.8.x contracts
+ * - 0.6.12: For legacy contracts or dependencies
+ * 
+ * All versions use consistent optimizer settings for gas efficiency.
+ */
+
 module.exports = {
  solidity: {
     compilers: [
       {
-        version: "0.8.28", // Default compiler version
+        version: "0.8.28", // Primary compiler version for new contracts
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200, // Standard optimization setting for balanced gas efficiency
+          },
+        },
+      },
+      {
+        version: "0.8.0", // Maintained for compatibility with 0.8.x contracts
         settings: {
           optimizer: {
             enabled: true,
@@ -16,61 +36,7 @@ module.exports = {
         },
       },
       {
-        version: "0.8.23", // Default compiler version
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
-      {
-        version: "0.8.11", // Default compiler version
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
-      {
-        version: "0.8.9", // Default compiler version
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
-      {
-        version: "0.8.7", // Default compiler version
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
-      {
-        version: "0.8.4", // Default compiler version
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
-      {
-        version: "0.8.0", // Additional compiler version
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
-      },
-      {
-        version: "0.6.12", // Additional compiler version
+        version: "0.6.12", // Maintained for legacy contracts or dependencies
         settings: {
           optimizer: {
             enabled: true,

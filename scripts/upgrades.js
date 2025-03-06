@@ -1,22 +1,28 @@
 const { ethers, upgrades } = require("hardhat");
 
 async function main() {
-   const proxyAddress = ""; // base original
-   // const gas = await ethers.provider.getGasPrice();
+   const proxyAddress = ""; // your proxy address
    const cngn = await ethers.getContractFactory("Cngn");
    const [deployer] = await ethers.getSigners();
  
-    console.log("Deploying cngn upgrades contract...");
-    console.log("Deployer Address:", deployer.address);
-    const upgradeableCngn = await upgrades.upgradeProxy(proxyAddress, cngn,{
-       kind: "transparent"
-    });
+   console.log("Deployer Address:", deployer.address);
 
-    console.log("Upgradeable cngn deployed to:", upgradeableCngn.address);
+   // First, force import the proxy
+   console.log("Importing proxy...");
+  //  await upgrades.forceImport(proxyAddress, cngn, { kind: "transparent" });
+   
+   // Now you can upgrade
+   console.log("Deploying cngn upgrades contract...");
+   const upgradeableCngn = await upgrades.upgradeProxy(proxyAddress, cngn, {
+      kind: "transparent"
+   });
 
+   console.log("Upgradeable cngn deployed to:", upgradeableCngn.address);
 }
 
-main().catch((error) => {
-   console.error(error);
-   process.exitCode = 1;
- });
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

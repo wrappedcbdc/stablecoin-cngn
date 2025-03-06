@@ -1,23 +1,16 @@
 const { ethers, upgrades } = require("hardhat");
 
 async function main() {
-    // Deploy ProxyAdmin separately (if needed)
-    console.log("Deploying ProxyAdmin...");
-    const ProxyAdmin = await upgrades.admin.getInstance();
-  
-    console.log("ProxyAdmin deployed at:", ProxyAdmin.address);
-    console.log("ProxyAdmin owner:", await ProxyAdmin.owner());
-
   // Deploy the Admin contract
+  const [deployer] = await ethers.getSigners();
   const Admin = await ethers.getContractFactory("Admin");
+
   console.log("Deploying Admin contract...");
-  const admin = await upgrades.deployProxy(Admin,
-    {
-      initializer: "initialize",
-      kind: "transparent",
-      // unsafeAllow: ["delegatecall"],
-    }
-  );
+  const admin = await upgrades.deployProxy(Admin, [], {
+    initializer: "initialize",
+    kind: "transparent",
+    admin: deployer.address
+  });
   await admin.deployed();
   console.log("Admin contract deployed to:", admin.address);
 
