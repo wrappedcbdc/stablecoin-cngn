@@ -69,7 +69,7 @@ cNGN is currently deployed on the following blockchain protocols:
 | ---------- | ---------------------------------------------------- |
 | BANTU      | GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI |
 | ASSETCHAIN | 0x069404d2F76Aa4519819a41B4E385074A9F4E8eA           |
-| BASE       | 0x24FcDa8602a75e065c1cc6d765e7Ad3217b2827b           |
+| BASE       | 0x7E29CF1D8b1F4c847D0f821b79dDF6E67A5c11F8           |
 | BNBCHAIN   | 0xA8945B7B12a3808EFD68B072b54E6dae4f0d7AEa           |
 | ETHEREUM   | 0xA1A8892a746685FD8ae09FdCfAdce89fF6FB7234           |
 | POLYGON    | 0x1BE5EaCb5D503fe8D64c810a0b14cdD7eC48df1f          |
