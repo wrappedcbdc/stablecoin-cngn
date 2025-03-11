@@ -412,7 +412,12 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         return forwarder == trustedForwarderContract;
     }
 
-    function msgSender() internal view returns (address payable signer) {
+    /**
+     * @dev Returns the sender of the transaction. If the transaction is sent through
+     * a trusted forwarder, returns the original sender from the calldata.
+     * @return signer The address of the transaction sender
+     */
+    function customSender() internal view returns (address payable signer) {
         if (msg.data.length >= 20 && isTrustedForwarder(msg.sender)) {
             assembly {
                 signer := shr(96, calldataload(sub(calldatasize(), 20)))
@@ -457,28 +462,44 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         return _balances[account];
     }
 
-     function transfer(
+    /**
+     * @dev Transfers tokens to a specified address.
+     * 
+     * Special case: If the recipient is an internal whitelisted user and the sender is
+     * an external whitelisted sender, the tokens are transferred and then immediately burned.
+     * This represents a redemption flow where external users can send tokens to internal users
+     * who then redeem them (burn).
+     * 
+     * @param to The address to transfer to
+     * @param amount The amount to be transferred
+     * @return bool Returns true for a successful transfer
+     */
+    function transfer(
         address to,
         uint256 amount
     ) public virtual override nonReentrant returns (bool) {
         address owner = _msgSender();
+        
+        // Check for blacklisted addresses
+        require(!IAdmin(adminOperationsContract).isBlackListed(owner), "Sender is blacklisted");
+        require(!IAdmin(adminOperationsContract).isBlackListed(to), "Recipient is blacklisted");
+        
+        // Special case: Redemption flow
         if (
-            !IAdmin(adminOperationsContract).isBlackListed(_msgSender()) &&
-            !IAdmin(adminOperationsContract).isBlackListed(to) &&
             IAdmin(adminOperationsContract).isInternalUserWhitelisted(to) &&
-            IAdmin(adminOperationsContract).isExternalSenderWhitelisted(
-                _msgSender()
-            )
+            IAdmin(adminOperationsContract).isExternalSenderWhitelisted(owner)
         ) {
+            // Transfer to internal user and then burn (redemption)
             _transfer(owner, to, amount);
             _burn(to, amount);
-            return true;
         } else {
+            // Standard transfer
             require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
             require(!IAdmin(adminOperationsContract).isBlackListed(to));
             _transfer(owner, to, amount);
-            return true;
         }
+        
+        return true;
     }
 
 
@@ -498,15 +519,26 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         return true;
     }
 
+    /**
+     * @dev Transfers tokens from one address to another using the allowance mechanism.
+     * 
+     * @param from The address to transfer from
+     * @param to The address to transfer to
+     * @param amount The amount to be transferred
+     * @return bool Returns true for a successful transfer
+     */
     function transferFrom(
         address from,
         address to,
         uint256 amount
-    ) public  virtual override whenNotPaused nonReentrant returns (bool) {
-        require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
-        require(!IAdmin(adminOperationsContract).isBlackListed(from));
-        require(!IAdmin(adminOperationsContract).isBlackListed(to));
+    ) public virtual override whenNotPaused nonReentrant returns (bool) {
         address spender = _msgSender();
+        
+        // Check for blacklisted addresses
+        require(!IAdmin(adminOperationsContract).isBlackListed(spender), "Spender is blacklisted");
+        require(!IAdmin(adminOperationsContract).isBlackListed(from), "Sender is blacklisted");
+        require(!IAdmin(adminOperationsContract).isBlackListed(to), "Recipient is blacklisted");
+        
         _spendAllowance(from, spender, amount);
         _transfer(from, to, amount);
         return true;
@@ -537,11 +569,22 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         return true;
     }
 
+    /**
+     * @dev Mints new tokens to a specified address.
+     * The minting process requires authorization and is subject to strict controls:
+     * 1. The signer must be authorized to mint
+     * 2. The exact amount must match the pre-approved mint amount
+     * 3. After minting, the authorization is automatically revoked
+     * 
+     * @param _amount The amount of tokens to mint
+     * @param _mintTo The address to mint tokens to
+     * @return bool Returns true for a successful mint
+     */
     function mint(
         uint256 _amount,
         address _mintTo
     ) public onlyDeployerOrForwarder nonReentrant returns (bool) {
-        address signer = msgSender();
+        address signer = customSender();
         require(
             !IAdmin(adminOperationsContract).isBlackListed(signer),
             "User is blacklisted"
@@ -552,7 +595,7 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         );
         require(
             IAdmin(adminOperationsContract).canMint(signer),
-            "Minter not authorized"
+            "Minter not authorized to sign"
         );
         require(
             IAdmin(adminOperationsContract).mintAmount(signer) == _amount,
@@ -566,6 +609,13 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         return true;
     }
 
+    /**
+     * @dev Allows a user to burn their own tokens.
+     * This function can only be called by the token owner or the trusted forwarder.
+     * 
+     * @param _amount The amount of tokens to burn
+     * @return bool Returns true for a successful burn
+     */
     function burnByUser(
         uint256 _amount
     ) public virtual onlyDeployerOrForwarder nonReentrant returns (bool) {
@@ -664,10 +714,21 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    function destroyBlackFunds (address _blackListedUser) 
+    /**
+     * @dev Destroys all tokens from a blacklisted address.
+     * This function can only be called by the contract owner.
+     * The tokens are removed from circulation (total supply is reduced).
+     * 
+     * @param _blackListedUser The blacklisted address whose funds will be destroyed
+     * @return bool Returns true for a successful operation
+     */
+    function destroyBlackFunds(address _blackListedUser) 
         public virtual onlyOwner nonReentrant returns (bool) 
-        {
-        require(IAdmin(adminOperationsContract).isBlackListed(_blackListedUser));
+    {
+        require(
+            IAdmin(adminOperationsContract).isBlackListed(_blackListedUser),
+            "Address is not blacklisted"
+        );
         uint dirtyFunds = balanceOf(_blackListedUser);
         _balances[_blackListedUser] = 0;
         _totalSupply -= dirtyFunds;
@@ -675,12 +736,20 @@ contract cngn is IERC20, IERC20Metadata, Ownable, Pausable, ReentrancyGuard {
         return true;
     }
     
+    /**
+     * @dev Hook that is called before any token transfer.
+     * The contract must not be paused.
+     */
     function _beforeTokenTransfer(
         address from,
         address to,
         uint256 amount
     ) internal virtual whenNotPaused {}
 
+    /**
+     * @dev Hook that is called after any token transfer.
+     * Can be used to implement additional logic after transfers.
+     */
     function _afterTokenTransfer(
         address from,
         address to,
