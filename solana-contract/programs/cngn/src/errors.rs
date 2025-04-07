@@ -36,6 +36,7 @@ pub enum ErrorCode {
     
     #[msg("User is not a minter")]
     NotMinter,
+
     
     #[msg("User is already a forwarder")]
     AlreadyForwarder,
@@ -114,4 +115,45 @@ pub enum ErrorCode {
     
     #[msg("Payload account mismatch")]
     PayloadAccountMismatch,
+
+
+
+    #[msg("Transaction already processed.")]
+    AlreadyProcessed,
+    
+    #[msg("Invalid instruction format.")]
+    InvalidInstructionFormat,
+    
+    #[msg("Signature verification failed.")]
+    SignatureVerificationFailed,
+    
+    #[msg("Forwarded instruction execution failed.")]
+    ForwardedInstructionFailed,
+    
+    #[msg("Unauthorized forwarder.")]
+    UnauthorizedForwarder,
+
+    #[msg("Invalid message hash")]
+    InvalidMessageHash,
+
+
+    #[msg("Missing Ed25519 instruction")]
+    MissingEd25519Instruction,
+    
+    #[msg("Invalid Ed25519 instruction format")]
+    InvalidEd25519Instruction,
+    
+    #[msg("Invalid public key in Ed25519 instruction")]
+    InvalidPublicKey,
+    
+    #[msg("Invalid message in Ed25519 instruction")]
+    InvalidMessage,
+    
+    #[msg("Reentrancy detected")]
+    ReentrancyDetected,
+
+    #[msg("User is not blacklisted")]
+    AddressNotBlacklisted,
+
+ 
 }

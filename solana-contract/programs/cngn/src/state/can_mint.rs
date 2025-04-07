@@ -41,6 +41,7 @@ impl CanMint {
     }
 
     pub fn set_mint_amount(&mut self, authority: &Pubkey, amount: u64) -> Result<()> {
+        
         if let Some(index) = self.authorities.iter().position(|x| x == authority) {
             self.mint_amounts[index] = amount;
             Ok(())
@@ -49,6 +50,8 @@ impl CanMint {
         }
     }
 
+
+
     pub fn get_mint_amount(&self, authority: &Pubkey) -> Result<u64> {
         if let Some(index) = self.authorities.iter().position(|x| x == authority) {
             Ok(self.mint_amounts[index])
@@ -56,9 +59,7 @@ impl CanMint {
             Err(ErrorCode::AdminNotFound.into())
         }
     }
-}
 
-impl CanMint {
     pub fn space(max_authorities: usize) -> usize {
         8 + // discriminator
         32 + // mint

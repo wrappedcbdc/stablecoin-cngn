@@ -7,13 +7,9 @@ pub struct CanForward {
     pub forwarders: Vec<Pubkey>,
     pub admin: Pubkey,
     pub bump: u8,
+    pub is_executed: bool, 
 }
 
-#[account]
-pub struct UserNonce {
-    pub user: Pubkey,
-    pub nonce: u64,
-}
 
 impl CanForward {
     pub const MAX_FORWARDERS: usize = 100;
@@ -22,16 +18,13 @@ impl CanForward {
         self.forwarders.contains(forwarder)
     }
 
-    pub fn contains(&self, forwarder: &Pubkey) -> bool {
-        self.forwarders.contains(forwarder)
-    }
 
     pub fn add(&mut self, forwarder: &Pubkey) -> Result<()> {
         if self.forwarders.len() >= Self::MAX_FORWARDERS {
             return Err(ErrorCode::TooManyContracts.into());
         }
 
-        if !self.contains(forwarder) {
+        if !self.is_trusted_forwarder(forwarder) {
             self.forwarders.push(*forwarder);
         }
 
@@ -47,18 +40,7 @@ impl CanForward {
     }
 }
 
-impl UserNonce {
-    pub fn verify_and_update_nonce(&mut self, nonce: u64) -> Result<()> {
-        // Ensure nonce is strictly increasing to prevent replay attacks
-        if nonce <= self.nonce {
-            return Err(ErrorCode::InvalidNonce.into());
-        }
 
-        // Update the nonce
-        self.nonce = nonce;
-        Ok(())
-    }
-}
 
 impl CanForward {
     pub fn space(max_forwarders: usize) -> usize {
@@ -69,10 +51,3 @@ impl CanForward {
     }
 }
 
-impl UserNonce {
-    pub fn space() -> usize {
-        8 + // discriminator
-        32 + // user
-        8   // nonce
-    }
-}

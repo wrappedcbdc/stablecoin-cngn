@@ -9,13 +9,14 @@ import {
     createAssociatedTokenAccountInstruction,
     getAccount
 } from "@solana/spl-token";
-import { calculatePDAs } from "./helpers";
-import { initializeToken, setupUserAccounts } from "./token-initializer";
+import { calculatePDAs } from "../utils/helpers";
+import { initializeToken, setupUserAccounts } from "../utils/token_initializer";
+import { transferAuthorityToPDA } from "./tranfer_authority_to_pda";
 
 describe("cngn burn test", () => {
     const provider = anchor.AnchorProvider.env();
     anchor.setProvider(provider);
-
+ const payer = (provider.wallet as anchor.Wallet).payer;
     const program = anchor.workspace.Cngn as Program<Cngn>;
 
     const mint = Keypair.generate();
@@ -51,7 +52,10 @@ describe("cngn burn test", () => {
 
       // Initialize the token
          await initializeToken(program, provider, mint, pdas);
-     
+        let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
+         // Assertions to verify transfer
+         assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
+         assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
          // Create token accounts for all users
          const userAccounts = await setupUserAccounts(
            provider,
@@ -67,7 +71,7 @@ describe("cngn burn test", () => {
          ] = userAccounts;
 
         
-        console.log("Minting completed.");
+            console.log("Token accounts created:");
     });
 
     it("Burns tokens from admin account", async () => {

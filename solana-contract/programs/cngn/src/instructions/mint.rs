@@ -1,9 +1,9 @@
 //src/instructions/mint.rs
+use crate::errors::ErrorCode;
+use crate::events::*;
+use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
-use crate::state::*;
-use crate::events::*;
-use crate::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct MintTokens<'info> {
@@ -47,7 +47,7 @@ pub struct MintTokens<'info> {
         bump,
     )]
     pub can_mint: Account<'info, CanMint>,
-    
+
     #[account(
         seeds = [b"trusted-contracts", mint.key().as_ref()],
         bump,
@@ -106,12 +106,20 @@ pub fn handler(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         authority: mint_authority,
     };
 
-    let cpi_ctx = CpiContext::new_with_signer(
-        token_program,
-        cpi_accounts,
-        signer_seeds,
-    );
+    let cpi_ctx = CpiContext::new_with_signer(token_program, cpi_accounts, signer_seeds);
 
+    // After successful minting, directly remove the authority:
+    if ctx.accounts.can_mint.can_mint(&signer) {
+        //remove authority from can_mint also sets mint amount to 0
+        ctx.accounts.can_mint.remove_authority(&signer)?;
+
+        // Emit can mint removed event
+        emit!(BlackListedMinter {
+            mint: ctx.accounts.token_config.mint,
+            authority: signer,
+        });
+    }
+    
     token::mint_to(cpi_ctx, amount)?;
 
     // Emit minting event
@@ -121,16 +129,5 @@ pub fn handler(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         amount,
     });
 
-     // After successful minting, directly remove the authority:
-     if ctx.accounts.can_mint.can_mint(&signer) {
-        ctx.accounts.can_mint.remove_authority(&signer)?;
-        
-        emit!(CanMintRemovedEvent {
-            mint: ctx.accounts.token_config.mint,
-            authority: signer,
-        });
-    }
-  
     Ok(())
 }
-

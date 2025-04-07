@@ -5,18 +5,19 @@ import { assert } from 'chai';
 import { PublicKey, Keypair } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, getAccount, getMint } from '@solana/spl-token';
 
-import { calculatePDAs, createTokenAccountIfNeeded, TokenPDAs } from './helpers';
+import { calculatePDAs, createTokenAccountIfNeeded, TokenPDAs } from '../utils/helpers';
 import {
   TOKEN_PARAMS,
   initializeToken,
   setupUserAccounts
-} from './token-initializer';
+} from '../utils/token_initializer';
+import { transferAuthorityToPDA } from "./tranfer_authority_to_pda";
 
 describe("cngn transfer tests", () => {
   // Configure the client to use the local cluster
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-
+ const payer = (provider.wallet as anchor.Wallet).payer;
   const program = anchor.workspace.Cngn as Program<Cngn>;
 
   // Create the mint keypair - this will be the actual token
@@ -48,7 +49,10 @@ describe("cngn transfer tests", () => {
 
     // Initialize the token
     await initializeToken(program, provider, mint, pdas);
-
+   let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
+    // Assertions to verify transfer
+    assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
+    assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
     // Create token accounts for all users
     const userAccounts = await setupUserAccounts(
       provider,
@@ -77,7 +81,7 @@ describe("cngn transfer tests", () => {
       .rpc();
 
     await program.methods
-      .updateMintAmount(minter.publicKey, INITIAL_BALANCE)
+      .setMintAmount(minter.publicKey, INITIAL_BALANCE)
       .accounts({
         authority: provider.wallet.publicKey,
         tokenConfig: pdas.tokenConfig,
@@ -115,7 +119,7 @@ describe("cngn transfer tests", () => {
       .rpc();
 
     await program.methods
-      .updateMintAmount(minter.publicKey, INITIAL_BALANCE)
+      .setMintAmount(minter.publicKey, INITIAL_BALANCE)
       .accounts({
         authority: provider.wallet.publicKey,
         tokenConfig: pdas.tokenConfig,
@@ -174,7 +178,7 @@ describe("cngn transfer tests", () => {
     // Verify tokens were minted to user1
     const senderBalance = await getAccount(provider.connection, user1TokenAccount);
     console.log("Initial user1 token balance:", senderBalance.amount.toString());
-   // assert.equal(senderBalance.amount.toString(), INITIAL_BALANCE.toString());
+   assert.equal(senderBalance.amount.toString(), INITIAL_BALANCE.toString());
   });
 
   it('Transfers tokens from user1 to user2 (standard transfer)', async () => {
@@ -397,7 +401,7 @@ describe("cngn transfer tests", () => {
       .rpc();
 
     await program.methods
-      .updateMintAmount(minter.publicKey, INITIAL_BALANCE)
+      .setMintAmount(minter.publicKey, INITIAL_BALANCE)
       .accounts({
         authority: provider.wallet.publicKey,
         tokenConfig: pdas.tokenConfig,
@@ -591,7 +595,7 @@ describe("cngn transfer tests", () => {
       .rpc();
 
     await program.methods
-      .updateMintAmount(minter.publicKey, INITIAL_BALANCE)
+      .setMintAmount(minter.publicKey, INITIAL_BALANCE)
       .accounts({
         authority: provider.wallet.publicKey,
         tokenConfig: pdas.tokenConfig,

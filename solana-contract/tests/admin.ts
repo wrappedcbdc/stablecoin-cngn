@@ -1,17 +1,20 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Cngn } from "../target/types/cngn";
-import { assert } from 'chai';
+import { assert, expect } from 'chai';
 import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { AuthorityType, createSetAuthorityInstruction, getMint, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 
-import { calculatePDAs, createTokenAccountIfNeeded } from './helpers';
+import { calculatePDAs, createTokenAccountIfNeeded } from '../utils/helpers';
+import { initializeToken } from "../utils/token_initializer";
+import { transferMintAuthority } from "../utils/transfer_authority";
+import { transferAuthorityToPDA } from "./tranfer_authority_to_pda";
 
 describe("cngn admin functionality tests", () => {
   // Configure the client to use the local cluster
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-
+  const payer = (provider.wallet as anchor.Wallet).payer;
   const program = anchor.workspace.Cngn as Program<Cngn>;
 
   // Create the mint keypair - this will be the actual token
@@ -56,53 +59,14 @@ describe("cngn admin functionality tests", () => {
 
     // Initialize the token
     console.log("Initializing token and accounts...");
-    try {
-      const tx = await program.methods
-        .initialize(TOKEN_PARAMS.name, TOKEN_PARAMS.symbol, TOKEN_PARAMS.decimals)
-        .accounts({
-          initializer: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          mintAuthority: pdas.mintAuthority,
-          mint: mint.publicKey,
-          canMint: pdas.canMint,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-          rent: SYSVAR_RENT_PUBKEY,
-        })
-        .signers([mint])
-        .rpc();
-      console.log("Token initialized with tx:", tx);
+    // Initialize the token
+    await initializeToken(program, provider, mint, pdas);
 
-      // Initialize blacklist and forwarding accounts
-      await program.methods
-        .initializeSecondary()
-        .accounts({
-          initializer: provider.wallet.publicKey,
-          mint: mint.publicKey,
-          blacklist: pdas.blacklist,
-          canForward: pdas.canForward,
-          trustedContracts: pdas.trustedContracts,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
 
-      // Initialize whitelist accounts
-      await program.methods
-        .initializeThird()
-        .accounts({
-          initializer: provider.wallet.publicKey,
-          mint: mint.publicKey,
-          internalWhitelist: pdas.internalWhitelist,
-          externalWhitelist: pdas.externalWhitelist,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-
-      console.log("All accounts initialized successfully");
-    } catch (error) {
-      console.error("Error during initialization:", error);
-      throw error;
-    }
+   let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
+    // Assertions to verify transfer
+    assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
+    assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
   });
 
   describe("CanMint Admin Tests", () => {
@@ -137,7 +101,7 @@ describe("cngn admin functionality tests", () => {
 
       // Update mint amount for the authority
       const tx = await program.methods
-        .updateMintAmount(mintAuthorityUser.publicKey, TOKEN_PARAMS.mintAmount)
+        .setMintAmount(mintAuthorityUser.publicKey, TOKEN_PARAMS.mintAmount)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
@@ -156,7 +120,7 @@ describe("cngn admin functionality tests", () => {
           canMint: pdas.canMint
         })
         .view();
-
+      console.log(fetchedAmount.toString())
       assert.equal(
         fetchedAmount.toString(),
         TOKEN_PARAMS.mintAmount.toString(),
@@ -169,7 +133,7 @@ describe("cngn admin functionality tests", () => {
 
       // Set mint amount to zero (effectively removing it)
       const tx = await program.methods
-        .updateMintAmount(mintAuthorityUser.publicKey, new anchor.BN(0))
+        .removeMintAmount(mintAuthorityUser.publicKey)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
@@ -181,19 +145,19 @@ describe("cngn admin functionality tests", () => {
       console.log("Remove mint amount tx:", tx);
 
       // Fetch and verify the mint amount is now zero
-      const fetchedAmount = await program.methods
+      const fetchedAmount: anchor.BN = await program.methods
         .getMintAmount(mintAuthorityUser.publicKey)
         .accounts({
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint
         })
         .view();
-
-      assert.equal(
-        fetchedAmount.toString(),
-        "0",
-        "Mint amount was not removed correctly"
-      );
+      console.log(fetchedAmount.toString());
+      expect(fetchedAmount.toString()).to.be.equal("0", "Mint amount was not removed correctly");
+      //   fetchedAmount.toString(),
+      //   "0",
+      //   "Mint amount was not removed correctly"
+      // );
     });
 
     it("Admin can remove a mint authority", async () => {
@@ -441,7 +405,11 @@ describe("cngn admin functionality tests", () => {
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist
+          blacklist: pdas.blacklist,
+          whitelist: pdas.whitelist,
+          externalWhitelist: pdas.externalWhitelist,
+          trustedContracts: pdas.trustedContracts,
+          canMint: pdas.canMint,
         })
         .rpc();
 
@@ -597,7 +565,7 @@ describe("cngn admin functionality tests", () => {
       assert.isFalse(userFoundAfter, "User was not removed from internal whitelist");
     });
 
-  
+
 
     it("Non-admin cannot manage internal whitelist", async () => {
       console.log("Testing non-admin managing internal whitelist...");
@@ -627,9 +595,9 @@ describe("cngn admin functionality tests", () => {
   describe("External Whitelist Admin Tests", () => {
     it("Admin can add user to external whitelist", async () => {
       console.log("Testing adding user to external whitelist...");
-  
+
       const userToWhitelist = Keypair.generate();
-  
+
       const tx = await program.methods
         .whitelistExternalUser(userToWhitelist.publicKey)
         .accounts({
@@ -639,24 +607,24 @@ describe("cngn admin functionality tests", () => {
           blacklist: pdas.blacklist
         })
         .rpc();
-  
+
       console.log("Add to external whitelist tx:", tx);
-  
+
       // Verify the user was added to external whitelist
       const externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
       const userFound = externalWhitelistAccount.whitelist.some(user =>
         user.equals(userToWhitelist.publicKey)
       );
-  
+
       assert.isTrue(userFound, "User was not added to external whitelist");
     });
-  
+
     it("Admin can remove user from external whitelist", async () => {
       console.log("Testing removing user from external whitelist...");
-  
+
       // First, add a user to external whitelist if not already present
       const userToRemove = Keypair.generate();
-  
+
       await program.methods
         .whitelistExternalUser(userToRemove.publicKey)
         .accounts({
@@ -666,15 +634,15 @@ describe("cngn admin functionality tests", () => {
           blacklist: pdas.blacklist
         })
         .rpc();
-  
+
       // Verify the user was added to external whitelist
       let externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
       const userFound = externalWhitelistAccount.whitelist.some(user =>
         user.equals(userToRemove.publicKey)
       );
-  
+
       assert.isTrue(userFound, "User was not added to external whitelist before removal test");
-  
+
       // Now remove the user from external whitelist
       const tx = await program.methods
         .blacklistExternalUser(userToRemove.publicKey)
@@ -684,30 +652,30 @@ describe("cngn admin functionality tests", () => {
           externalWhitelist: pdas.externalWhitelist
         })
         .rpc();
-  
+
       console.log("Remove from external whitelist tx:", tx);
-  
+
       // Verify the user was removed from external whitelist
       externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
       const userFoundAfter = externalWhitelistAccount.whitelist.some(user =>
         user.equals(userToRemove.publicKey)
       );
-  
+
       assert.isFalse(userFoundAfter, "User was not removed from external whitelist");
     });
-  
+
     it("Cannot add blacklisted user to external whitelist", async () => {
       console.log("Testing adding blacklisted user to external whitelist...");
-  
+
       // Create a user that will be blacklisted
       const blacklistedExternalUser = Keypair.generate();
-  
+
       // Fund the account for gas
       await provider.connection.requestAirdrop(
-        blacklistedExternalUser.publicKey, 
+        blacklistedExternalUser.publicKey,
         0.1 * anchor.web3.LAMPORTS_PER_SOL
       );
-  
+
       // First, add user to blacklist
       await program.methods
         .addBlacklist(blacklistedExternalUser.publicKey)
@@ -717,15 +685,15 @@ describe("cngn admin functionality tests", () => {
           blacklist: pdas.blacklist
         })
         .rpc();
-  
+
       // Verify user is in blacklist
       const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
       const userInBlacklist = blacklistAccount.blacklist.some(user =>
         user.equals(blacklistedExternalUser.publicKey)
       );
-  
+
       assert.isTrue(userInBlacklist, "User was not added to blacklist");
-  
+
       // Try to add blacklisted user to external whitelist - this should fail
       try {
         await program.methods
@@ -737,28 +705,28 @@ describe("cngn admin functionality tests", () => {
             blacklist: pdas.blacklist
           })
           .rpc();
-  
+
         assert.fail("Should have failed when adding blacklisted user to external whitelist");
       } catch (error) {
         console.log("Caught expected error:", error.toString());
         assert.include(error.toString(), "UserBlacklisted");
       }
-  
+
       // Verify the blacklisted user was not added to external whitelist
       const externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
       const userInWhitelist = externalWhitelistAccount.whitelist.some(user =>
         user.equals(blacklistedExternalUser.publicKey)
       );
-  
+
       assert.isFalse(userInWhitelist, "Blacklisted user was incorrectly added to the external whitelist");
     });
-  
+
     it("Non-admin cannot manage external whitelist", async () => {
       console.log("Testing non-admin managing external whitelist...");
-  
+
       try {
         const userToWhitelist = Keypair.generate();
-  
+
         await program.methods
           .whitelistExternalUser(userToWhitelist.publicKey)
           .accounts({
@@ -769,7 +737,7 @@ describe("cngn admin functionality tests", () => {
           })
           .signers([regularUser1])
           .rpc();
-  
+
         assert.fail("Should have failed with unauthorized error");
       } catch (error) {
         console.log("Caught expected error:", error.toString());
@@ -777,13 +745,13 @@ describe("cngn admin functionality tests", () => {
       }
     });
   });
-  
+
   describe("Can Forward Admin Tests", () => {
     it("Admin can add forwarder", async () => {
       console.log("Testing adding forwarder...");
-  
+
       const forwarderToAdd = Keypair.generate();
-  
+
       const tx = await program.methods
         .addCanForward(forwarderToAdd.publicKey)
         .accounts({
@@ -793,24 +761,24 @@ describe("cngn admin functionality tests", () => {
           canForward: pdas.canForward
         })
         .rpc();
-  
+
       console.log("Add forwarder tx:", tx);
-  
+
       // Verify the forwarder was added
       const canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
       const forwarderFound = canForwardAccount.forwarders.some(forwarder =>
         forwarder.equals(forwarderToAdd.publicKey)
       );
-  
+
       assert.isTrue(forwarderFound, "Forwarder was not added to can forward list");
     });
-  
+
     it("Admin can remove forwarder", async () => {
       console.log("Testing removing forwarder...");
-  
+
       // First, add a forwarder if not already present
       const forwarderToRemove = Keypair.generate();
-  
+
       await program.methods
         .addCanForward(forwarderToRemove.publicKey)
         .accounts({
@@ -820,15 +788,15 @@ describe("cngn admin functionality tests", () => {
           canForward: pdas.canForward
         })
         .rpc();
-  
+
       // Verify the forwarder was added
       let canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
       const forwarderFound = canForwardAccount.forwarders.some(forwarder =>
         forwarder.equals(forwarderToRemove.publicKey)
       );
-  
+
       assert.isTrue(forwarderFound, "Forwarder was not added before removal test");
-  
+
       // Now remove the forwarder
       const tx = await program.methods
         .removeCanForward(forwarderToRemove.publicKey)
@@ -838,30 +806,30 @@ describe("cngn admin functionality tests", () => {
           canForward: pdas.canForward
         })
         .rpc();
-  
+
       console.log("Remove forwarder tx:", tx);
-  
+
       // Verify the forwarder was removed
       canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
       const forwarderFoundAfter = canForwardAccount.forwarders.some(forwarder =>
         forwarder.equals(forwarderToRemove.publicKey)
       );
-  
+
       assert.isFalse(forwarderFoundAfter, "Forwarder was not removed from can forward list");
     });
-  
+
     it("Cannot add blacklisted user as forwarder", async () => {
       console.log("Testing adding blacklisted user as forwarder...");
-  
+
       // Create a user that will be blacklisted
       const blacklistedForwarder = Keypair.generate();
-  
+
       // Fund the account for gas
       await provider.connection.requestAirdrop(
-        blacklistedForwarder.publicKey, 
+        blacklistedForwarder.publicKey,
         0.1 * anchor.web3.LAMPORTS_PER_SOL
       );
-  
+
       // First, add user to blacklist
       await program.methods
         .addBlacklist(blacklistedForwarder.publicKey)
@@ -871,15 +839,15 @@ describe("cngn admin functionality tests", () => {
           blacklist: pdas.blacklist
         })
         .rpc();
-  
+
       // Verify user is in blacklist
       const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
       const userInBlacklist = blacklistAccount.blacklist.some(user =>
         user.equals(blacklistedForwarder.publicKey)
       );
-  
+
       assert.isTrue(userInBlacklist, "User was not added to blacklist");
-  
+
       // Try to add blacklisted user as forwarder - this should fail
       try {
         await program.methods
@@ -891,28 +859,28 @@ describe("cngn admin functionality tests", () => {
             canForward: pdas.canForward
           })
           .rpc();
-  
+
         assert.fail("Should have failed when adding blacklisted user as forwarder");
       } catch (error) {
         console.log("Caught expected error:", error.toString());
         assert.include(error.toString(), "UserBlacklisted");
       }
-  
+
       // Verify the blacklisted user was not added as forwarder
       const canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
       const userInForwarders = canForwardAccount.forwarders.some(forwarder =>
         forwarder.equals(blacklistedForwarder.publicKey)
       );
-  
+
       assert.isFalse(userInForwarders, "Blacklisted user was incorrectly added as forwarder");
     });
-  
+
     it("Non-admin cannot manage forwarders", async () => {
       console.log("Testing non-admin managing forwarders...");
-  
+
       try {
         const forwarderToAdd = Keypair.generate();
-  
+
         await program.methods
           .addCanForward(forwarderToAdd.publicKey)
           .accounts({
@@ -923,7 +891,7 @@ describe("cngn admin functionality tests", () => {
           })
           .signers([regularUser1])
           .rpc();
-  
+
         assert.fail("Should have failed with unauthorized error");
       } catch (error) {
         console.log("Caught expected error:", error.toString());

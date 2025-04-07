@@ -13,7 +13,8 @@ export const TOKEN_PARAMS = {
   symbol: "cNGN",
   decimals: 6,
   mintAmount: new anchor.BN(10_000_000_000), // 10,000 tokens with 6 decimals
-  transferAmount: new anchor.BN(5_000_000_000) // 5,000 tokens
+  transferAmount: new anchor.BN(5_000_000_000), // 5,000 tokens
+  partialAmount: new anchor.BN(2_500_000_000) // 2,500 tokens
 };
 
 /**
