@@ -12,7 +12,7 @@ pub struct TrustedContracts {
 impl TrustedContracts {
     pub const MAX_CONTRACTS: usize = 50;
     
-    pub fn contains(&self, contract: &Pubkey) -> bool {
+    pub fn is_trusted_contract(&self, contract: &Pubkey) -> bool {
         self.contracts.contains(contract)
     }
     
@@ -21,7 +21,7 @@ impl TrustedContracts {
             return Err(ErrorCode::TooManyContracts.into());
         }
         
-        if !self.contains(contract) {
+        if !self.is_trusted_contract(contract) {
             self.contracts.push(*contract);
         }
         

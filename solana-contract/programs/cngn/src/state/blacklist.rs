@@ -28,13 +28,16 @@ impl BlackList {
         Ok(())
     }
     
-    pub fn remove(&mut self, address: &Pubkey) -> Result<()> {
-        if let Some(index) = self.blacklist.iter().position(|x| x == address) {
-            self.blacklist.remove(index);
-        }
-        
+  // In blacklist.rs
+pub fn remove(&mut self, address: &Pubkey) -> Result<()> {
+    if let Some(index) = self.blacklist.iter().position(|x| x == address) {
+        self.blacklist.remove(index);
         Ok(())
+    } else {
+        // Add this error to your ErrorCode enum
+        Err(ErrorCode::AddressNotBlacklisted.into())
     }
+}
 }
 
 impl BlackList {

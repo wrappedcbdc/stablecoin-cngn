@@ -10,7 +10,7 @@ pub struct AddCanMint<'info> {
         mut,
         constraint = (
             authority.key() == token_config.admin || 
-            trusted_contracts.contains(&authority.key())
+            trusted_contracts.is_trusted_contract(&authority.key())
         ) @ ErrorCode::Unauthorized
       
     )]
@@ -58,7 +58,7 @@ pub fn add_can_mint_handler(ctx: Context<AddCanMint>, user: Pubkey) -> Result<()
         can_mint.add_authority(&user)?;
         
         // Emit can mint added event
-        emit!(CanMintAddedEvent {
+        emit!(WhitelistedMinter {
             mint: ctx.accounts.token_config.mint,
             authority: user,
         });
@@ -73,7 +73,7 @@ pub struct RemoveCanMint<'info> {
         mut,
             constraint = (
             authority.key() == token_config.admin || 
-            trusted_contracts.contains(&authority.key())
+            trusted_contracts.is_trusted_contract(&authority.key())
         ) @ ErrorCode::Unauthorized
     )]
     pub authority: Signer<'info>,
@@ -106,7 +106,7 @@ pub fn remove_can_mint_handler(ctx: Context<RemoveCanMint>, user: Pubkey) -> Res
         can_mint.remove_authority(&user)?;
         
         // Emit can mint removed event
-        emit!(CanMintRemovedEvent {
+        emit!(BlackListedMinter {
             mint: ctx.accounts.token_config.mint,
             authority: user,
         });
@@ -116,7 +116,7 @@ pub fn remove_can_mint_handler(ctx: Context<RemoveCanMint>, user: Pubkey) -> Res
 }
 
 #[derive(Accounts)]
-pub struct UpdateMintAmount<'info> {
+pub struct SetMintAmount<'info> {
     // Only contract admin can call this
     #[account(
         mut,
@@ -137,14 +137,17 @@ pub struct UpdateMintAmount<'info> {
     )]
     pub can_mint: Account<'info, CanMint>,
 
-    #[account(
-        seeds = [b"trusted-contracts", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub trusted_contracts: Account<'info, TrustedContracts>,
 }
 
-pub fn update_mint_amount_handler(ctx: Context<UpdateMintAmount>, user: Pubkey, amount: u64) -> Result<()> {
+pub fn set_mint_amount_handler(ctx: Context<SetMintAmount>, user: Pubkey, amount: u64) -> Result<()> {
+
+    
+    // Or validate against a minimum and maximum
+    if amount < token_config::MIN_MINT_AMOUNT 
+   // || amount > token_config::MAX_MINT_AMOUNT 
+    {
+        return Err(ErrorCode::InvalidMintAmount.into());
+    }
     let can_mint = &mut ctx.accounts.can_mint;
     
     // Check if the authority exists in the can_mint list
@@ -164,6 +167,55 @@ pub fn update_mint_amount_handler(ctx: Context<UpdateMintAmount>, user: Pubkey, 
 
     Ok(())
 }
+
+
+#[derive(Accounts)]
+pub struct RemoveMintAmount<'info> {
+    // Only contract admin can call this
+    #[account(
+        mut,
+        constraint = authority.key() == token_config.admin @ ErrorCode::Unauthorized,
+    )]
+    pub authority: Signer<'info>,
+
+    #[account(
+        seeds = [b"token-config", token_config.mint.as_ref()],
+        bump = token_config.bump,
+    )]
+    pub token_config: Account<'info, TokenConfig>,
+
+    #[account(
+        mut,
+        seeds = [b"can-mint", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_mint: Account<'info, CanMint>,
+}
+
+pub fn remove_mint_amount_handler(ctx: Context<RemoveMintAmount>, user: Pubkey) -> Result<()> {
+
+    let amount:u64=0;
+   
+    let can_mint = &mut ctx.accounts.can_mint;
+    
+    // Check if the authority exists in the can_mint list
+    if !can_mint.can_mint(&user) {
+        return Err(ErrorCode::AdminNotFound.into());
+    }
+
+    // Update the mint amount for the specified authority
+    can_mint.set_mint_amount(&user, amount)?;
+
+    // Emit mint amount updated event
+    emit!(MintAmountUpdatedEvent {
+        mint: ctx.accounts.token_config.mint,
+        authority: user,
+        amount,
+    });
+
+    Ok(())
+}
+
 
 #[derive(Accounts)]
 pub struct GetMintAmount<'info> {
@@ -187,7 +239,7 @@ pub fn get_mint_amount_handler(ctx: Context<GetMintAmount>, user: Pubkey) -> Res
     
     // Check if the authority exists in the can_mint list
     if !can_mint.can_mint(&user) {
-        return Err(ErrorCode::AdminNotFound.into());
+        return Err(ErrorCode::UserNotFound.into());
     }
 
     // Get the mint amount for the specified authority
@@ -207,7 +259,36 @@ pub struct AddBlackList<'info> {
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
-
+    #[account(
+        seeds = [b"can-mint", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_mint: Account<'info, CanMint>,
+    
+    #[account(
+        seeds = [b"internal-whitelist", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub internal_whitelist: Account<'info, InternalWhiteList>,
+    
+    #[account(
+        seeds = [b"external-whitelist", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub external_whitelist: Account<'info, ExternalWhiteList>,
+    
+    #[account(
+        seeds = [b"trusted-contracts", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub trusted_contracts: Account<'info, TrustedContracts>,
+    
+    #[account(
+        mut,
+        seeds = [b"can-forward", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_forward: Account<'info, CanForward>,
     #[account(
         mut,
         seeds = [b"blacklist", token_config.mint.as_ref()],
@@ -216,22 +297,47 @@ pub struct AddBlackList<'info> {
     pub blacklist: Account<'info, BlackList>,
 }
 
-pub fn add_blacklist_handler(ctx: Context<AddBlackList>,evil_user: Pubkey) -> Result<()> {
+pub fn add_blacklist_handler(ctx: Context<AddBlackList>,user: Pubkey) -> Result<()> {
     let blacklist = &mut ctx.accounts.blacklist;
+let can_mint = &mut ctx.accounts.can_mint;
+    let internal_whitelist =&mut ctx.accounts.internal_whitelist;
+    let external_whitelist = &mut ctx.accounts.external_whitelist;
+    let trusted_contracts = &mut ctx.accounts.trusted_contracts;
+    let can_forward = &mut ctx.accounts.can_forward;
+// Check if the account is already blacklisted
+if blacklist.is_blacklisted(&user) {
+    return Err(ErrorCode::UserBlacklisted.into());
+}
 
-    
-    // Check if the account is already blacklisted
-    if blacklist.is_blacklisted(&evil_user) {
-        return Err(ErrorCode::UserBlacklisted.into());
-    }
-    
-    // Add account to blacklist
-    blacklist.add(&evil_user)?;
+// Add account to blacklist
+blacklist.add(&user)?;
+
+// Remove user from other lists if present
+if can_mint.can_mint(&user) {
+    can_mint.remove_authority(&user)?;
+}
+
+if internal_whitelist.is_whitelisted(&user) {
+    internal_whitelist.remove(&user)?;
+}
+
+if external_whitelist.is_whitelisted(&user) {
+    external_whitelist.remove(&user)?;
+}
+
+if can_forward.is_trusted_forwarder(&user) {
+    can_forward.remove(&user)?;
+}
+
+
+if  trusted_contracts.is_trusted_contract(&user) {
+    trusted_contracts.remove(&user)?;
+}
     
     // Emit blacklisted event
-    emit!(BlacklistedEvent {
+    emit!(AddedBlackList {
         mint: ctx.accounts.token_config.mint,
-        evil_user,
+        user,
     });
     
     Ok(())
@@ -259,22 +365,22 @@ pub struct RemoveBlackList<'info> {
     pub blacklist: Account<'info, BlackList>,
 }
 
-pub fn remove_blacklist_handler(ctx: Context<RemoveBlackList>,clear_user: Pubkey) -> Result<()> {
+pub fn remove_blacklist_handler(ctx: Context<RemoveBlackList>,user: Pubkey) -> Result<()> {
     let blacklist = &mut ctx.accounts.blacklist;
  
     
     // Check if the account is not blacklisted
-    if !blacklist.is_blacklisted(&clear_user) {
+    if !blacklist.is_blacklisted(&user) {
         return Ok(());
     }
     
     // Remove account from blacklist
-    blacklist.remove(&clear_user)?;
+    blacklist.remove(&user)?;
     
     // Emit remove from blacklist event
-    emit!(BlacklistRemovedEvent {
+    emit!(RemovedBlackList {
         mint: ctx.accounts.token_config.mint,
-        clear_user,
+        user,
     });
     
     Ok(())
@@ -305,26 +411,13 @@ pub struct AddTrustedContract<'info> {
     )]
     pub trusted_contracts: Account<'info, TrustedContracts>,
 
-    #[account(
-        seeds = [b"blacklist", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub blacklist: Account<'info, BlackList>,
 }
 
 pub fn add_trusted_contract_handler(ctx: Context<AddTrustedContract>,contract:Pubkey) -> Result<()> {
     let trusted_contracts = &mut ctx.accounts.trusted_contracts;
   
-    let blacklist = &ctx.accounts.blacklist;
-  
-    
-    // Check if the account is blacklisted
-    if blacklist.is_blacklisted(&contract) {
-        return Err(ErrorCode::UserBlacklisted.into());
-       
-    }
     // Check if the contract is already in the trusted list
-    if trusted_contracts.contains(&contract) {
+    if trusted_contracts.is_trusted_contract(&contract) {
         return Ok(());
     }
     
@@ -332,7 +425,7 @@ pub fn add_trusted_contract_handler(ctx: Context<AddTrustedContract>,contract:Pu
     trusted_contracts.add(&contract)?;
     
     // Emit trusted contract added event
-    emit!(TrustedContractAddedEvent {
+    emit!(WhitelistedContract {
         mint: ctx.accounts.token_config.mint,
         contract,
     });
@@ -369,7 +462,7 @@ pub fn remove_trusted_contract_handler(ctx: Context<RemoveTrustedContract>,contr
 
     
     // Check if the contract is in the trusted list
-    if !trusted_contracts.contains(&contract) {
+    if !trusted_contracts.is_trusted_contract(&contract) {
         return Ok(());
     }
     
@@ -377,7 +470,7 @@ pub fn remove_trusted_contract_handler(ctx: Context<RemoveTrustedContract>,contr
     trusted_contracts.remove(&contract)?;
     
     // Emit trusted contract removed event
-    emit!(TrustedContractRemovedEvent {
+    emit!(BlackListedContract {
         mint: ctx.accounts.token_config.mint,
         contract,
     });
@@ -415,11 +508,7 @@ pub struct WhitelistInternalUser<'info> {
     )]
     pub blacklist: Account<'info, BlackList>,
 
-    #[account(
-        seeds = [b"trusted-contracts", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub trusted_contracts: Account<'info, TrustedContracts>,
+
 }
 
 pub fn whitelist_internal_user_handler(ctx: Context<WhitelistInternalUser>,user:Pubkey) -> Result<()> {
@@ -442,7 +531,7 @@ pub fn whitelist_internal_user_handler(ctx: Context<WhitelistInternalUser>,user:
     internal_whitelist.add(&user)?;
     
     // Emit event
-    emit!(InternalUserWhitelistedEvent {
+    emit!(WhitelistedInternalUser {
         mint: ctx.accounts.token_config.mint,
         user: user
     });
@@ -499,7 +588,7 @@ pub fn whitelist_external_user_handler(ctx: Context<WhitelistExternalUser>,user:
     external_whitelist.add(&user)?;
     
     // Emit event
-    emit!(ExternalUserWhitelistedEvent {
+    emit!(WhitelistedExternalSender {
         mint: ctx.accounts.token_config.mint,
         user: user,
     });
@@ -549,7 +638,7 @@ pub fn blacklist_internal_user_handler(ctx: Context<BlacklistInternalUser>,user:
     internal_whitelist.remove(&user)?;
     
     // Emit event
-    emit!(InternalUserBlacklistedEvent {
+    emit!(BlackListedInternalUser {
         mint: ctx.accounts.token_config.mint,
         user: user,
     });
@@ -593,7 +682,7 @@ pub fn blacklist_external_user_handler(ctx: Context<BlacklistExternalUser>,user:
     external_whitelist.remove(&user)?;
     
     // Emit event
-    emit!(ExternalUserBlacklistedEvent {
+    emit!(BlackListedExternalSender {
         mint: ctx.accounts.token_config.mint,
         user: user,
     });
@@ -640,11 +729,11 @@ pub fn add_can_forward_handler(ctx: Context<AddCanForward>, forwarder: Pubkey) -
        
     }
     // Add to can forward list if not already present
-    if !can_forward.contains(&forwarder) {
+    if !can_forward.is_trusted_forwarder(&forwarder) {
         can_forward.add(&forwarder)?;
         
         // Emit can forward added event
-        emit!(CanForwardAddedEvent {
+        emit!(WhitelistedForwarder {
             mint: ctx.accounts.token_config.mint,
             forwarder,
         });
@@ -679,11 +768,11 @@ pub fn remove_can_forward_handler(ctx: Context<RemoveCanForward>, forwarder: Pub
     let can_forward = &mut ctx.accounts.can_forward;
     
     // Check if the forwarder is in the can forward list
-    if can_forward.contains(&forwarder) {
+    if can_forward.is_trusted_forwarder(&forwarder) {
         can_forward.remove(&forwarder)?;
         
         // Emit can forward removed event
-        emit!(CanForwardRemovedEvent {
+        emit!(BlackListedForwarder {
             mint: ctx.accounts.token_config.mint,
             forwarder,
         });

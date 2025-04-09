@@ -2,6 +2,10 @@
 // state/token_config.rs
 use anchor_lang::prelude::*;
 
+pub const MIN_MINT_AMOUNT: u64 = 1; // Minimum mint amount
+pub const MAX_MINT_AMOUNT: u64 = 1_000_000_000; // Maximum mint amount
+
+
 #[account]
 pub struct TokenConfig {
     pub name: String,           // Token name
@@ -19,6 +23,11 @@ pub struct TokenConfig {
 impl TokenConfig {
     pub const MAX_NAME_LENGTH: usize = 32;
     pub const MAX_SYMBOL_LENGTH: usize = 10;
+
+    
+    pub const MIN_MINT_AMOUNT: u64 = MIN_MINT_AMOUNT;
+    pub const MAX_MINT_AMOUNT: u64 = MAX_MINT_AMOUNT;
+
     
     pub const LEN: usize = 8 +  // discriminator
         4 + Self::MAX_NAME_LENGTH +    // name (4-byte len + content)

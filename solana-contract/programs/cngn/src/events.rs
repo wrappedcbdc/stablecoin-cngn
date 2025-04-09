@@ -75,74 +75,74 @@ pub struct AdminChangedEvent {
 
 
 #[event]
-pub struct CanMintAddedEvent {
+pub struct WhitelistedMinter {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct CanMintRemovedEvent {
+pub struct BlackListedMinter {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct MintAmountSetEvent {
+pub struct MintAmountAdded {
     pub mint: Pubkey,
     pub authority: Pubkey,
     pub amount: u64,
 }
 
 #[event]
-pub struct MintAmountRemovedEvent {
+pub struct MintAmountRemoved {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct TrustedContractAddedEvent {
+pub struct WhitelistedContract {
     pub mint: Pubkey,
     pub contract: Pubkey,
 }
 
 #[event]
-pub struct TrustedContractRemovedEvent {
+pub struct BlackListedContract {
     pub mint: Pubkey,
     pub contract: Pubkey,
 }
 
 #[event]
-pub struct BlacklistedEvent {
-    pub mint: Pubkey,
-    pub evil_user: Pubkey,
-}
-
-#[event]
-pub struct BlacklistRemovedEvent {
-    pub mint: Pubkey,
-    pub clear_user: Pubkey,
-}
-
-#[event]
-pub struct InternalUserWhitelistedEvent {
+pub struct AddedBlackList {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct InternalUserBlacklistedEvent {
+pub struct RemovedBlackList {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct ExternalUserWhitelistedEvent {
+pub struct WhitelistedInternalUser {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct ExternalUserBlacklistedEvent {
+pub struct BlackListedInternalUser {
+    pub mint: Pubkey,
+    pub user: Pubkey,
+}
+
+#[event]
+pub struct WhitelistedExternalSender {
+    pub mint: Pubkey,
+    pub user: Pubkey,
+}
+
+#[event]
+pub struct BlackListedExternalSender {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
@@ -156,13 +156,19 @@ pub struct MintAmountUpdatedEvent {
 
 // Add to your events.rs file
 #[event]
-pub struct CanForwardAddedEvent {
+pub struct WhitelistedForwarder {
     pub mint: Pubkey,
     pub forwarder: Pubkey,
 }
 
 #[event]
-pub struct CanForwardRemovedEvent {
+pub struct BlackListedForwarder {
     pub mint: Pubkey,
     pub forwarder: Pubkey,
+}
+
+#[event]
+pub struct ForwardedEvent {
+    pub message: String,
+  
 }

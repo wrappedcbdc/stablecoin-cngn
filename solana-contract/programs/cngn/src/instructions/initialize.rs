@@ -2,9 +2,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token};
 
-use crate::state::*;
 use crate::events::*;
-
+use crate::state::*;
 
 // Split the accounts into multiple contexts to reduce stack usage
 #[derive(Accounts)]
@@ -35,10 +34,11 @@ pub struct Initialize<'info> {
         init,
         payer = initializer,
         mint::decimals = decimals,
-        mint::authority = mint_authority.key(),
+        mint::authority =initializer, //mint_authority.key(),
+        mint::freeze_authority = initializer.key(),
     )]
     pub mint: Account<'info, Mint>,
-    
+
     #[account(
         init,
         payer = initializer,
@@ -51,7 +51,6 @@ pub struct Initialize<'info> {
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
-    
 }
 
 // Secondary accounts context to split the initialization
@@ -59,10 +58,10 @@ pub struct Initialize<'info> {
 pub struct InitializeSecondary<'info> {
     #[account(mut)]
     pub initializer: Signer<'info>,
-    
+
     #[account(mut)]
     pub mint: Account<'info, Mint>,
-    
+
     #[account(
         init,
         payer = initializer,
@@ -71,7 +70,7 @@ pub struct InitializeSecondary<'info> {
         bump
     )]
     pub trusted_contracts: Account<'info, TrustedContracts>,
-    
+
     #[account(
         init,
         payer = initializer,
@@ -81,7 +80,6 @@ pub struct InitializeSecondary<'info> {
     )]
     pub blacklist: Account<'info, BlackList>,
 
-
     #[account(
         init,
         payer = initializer,
@@ -90,7 +88,7 @@ pub struct InitializeSecondary<'info> {
         bump
     )]
     pub can_forward: Account<'info, CanForward>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
@@ -99,10 +97,10 @@ pub struct InitializeSecondary<'info> {
 pub struct InitializeThird<'info> {
     #[account(mut)]
     pub initializer: Signer<'info>,
-    
+
     #[account(mut)]
     pub mint: Account<'info, Mint>,
-    
+
     #[account(
         init,
         payer = initializer,
@@ -111,7 +109,7 @@ pub struct InitializeThird<'info> {
         bump
     )]
     pub external_whitelist: Account<'info, ExternalWhiteList>,
-    
+
     #[account(
         init,
         payer = initializer,
@@ -120,7 +118,7 @@ pub struct InitializeThird<'info> {
         bump
     )]
     pub internal_whitelist: Account<'info, InternalWhiteList>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
@@ -147,21 +145,18 @@ pub fn initialize_handler(
     token_config.bump = ctx.bumps.token_config;
 
     // Set mint authority data
-// In initialize_handler
-mint_authority.mint = mint.key();
-//mint_authority.authority = ctx.accounts.mint_authority.to_account_info();
-mint_authority.update_authority = ctx.accounts.initializer.key();
-mint_authority.freeze_authority = ctx.accounts.initializer.key();
-mint_authority.bump = ctx.bumps.mint_authority;
-    
+    // In initialize_handler
+    mint_authority.mint = mint.key();
+    mint_authority.update_authority = ctx.accounts.initializer.key();
+    mint_authority.freeze_authority = ctx.accounts.initializer.key();
+    mint_authority.bump = ctx.bumps.mint_authority;
+
     // Initialize can_mint with a single element to reduce memory usage
     can_mint.mint = mint.key();
     can_mint.authorities = vec![ctx.accounts.initializer.key()];
     can_mint.mint_amounts = vec![0];
     can_mint.bump = ctx.bumps.can_mint;
 
-
-    
     // Emit initialize event
     emit!(TokenInitializedEvent {
         mint: mint.key(),
@@ -176,11 +171,10 @@ mint_authority.bump = ctx.bumps.mint_authority;
 
 // Secondary initialization handler
 pub fn initialize_secondary_handler(ctx: Context<InitializeSecondary>) -> Result<()> {
-    
     let blacklist = &mut ctx.accounts.blacklist;
     let can_forward = &mut ctx.accounts.can_forward;
     let trusted_contracts = &mut ctx.accounts.trusted_contracts;
-   
+
     // Initialize blacklist with pre-allocated capacity but empty content
     blacklist.mint = ctx.accounts.mint.key();
     blacklist.blacklist = Vec::new();
@@ -207,14 +201,13 @@ pub fn initialize_secondary_handler(ctx: Context<InitializeSecondary>) -> Result
 
 // Third initialization handler
 pub fn initialize_third_handler(ctx: Context<InitializeThird>) -> Result<()> {
-  
     let external_whitelist = &mut ctx.accounts.external_whitelist;
     let internal_whitelist = &mut ctx.accounts.internal_whitelist;
-    
+
     external_whitelist.mint = ctx.accounts.mint.key();
     external_whitelist.whitelist = Vec::new();
     external_whitelist.bump = ctx.bumps.external_whitelist;
-    
+
     internal_whitelist.mint = ctx.accounts.mint.key();
     internal_whitelist.whitelist = Vec::new();
     internal_whitelist.bump = ctx.bumps.internal_whitelist;

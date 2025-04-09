@@ -5,12 +5,13 @@ import { assert, expect } from 'chai';
 import { PublicKey, Keypair } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, getAccount } from '@solana/spl-token';
 
-import { calculatePDAs, createTokenAccountIfNeeded, TokenPDAs } from './helpers';
+import { calculatePDAs, createTokenAccountIfNeeded, TokenPDAs } from '../utils/helpers';
 import {
   TOKEN_PARAMS,
   initializeToken,
   setupUserAccounts
-} from './token-initializer';
+} from '../utils/token_initializer';
+import { transferAuthorityToPDA } from "./tranfer_authority_to_pda";
 
 describe("cngn mint test", () => {
   // Configure the client to use the local cluster.
@@ -18,7 +19,7 @@ describe("cngn mint test", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.Cngn as Program<Cngn>;
-
+ const payer = (provider.wallet as anchor.Wallet).payer;
   // Create the mint keypair - this will be the actual token
   const mint = Keypair.generate();
 
@@ -45,7 +46,10 @@ describe("cngn mint test", () => {
 
     // Initialize the token
     await initializeToken(program, provider, mint, pdas);
-
+   let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
+    // Assertions to verify transfer
+    assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
+    assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
     // Fund the test accounts
     // Airdrop SOL to the test accounts
     const users = [unauthorizedUser, blacklistedUser, authorizedUser, blacklistedReceiver];
@@ -89,7 +93,7 @@ describe("cngn mint test", () => {
 
       // Set the mint amount for the authorized user
       await program.methods
-        .updateMintAmount(authorizedUser.publicKey, mintAmount)
+        .setMintAmount(authorizedUser.publicKey, mintAmount)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
@@ -112,7 +116,7 @@ describe("cngn mint test", () => {
 
       // Set the mint amount for the deployer
       await program.methods
-        .updateMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(provider.wallet.publicKey, mintAmount)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
@@ -246,7 +250,7 @@ describe("cngn mint test", () => {
 
       // Set a specific mint amount
       await program.methods
-        .updateMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(provider.wallet.publicKey, mintAmount)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
@@ -301,7 +305,7 @@ describe("cngn mint test", () => {
 
       // Set the mint amount for the blacklisted user
       await program.methods
-        .updateMintAmount(blacklistedUser.publicKey, mintAmount)
+        .setMintAmount(blacklistedUser.publicKey, mintAmount)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
@@ -435,7 +439,7 @@ describe("cngn mint test", () => {
         .rpc();
 
       await program.methods
-        .updateMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(provider.wallet.publicKey, mintAmount)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
@@ -511,7 +515,7 @@ describe("cngn mint test", () => {
         .rpc();
 
       await program.methods
-        .updateMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(provider.wallet.publicKey, mintAmount)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,
@@ -568,7 +572,7 @@ describe("cngn mint test", () => {
         .rpc();
 
       await program.methods
-        .updateMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(provider.wallet.publicKey, mintAmount)
         .accounts({
           authority: provider.wallet.publicKey,
           tokenConfig: pdas.tokenConfig,

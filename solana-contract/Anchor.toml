@@ -5,13 +5,13 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-cngn = "4yR7dASbCgn1KPLsbJHXdpFMSP1bZUdXMGXdC5P7B4ud"
+cngn = "4qgc4qUsecrsXdu1oof3YScMDbH1Ck6NsByLbEARHR4D"
 
 [programs.devnet]
-cngn = "4yR7dASbCgn1KPLsbJHXdpFMSP1bZUdXMGXdC5P7B4ud"
+cngn = "4qgc4qUsecrsXdu1oof3YScMDbH1Ck6NsByLbEARHR4D"
 
 [programs.mainnet]
-cngn = "4yR7dASbCgn1KPLsbJHXdpFMSP1bZUdXMGXdC5P7B4ud"
+cngn = "4qgc4qUsecrsXdu1oof3YScMDbH1Ck6NsByLbEARHR4D"
 
 [registry]
 url = "https://api.apr.dev"
@@ -21,4 +21,4 @@ cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/burn.ts"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/forwarder.ts"

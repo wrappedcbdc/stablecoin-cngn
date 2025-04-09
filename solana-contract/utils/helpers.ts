@@ -99,6 +99,8 @@ export function calculatePDAs(mint: PublicKey, programId: PublicKey): TokenPDAs 
     programId
   );
 
+
+
   return {
     tokenConfig,
     mintAuthority,
@@ -109,4 +111,10 @@ export function calculatePDAs(mint: PublicKey, programId: PublicKey): TokenPDAs 
     internalWhitelist,
     externalWhitelist
   };
+}
+
+
+export  function stringToUint8Array(input: string): Uint8Array {
+  const encoder = new TextEncoder();
+  return encoder.encode(input);
 }

@@ -1,130 +1,216 @@
-# cngn-solana
-This project template helps developers get started with Solana development.
+### cngn-solana
+Welcome to the cngn-solana project! This project is designed to help you get started with Solana development.
 
 **Getting Started**
-To set up the development environment:
+To get started with this project, follow these steps:
 
-Clone the repository:
+Clone the Repository:
 
 ```sh
 git clone <Update this to convertity>
 ```
-Navigate to the project:
+Navigate to the Project Directory:
 
 ```sh
 cd cngn
 ```
-- Install dependencies:
+Install Dependencies:
 
 ```sh
 npm install
 ```
--Usage
-Build the project:
+- Usage
+To build the project, run the following command:
 
 ```sh
 anchor build
 ```
-- Deploy the project:
 
-Modify anchor.toml:
+To deploy the project, run the following command:
 
-toml
+edit this section of the anchor.toml file
+
 [provider]
-cluster = "Localnet"  # Use "Devnet" or "Mainnet"
+cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
-Deploy:
+
+update the cluster, for devnet change "Localnet" to "Devnet", for mainnet change to "Mainnet"
 
 ```sh
 anchor deploy
 ```
-***Solana Configuration***
-Manage Solana configuration with these commands:
 
-- Switch networks
+
+**Solana Configuration**
+- Set Solana Config
+You can set your Solana configuration to different clusters using the following commands:
+
 ```sh
 solana config set --url mainnet-beta
 solana config set --url devnet
 solana config set --url localhost
 solana config set --url testnet
 ```
-- Create wallet
+- Create a Wallet
+To create a new wallet:
+
 ```sh
 solana-keygen new
 ```
+- To view your wallet's address:
 
-- View address
 ```sh
 solana address
 ```
+- Request an Airdrop
+Request an airdrop of SOL to your wallet to pay for transactions and program deployments:
 
-- Request devnet SOL
+Set your cluster to the devnet:
+```sh
+solana config set --url devnet
+```
+Request an airdrop of devnet SOL:
+
 ```sh
 solana airdrop 2
 ```
+Check your wallet's SOL balance:
 
-- Check balance
 ```sh
 solana balance
 ```
+- Run a Local Validator
+The Solana CLI includes a built-in test validator for local development.
 
-- Start local validator
+Start a local validator:
+
 ```sh
 solana-test-validator
 ```
-**Testing**
-Run tests using:
+Update your CLI to use localhost before running any commands:
 
 ```sh
-anchor test
+solana config set --url localhost
 ```
-***Architecture Overview***
-- The system comprises three components:
+Test Your Program
+To test your project, run the following command:
 
-CONTROL - Manages permissions (whitelists/blacklists)
+```sh
+ anchor test
+ ```
 
-TOKEN - Handles core token operations
+#### Architecture Overview
+The architecture consists of three main components:
 
-FORWARDER - Executes verified transactions
+**CONTROL**: Manages permissions and constraints (whitelist, blacklist, etc.).
+TOKEN: Handles core token operations (mint, burn, transfer, etc.).
+FORWARDER: Provides a signature verification and execution layer.
+On the admin side:
 
-- Implementation Details
+**MULTI-SIG WALLET / Owner**: Requires multiple approvals (3/3 threshold) for administrative actions.
+Implementation with PDAs
+In this system, you would likely need multiple PDAs to implement this architecture:
 
-PDAs store state:
+- Control PDAs:
 
-Control PDAs for permissions
+Whitelist PDA: Stores addresses allowed to interact with the token.
+Blacklist PDA: Stores addresses banned from using the token.
+Permission PDAs: Store settings for CanMint, MintAmount, and CanForward flags.
 
-Authority PDAs for token operations
+- Token Authority PDAs:
 
-Multi-sig PDAs for admin approvals
+Mint Authority PDA: Controls token minting.
+Freeze Authority PDA: Can freeze token accounts.
+Program Authority PDA: For general program operations.
+Admin PDAs:
 
-- Transaction workflow:
+Multi-sig State PDA: Tracks signatures toward the 3/3 threshold.
+Admin Config PDA: Stores admin settings and permissions.
 
-Forwarder validates requests
+**Flow Explanation**
+Forwarder -> Token:
 
-Token checks Control permissions
+A user submits a transaction to the Forwarder program.
+The Forwarder verifies the signature and executes the requested token operation.
+This provides a layer of abstraction/indirection for token operations.
 
-Executes approved actions
+Token -> Control:
+Before executing token operations, the Token program checks permissions with Control.
+It verifies the user is whitelisted, not blacklisted, and has appropriate permissions.
 
-- Admin Controls
-Requires 3/3 multi-sig approval for:
+Control -> Token:
+The Control program provides approval/rejection to the Token program.
+This might include limits on mint amounts or transfer restrictions.
+Admin Flow:
 
-Token parameter changes
+Administrative actions require 3/3 multi-sig approval.
+Approved admin actions can modify both Token and Control settings.
 
-Permission list updates
+Implementation Approach
 
-Program authority modifications
+Token, Control, and Forwarder.
 
-- Wallet Setup
-Export wallet path:
+All control state are stored in PDAs referenced by the token program.
+For multi-sig, implement a proposal and signing system using PDAs.
+For example, when someone wants to mint tokens:
 
+They call the Forwarder with their request.
+The Forwarder verifies their signature and calls the Token program.
+The Token program calls Control to check permissions.
+If approved, the Token program uses its PDA authority to mint tokens.
+Benefits
+Separation of concerns (token logic vs. access control).
+Flexibility (can update control rules without changing token logic).
+Security (multi-sig for admin operations).
+Compliance (whitelist/blacklist support).
+Additional Commands
+
+**Export Wallet**
 ```sh
 export ANCHOR_WALLET=~/.config/solana/id.json
 ```
+//++++++++++++++++++ TO BE REMOVED, for testing purpose only ++++++++++++++++//
+- Example Keypair
+CNGN Mint Address:
+
+```sh
+pubkey: 124xTZYAEKUW9QUupMHBFyhdVFezRa4tuZwfTgfRUQi4
+Seed phrase: method chuckle train brush inside asthma time wash swamp until brick aunt
+```
+- New Program Keypair:
+
+
+```sh
+pubkey: 4ZtiDXcKDhSMuViKLATJ3f3q67NetsxtvhXGEKRHeFuN
+Seed phrase: ostrich uniform deer inspire more night forward cliff ball make medal chuckle
+```
+
+-- CNGN Mint address
+Wrote new keypair to cngn_mint_address.json
+=========================================================================
+pubkey: 124xTZYAEKUW9QUupMHBFyhdVFezRa4tuZwfTgfRUQi4
+=========================================================================
+Save this seed phrase and your BIP39 passphrase to recover your new keypair:
+method chuckle train brush inside asthma time wash swamp until brick aunt
+=========================================================================
+
+
+Wrote new keypair to new-program-keypair.json
+=============================================================================
+pubkey: 4ZtiDXcKDhSMuViKLATJ3f3q67NetsxtvhXGEKRHeFuN
+=============================================================================
+Save this seed phrase and your BIP39 passphrase to recover your new keypair:
+ostrich uniform deer inspire more night forward cliff ball make medal chuckle
+
+//++++++++++++++++++ TO BE REMOVED ++++++++++++++++//
+
+
+
 ### Contributing
-Contributions are welcome. Check project issues for current needs.
+We welcome contributions! Please read our contributing guidelines for more information.
 
 ### License
-MIT License - see LICENSE file.
+This project is licensed under the MIT License. See the LICENSE file for details.
 
 ### Contact
-Open GitHub issues for support or questions.
+If you have any questions, feel free to open an issue or contact the project maintainers.
