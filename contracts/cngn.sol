@@ -41,8 +41,10 @@ contract Cngn is
         __Ownable_init();
         __Pausable_init();
         __ReentrancyGuard_init();
-       // __ERC20_init("cNGN", "cNGN");
-        
+     
+         // Directly set name and symbol instead of using __ERC20_init
+    _name = "cNGN";
+    _symbol = "cNGN";
         // Set contract-specific state variables
         trustedForwarderContract = _trustedForwarderContract;
         adminOperationsContract = _adminOperationsContract;

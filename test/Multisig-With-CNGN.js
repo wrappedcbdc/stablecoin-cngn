@@ -57,6 +57,12 @@ describe("MultiSig with Cngn", function () {
             assert.equal(await multiSig.isOwner(nonOwner.address), false);
         });
 
+        it("Should transfer CNGN ownership to MultiSig", async function () {
+            console.log(await cngn.name())
+            assert.equal(await cngn.name(), "cNGN");
+            assert.equal(await cngn.symbol(), "cNGN");
+        });
+
         it("Should set the correct required approvals", async function () {
             assert.equal(await multiSig.required(), requiredApprovals);
         });
