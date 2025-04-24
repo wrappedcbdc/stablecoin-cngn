@@ -40,13 +40,13 @@ contract Admin is
     event BlackListedInternalUser(address indexed _user);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() initializer {}
 
     // Initializer function for upgradeable contracts
     function initialize() public initializer {
         __Ownable_init();
-        __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+     
 
         // Initialization logic
         canForward[_msgSender()] = true;
