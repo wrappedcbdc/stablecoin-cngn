@@ -266,10 +266,11 @@ contract Cngn is
             IAdmin(adminOperationsContract).mintAmount(signer) == _amount,
             "Attempting to mint more than allowed"
         );
-        _mint(_mintTo, _amount);
 
         bool removed = IAdmin(adminOperationsContract).removeCanMint(signer);
         require(removed, "Failed to revoke minting authorization");
+
+        _mint(_mintTo, _amount);
 
 
         return true;

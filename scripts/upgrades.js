@@ -1,8 +1,8 @@
 const { ethers, upgrades } = require("hardhat");
 
 async function main() {
-   const proxyAddress = ""; // your proxy address
-   const cngn = await ethers.getContractFactory("Cngn");
+   const proxyAddress = "0xF22dc270F90535F5B10ceAc8da842c2b80cb8c51"; // your proxy address
+   const cngn = await ethers.getContractFactory("Admin");
    const [deployer] = await ethers.getSigners();
  
    console.log("Deployer Address:", deployer.address);
