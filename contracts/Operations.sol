@@ -81,9 +81,8 @@ contract Admin is
         return true;
     }
 
-    function removeCanMint(
-        address _User
-    ) public returns (bool) {
+    function removeCanMint(address _User) public returns (bool) {
+
         require(canMint[_User], "User is not a minter");
         canMint[_User] = false;
         emit BlackListedMinter(_User);

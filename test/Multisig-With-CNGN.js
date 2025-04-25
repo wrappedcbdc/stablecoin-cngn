@@ -205,12 +205,17 @@ describe("MultiSig with Cngn", function () {
             await multiSigCall(multiSig, admin.address, mintAmountData, owner2, 1)
             await cngn.connect(minter1).mint(mintAmount, addr1.address);
             const totalSupply = await cngn.totalSupply();
+            console.log("Total Supply: ", totalSupply.toString());
             expect(totalSupply.toString()).to.equal(mintAmount.toString());
 
         });
 
         it("should transfer tokens correctly between accounts", async function () {
-
+            const totalSupply1 = await cngn.totalSupply();
+            console.log("Total Supply1: ", totalSupply1.toString());
+            expect(totalSupply1.toString()).to.equal(mintAmount.toString());
+          let  canadmin = await admin.canMint(minter1.address);
+            console.log("canadmin: ", canadmin);
             const transferAmount = 100;
             // Listen for the 'Transfer' event
             const transferTx = await cngn.connect(addr1).transfer(addr2.address, transferAmount);
