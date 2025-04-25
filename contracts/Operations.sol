@@ -83,7 +83,7 @@ contract Admin is
 
     function removeCanMint(
         address _User
-    ) public onlyOwnerOrTrustedContract returns (bool) {
+    ) public returns (bool) {
         require(canMint[_User], "User is not a minter");
         canMint[_User] = false;
         emit BlackListedMinter(_User);

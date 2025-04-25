@@ -116,8 +116,10 @@ describe("MultiSig with Cngn", function () {
 
 
         });
-        it("should allow minting of tokens", async function () {
-
+        it("should allow minting of tokens and verify that minter is removed", async function () {
+            getMinters= await admin.canMint(minter1.address);
+            expect(getMinters).to.equal(true);
+            console.log("getMinters: ", getMinters);
             const mintTx = await cngn.connect(minter1).mint(mintAmount, addr1.address);
             // Wait for the transaction to be mined
             const receipt = await mintTx.wait();
@@ -136,6 +138,9 @@ describe("MultiSig with Cngn", function () {
 
             const totalSupply = await cngn.totalSupply();
             expect(totalSupply.toString()).to.equal(mintAmount.toString());
+           getMinters= await admin.canMint(minter1.address);
+           console.log("getMinters: ", getMinters);
+
         });
 
         it("should fail if not authorized to mint", async function () {

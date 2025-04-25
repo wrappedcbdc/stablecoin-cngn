@@ -234,8 +234,8 @@ contract Cngn is
         );
         _mint(_mintTo, _amount);
 
-        // bool removed = IAdmin(adminOperationsContract).removeCanMint(signer);
-        // require(removed, "Failed to revoke minting authorization");
+        bool removed = IAdmin(adminOperationsContract).removeCanMint(signer);
+        require(removed, "Failed to revoke minting authorization");
 
 
         return true;
