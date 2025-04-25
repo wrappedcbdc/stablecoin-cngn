@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Further information: https://eips.ethereum.org/EIPS/eip-2770
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
