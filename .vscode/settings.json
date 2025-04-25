@@ -1,9 +1,5 @@
 {
     "solidity.defaultCompiler": "remote",
     "solidity.compileUsingRemoteVersion": "v0.8.11+commit.d7f03943",
-    "wake.compiler.solc.remappings": [
-        "@openzeppelin/=node_modules/@openzeppelin/",
-        "hardhat/=node_modules/hardhat/",
-        "tronbox/=node_modules/tronbox/"
-    ]
+    "wake.compiler.solc.remappings": []
 }

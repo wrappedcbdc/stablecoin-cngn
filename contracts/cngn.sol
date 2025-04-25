@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import "./IOperations.sol";
 
 contract Cngn is
     Initializable,
     OwnableUpgradeable,
-    IERC20Upgradeable,
-    IERC20MetadataUpgradeable,
+    ERC20Upgradeable,
     PausableUpgradeable,
     ReentrancyGuardUpgradeable
 {
@@ -23,8 +21,6 @@ contract Cngn is
     mapping(address => mapping(address => uint256)) private _allowances;
 
     uint256 private _totalSupply;
-    string private _name;
-    string private _symbol;
     address public trustedForwarderContract;
     address public  adminOperationsContract;
 
@@ -39,39 +35,14 @@ contract Cngn is
     ) public initializer {
         // Initialize parent contracts
         __Ownable_init();
+        __ERC20_init("cNGN", "cNGN");
         __Pausable_init();
         __ReentrancyGuard_init();
-     
-         // Directly set name and symbol instead of using __ERC20_init
-    _name = "cNGN";
-    _symbol = "cNGN";
+       
         // Set contract-specific state variables
         trustedForwarderContract = _trustedForwarderContract;
         adminOperationsContract = _adminOperationsContract;
     }
-    modifier onlyDeployerOrForwarder() {
-        require(
-            msg.sender == owner() || isTrustedForwarder(msg.sender),
-            "Caller is not the deployer or the trusted forwarder"
-        );
-        _;
-    }
-
-    // function __ERC20_init(
-    //     string memory name_,
-    //     string memory symbol_
-    // ) internal onlyInitializing {
-    //     __ERC20_init_unchained(name_, symbol_);
-    // }
-
-    // function __ERC20_init_unchained(
-    //     string memory name_,
-    //     string memory symbol_
-    // ) internal onlyInitializing {
-    //     _name = name_;
-    //     _symbol = symbol_;
-    // }
-
 
 
     function isTrustedForwarder(
@@ -103,14 +74,6 @@ contract Cngn is
     ) public virtual onlyOwner returns (bool) {
         trustedForwarderContract = _newForwarderContract;
         return true;
-    }
-
-    function name() public view virtual override returns (string memory) {
-        return _name;
-    }
-
-    function symbol() public view virtual override returns (string memory) {
-        return _symbol;
     }
 
     function decimals() public view virtual override returns (uint8) {
@@ -186,7 +149,7 @@ contract Cngn is
     function increaseAllowance(
         address spender,
         uint256 addedValue
-    ) public virtual returns (bool) {
+    ) public virtual override returns (bool) {
         address owner = _msgSender();
         _approve(owner, spender, allowance(owner, spender) + addedValue);
         return true;
@@ -195,7 +158,7 @@ contract Cngn is
     function decreaseAllowance(
         address spender,
         uint256 subtractedValue
-    ) public virtual returns (bool) {
+    ) public virtual override returns (bool) {
         address owner = _msgSender();
         uint256 currentAllowance = allowance(owner, spender);
 
@@ -262,7 +225,7 @@ contract Cngn is
         address from,
         address to,
         uint256 amount
-    ) internal virtual {
+    ) internal virtual override {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
 
@@ -283,7 +246,7 @@ contract Cngn is
         _afterTokenTransfer(from, to, amount);
     }
 
-    function _mint(address account, uint256 amount) internal virtual {
+    function _mint(address account, uint256 amount) internal virtual override {
         require(account != address(0), "ERC20: mint to the zero address");
 
         _beforeTokenTransfer(address(0), account, amount);
@@ -297,7 +260,7 @@ contract Cngn is
         _afterTokenTransfer(address(0), account, amount);
     }
 
-    function _burn(address account, uint256 amount) internal virtual {
+    function _burn(address account, uint256 amount) internal virtual override {
         require(account != address(0), "ERC20: burn from the zero address");
 
         _beforeTokenTransfer(account, address(0), amount);
@@ -318,7 +281,7 @@ contract Cngn is
         address owner,
         address spender,
         uint256 amount
-    ) internal virtual {
+    ) internal virtual override {
         require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
 
@@ -330,7 +293,7 @@ contract Cngn is
         address owner,
         address spender,
         uint256 amount
-    ) internal virtual {
+    ) internal virtual override {
         uint256 currentAllowance = allowance(owner, spender);
         if (currentAllowance != type(uint256).max) {
             require(
@@ -358,13 +321,13 @@ contract Cngn is
         address from,
         address to,
         uint256 amount
-    ) internal virtual whenNotPaused {}
+    ) internal virtual override whenNotPaused {}
 
     function _afterTokenTransfer(
         address from,
         address to,
         uint256 amount
-    ) internal virtual {}
+    ) internal virtual override {}
 
     uint256[45] private __gap;
 }
