@@ -169,42 +169,6 @@ Additional Commands
 ```sh
 export ANCHOR_WALLET=~/.config/solana/id.json
 ```
-//++++++++++++++++++ TO BE REMOVED, for testing purpose only ++++++++++++++++//
-- Example Keypair
-CNGN Mint Address:
-
-```sh
-pubkey: 124xTZYAEKUW9QUupMHBFyhdVFezRa4tuZwfTgfRUQi4
-Seed phrase: method chuckle train brush inside asthma time wash swamp until brick aunt
-```
-- New Program Keypair:
-
-
-```sh
-pubkey: 4ZtiDXcKDhSMuViKLATJ3f3q67NetsxtvhXGEKRHeFuN
-Seed phrase: ostrich uniform deer inspire more night forward cliff ball make medal chuckle
-```
-
--- CNGN Mint address
-Wrote new keypair to cngn_mint_address.json
-=========================================================================
-pubkey: 124xTZYAEKUW9QUupMHBFyhdVFezRa4tuZwfTgfRUQi4
-=========================================================================
-Save this seed phrase and your BIP39 passphrase to recover your new keypair:
-method chuckle train brush inside asthma time wash swamp until brick aunt
-=========================================================================
-
-
-Wrote new keypair to new-program-keypair.json
-=============================================================================
-pubkey: 4ZtiDXcKDhSMuViKLATJ3f3q67NetsxtvhXGEKRHeFuN
-=============================================================================
-Save this seed phrase and your BIP39 passphrase to recover your new keypair:
-ostrich uniform deer inspire more night forward cliff ball make medal chuckle
-
-//++++++++++++++++++ TO BE REMOVED ++++++++++++++++//
-
-
 
 ### Contributing
 We welcome contributions! Please read our contributing guidelines for more information.
