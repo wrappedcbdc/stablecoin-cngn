@@ -2,6 +2,7 @@
 
 #folders
 .openzeppelin/
+.openzeppelin2/
 cache/
 node_modules/
 artifacts/
