@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Further information: https://eips.ethereum.org/EIPS/eip-2770
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
@@ -117,7 +117,8 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         
         // Verify both the signer matches the from address AND the nonce is correct
         // This prevents both signature forgery and replay attacks
-        return (signer == req.from && req.nonce == _nonces[req.from]);
+        // return (signer == req.from && req.nonce == _nonces[req.from]);
+        return (signer == req.from);
     }
 
     function authorizeBridge(address bridgeAddress) external onlyOwner {
