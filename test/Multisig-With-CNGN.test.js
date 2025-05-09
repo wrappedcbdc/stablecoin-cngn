@@ -93,13 +93,6 @@ describe("MultiSig with Cngn", function () {
             // Submit transaction through MultiSig
             await multiSigCall(multiSig, cngn.address, data, owner2, 0)
 
-            // const filter = cngn.filters.ForwarderContractUpdated();
-            // const events = await cngn.queryFilter(filter);
-            // console.log("Events: ", events);
-            // assert.equal(events[0].args[0], newForwarderAddress);
-            // assert.equal(events[0].args[1], owner1.address);
-            // assert.equal(events[0].args[2], owner2.address);
-            // assert.equal(events[0].args[3], owner3.address);
             assert.equal(await cngn.trustedForwarderContract(), newForwarderAddress);
         });
     });
@@ -126,7 +119,7 @@ describe("MultiSig with Cngn", function () {
 
             // Find the Transfer event from the receipt logs
             const mintEvent = receipt.events.find(event => event.event === "Transfer");
-            console.log("Mint Event=========: ", mintEvent);
+           
             //  Assert the event data
             expect(mintEvent.args.from).to.equal(ethers.constants.AddressZero); // 0x0000000000000000000000000000000000000000
             expect(mintEvent.args.to).to.equal(addr1.address);
@@ -380,9 +373,6 @@ describe("MultiSig with Cngn", function () {
 async function multiSigCall(multiSig, contractAddrs, data, owner2, txCount) {
     // Submit transaction through MultiSig
     await multiSig.submitTransaction(contractAddrs, 0, data);
-
-    // First approval
-    await multiSig.approveTransaction(txCount);
 
     // Second approval should execute the transaction
     await multiSig.connect(owner2).approveTransaction(txCount);
