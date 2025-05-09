@@ -94,7 +94,7 @@ contract Admin2 is
         address _User,
         uint256 _Amount
     ) public onlyOwner returns (bool) {
-        require(canMint[_User] == true, "User is not a minter");
+        require(canMint[_User], "User is not a minter");
         mintAmount[_User] = _Amount;
         emit MintAmountAdded(_User);
         return true;

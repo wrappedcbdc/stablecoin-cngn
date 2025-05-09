@@ -264,11 +264,11 @@ contract Cngn2 is
 
 
         require(
-            IAdmin(adminOperationsContract).removeCanMint(signer) == true, 
+            IAdmin(adminOperationsContract).removeCanMint(signer), 
             "Failed to revoke minting authorization"
         );
         require(
-            IAdmin(adminOperationsContract).removeMintAmount(signer) == true,
+            IAdmin(adminOperationsContract).removeMintAmount(signer),
             "Failed to remove mint amount"
         );
 
