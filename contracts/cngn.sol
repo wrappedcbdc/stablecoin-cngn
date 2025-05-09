@@ -270,7 +270,9 @@ contract Cngn is
         bool removed = IAdmin(adminOperationsContract).removeCanMint(signer);
         require(removed, "Failed to revoke minting authorization");
 
+
         _mint(_mintTo, _amount);
+
 
 
         return true;
