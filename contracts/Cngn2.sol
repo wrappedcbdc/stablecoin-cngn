@@ -262,17 +262,12 @@ contract Cngn2 is
             "Attempting to mint more than allowed"
         );
 
+        _mint(_mintTo, _amount);
 
         require(
             IAdmin(adminOperationsContract).removeCanMint(signer), 
             "Failed to revoke minting authorization"
         );
-        require(
-            IAdmin(adminOperationsContract).removeMintAmount(signer),
-            "Failed to remove mint amount"
-        );
-
-        _mint(_mintTo, _amount);
 
         return true;
     }

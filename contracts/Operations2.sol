@@ -86,6 +86,7 @@ contract Admin2 is
     ) public onlyOwnerOrTrustedContract returns (bool) {
         require(canMint[_User], "User is not a minter");
         canMint[_User] = false;
+        mintAmount[_User] = 0;
         emit BlackListedMinter(_User);
         return true;
     }
