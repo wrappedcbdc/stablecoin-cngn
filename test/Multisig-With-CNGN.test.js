@@ -374,9 +374,6 @@ async function multiSigCall(multiSig, contractAddrs, data, owner2, txCount) {
     // Submit transaction through MultiSig
     await multiSig.submitTransaction(contractAddrs, 0, data);
 
-    // First approval
-    await multiSig.approveTransaction(txCount);
-
     // Second approval should execute the transaction
     await multiSig.connect(owner2).approveTransaction(txCount);
 }

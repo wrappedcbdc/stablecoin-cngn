@@ -59,9 +59,6 @@ describe("MultiSig with Admin", function () {
       await multiSig.submitTransaction(admin.address, 0, data);
       
       // First approval
-      await multiSig.approveTransaction(0);
-      
-      // Second approval should execute the transaction
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Check if the external sender was whitelisted
@@ -72,13 +69,14 @@ describe("MultiSig with Admin", function () {
       // First whitelist the sender
       let data = admin.interface.encodeFunctionData("whitelistExternalSender", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+
+      // Second approval should execute the transaction
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Now blacklist the sender
       data = admin.interface.encodeFunctionData("blacklistExternalSender", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       await multiSig.connect(owner2).approveTransaction(1);
       
       // Check if the sender was blacklisted
@@ -91,7 +89,7 @@ describe("MultiSig with Admin", function () {
       const data = admin.interface.encodeFunctionData("whitelistInternalUser", [nonOwner.address]);
       
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+   
       await multiSig.connect(owner2).approveTransaction(0);
       
       assert.equal(await admin.isInternalUserWhitelisted(nonOwner.address), true);
@@ -101,13 +99,13 @@ describe("MultiSig with Admin", function () {
       // First whitelist the user
       let data = admin.interface.encodeFunctionData("whitelistInternalUser", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+  
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Now blacklist the user
       data = admin.interface.encodeFunctionData("blacklistInternalUser", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       await multiSig.connect(owner2).approveTransaction(1);
       
       assert.equal(await admin.isInternalUserWhitelisted(nonOwner.address), false);
@@ -119,7 +117,7 @@ describe("MultiSig with Admin", function () {
       const data = admin.interface.encodeFunctionData("addTrustedContract", [nonOwner.address]);
       
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       await multiSig.connect(owner2).approveTransaction(0);
       
       assert.equal(await admin.trustedContract(nonOwner.address), true);
@@ -129,13 +127,13 @@ describe("MultiSig with Admin", function () {
       // First add the trusted contract
       let data = admin.interface.encodeFunctionData("addTrustedContract", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+    
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Now remove it
       data = admin.interface.encodeFunctionData("removeTrustedContract", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       await multiSig.connect(owner2).approveTransaction(1);
       
       assert.equal(await admin.trustedContract(nonOwner.address), false);
@@ -147,7 +145,7 @@ describe("MultiSig with Admin", function () {
       const data = admin.interface.encodeFunctionData("addBlackList", [nonOwner.address]);
       
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+      
       await multiSig.connect(owner2).approveTransaction(0);
       
       assert.equal(await admin.isBlackListed(nonOwner.address), true);
@@ -157,13 +155,13 @@ describe("MultiSig with Admin", function () {
       // First blacklist the user
       let data = admin.interface.encodeFunctionData("addBlackList", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+      
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Now remove from blacklist
       data = admin.interface.encodeFunctionData("removeBlackList", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       await multiSig.connect(owner2).approveTransaction(1);
       
       assert.equal(await admin.isBlackListed(nonOwner.address), false);
@@ -175,7 +173,7 @@ describe("MultiSig with Admin", function () {
       const data = admin.interface.encodeFunctionData("addCanMint", [nonOwner.address]);
       
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+      
       await multiSig.connect(owner2).approveTransaction(0);
       
       assert.equal(await admin.canMint(nonOwner.address), true);
@@ -185,13 +183,13 @@ describe("MultiSig with Admin", function () {
       // First add minting privileges
       let data = admin.interface.encodeFunctionData("addCanMint", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Now remove them
       data = admin.interface.encodeFunctionData("removeCanMint", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+      
       await multiSig.connect(owner2).approveTransaction(1);
       
       assert.equal(await admin.canMint(nonOwner.address), false);
@@ -201,7 +199,7 @@ describe("MultiSig with Admin", function () {
       // First add minting privileges
       let data = admin.interface.encodeFunctionData("addCanMint", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+    
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Now set the mint amount
@@ -209,7 +207,7 @@ describe("MultiSig with Admin", function () {
       data = admin.interface.encodeFunctionData("addMintAmount", [nonOwner.address, mintAmount]);
       
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+    
       await multiSig.connect(owner2).approveTransaction(1);
       
       assert.equal(
@@ -222,19 +220,19 @@ describe("MultiSig with Admin", function () {
       // First add minting privileges and set amount
       let data = admin.interface.encodeFunctionData("addCanMint", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+      
       await multiSig.connect(owner2).approveTransaction(0);
       
       const mintAmount = ethers.utils.parseEther("100");
       data = admin.interface.encodeFunctionData("addMintAmount", [nonOwner.address, mintAmount]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+  
       await multiSig.connect(owner2).approveTransaction(1);
       
       // Now remove the mint amount
       data = admin.interface.encodeFunctionData("removeMintAmount", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(2);
+      
       await multiSig.connect(owner2).approveTransaction(2);
       
       assert.equal((await admin.mintAmount(nonOwner.address)).toString(), "0");
@@ -246,7 +244,7 @@ describe("MultiSig with Admin", function () {
       const data = admin.interface.encodeFunctionData("addCanForward", [nonOwner.address]);
       
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       await multiSig.connect(owner2).approveTransaction(0);
       
       assert.equal(await admin.canForward(nonOwner.address), true);
@@ -256,13 +254,13 @@ describe("MultiSig with Admin", function () {
       // First add forwarder privileges
       let data = admin.interface.encodeFunctionData("addCanForward", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Now remove them
       data = admin.interface.encodeFunctionData("removeCanForward", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       await multiSig.connect(owner2).approveTransaction(1);
       
       assert.equal(await admin.canForward(nonOwner.address), false);
@@ -275,7 +273,7 @@ describe("MultiSig with Admin", function () {
       const data = admin.interface.encodeFunctionData("removeTrustedContract", [nonOwner.address]);
       
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       
       // Second approval will try to execute but should fail
       let error;
@@ -295,13 +293,13 @@ describe("MultiSig with Admin", function () {
       // First blacklist the user
       let data = admin.interface.encodeFunctionData("addBlackList", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Try to add minting privileges to blacklisted user (should fail)
       data = admin.interface.encodeFunctionData("addCanMint", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       
       let error;
       try {
@@ -319,13 +317,13 @@ describe("MultiSig with Admin", function () {
       // First whitelist the user
       let data = admin.interface.encodeFunctionData("whitelistInternalUser", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       await multiSig.connect(owner2).approveTransaction(0);
       
       // Try to whitelist again (should fail)
       data = admin.interface.encodeFunctionData("whitelistInternalUser", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       
       let error;
       try {
@@ -342,32 +340,32 @@ describe("MultiSig with Admin", function () {
       // 1. Add user as minter
       let data = admin.interface.encodeFunctionData("addCanMint", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       await multiSig.connect(owner2).approveTransaction(0);
       
       // 2. Set mint amount
       const mintAmount = ethers.utils.parseEther("50");
       data = admin.interface.encodeFunctionData("addMintAmount", [nonOwner.address, mintAmount]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       await multiSig.connect(owner2).approveTransaction(1);
       
       // 3. Add as forwarder
       data = admin.interface.encodeFunctionData("addCanForward", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(2);
+     
       await multiSig.connect(owner2).approveTransaction(2);
       
       // 4. Whitelist as internal user
       data = admin.interface.encodeFunctionData("whitelistInternalUser", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(3);
+      
       await multiSig.connect(owner2).approveTransaction(3);
       
       // 5. Whitelist as external sender
       data = admin.interface.encodeFunctionData("whitelistExternalSender", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(4);
+    
       await multiSig.connect(owner2).approveTransaction(4);
       
       // Verify all operations worked
@@ -383,65 +381,65 @@ describe("MultiSig with Admin", function () {
       // 1. Add user as minter and set amount
       let data = admin.interface.encodeFunctionData("addCanMint", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(0);
+     
       await multiSig.connect(owner2).approveTransaction(0);
       
       data = admin.interface.encodeFunctionData("addMintAmount", [nonOwner.address, ethers.utils.parseEther("50")]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(1);
+     
       await multiSig.connect(owner2).approveTransaction(1);
       
       // 2. Add as forwarder
       data = admin.interface.encodeFunctionData("addCanForward", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(2);
+     
       await multiSig.connect(owner2).approveTransaction(2);
       
       // 3. Whitelist as internal and external user
       data = admin.interface.encodeFunctionData("whitelistInternalUser", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(3);
+     
       await multiSig.connect(owner2).approveTransaction(3);
       
       data = admin.interface.encodeFunctionData("whitelistExternalSender", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(4);
+     
       await multiSig.connect(owner2).approveTransaction(4);
       
       // Now revoke all privileges
       // 1. Remove mint amount
       data = admin.interface.encodeFunctionData("removeMintAmount", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(5);
+      
       await multiSig.connect(owner2).approveTransaction(5);
       
       // 2. Remove minting privileges
       data = admin.interface.encodeFunctionData("removeCanMint", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(6);
+     
       await multiSig.connect(owner2).approveTransaction(6);
       
       // 3. Remove forwarder privileges
       data = admin.interface.encodeFunctionData("removeCanForward", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(7);
+     
       await multiSig.connect(owner2).approveTransaction(7);
       
       // 4. Blacklist as internal and external user
       data = admin.interface.encodeFunctionData("blacklistInternalUser", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(8);
+      
       await multiSig.connect(owner2).approveTransaction(8);
       
       data = admin.interface.encodeFunctionData("blacklistExternalSender", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(9);
+     
       await multiSig.connect(owner2).approveTransaction(9);
       
       // 5. Add to blacklist
       data = admin.interface.encodeFunctionData("addBlackList", [nonOwner.address]);
       await multiSig.submitTransaction(admin.address, 0, data);
-      await multiSig.approveTransaction(10);
+      
       await multiSig.connect(owner2).approveTransaction(10);
       
       // Verify all privileges revoked
