@@ -8,9 +8,10 @@ contract MultiSig {
     mapping(uint256 => uint256) public approvals; // Mapping to store approvals for transactions
 
     event TransactionCreated(address indexed creator, uint256 transactionId);
-    event TransactionExecuted(address indexed executor, uint256 transactionId);
+    event TransactionExecuted(address indexed executor, address indexed destination, uint256 value, bytes data, uint256 transactionId);
     event TransactionApproved(address indexed approver, uint256 transactionId);
     event TransactionRejected(address indexed rejecter, uint256 transactionId);
+    event TransactionRemoved(address indexed remover, uint256 transactionId);
 
     modifier onlyOwner() {
         require(isOwner[msg.sender], "Not an owner");
@@ -37,6 +38,7 @@ contract MultiSig {
         uint256 value;                 // ETH value to send (if any)
         bytes data;                    // Calldata for function call
         bool executed;                 // Whether the transaction has been executed
+        bool removed;                  // Whether the transaction has been removed
     }
 
     Transaction[] public transactions; // Array of transactions
@@ -62,7 +64,8 @@ contract MultiSig {
             to: to,
             value: value,
             data: data,
-            executed: false
+            executed: false,
+            removed: false
         }));
 
         emit TransactionCreated(msg.sender, transactionId);
@@ -85,13 +88,15 @@ contract MultiSig {
         require(approvals[transactionId] >= required, "Not enough approvals");
 
         Transaction storage txn = transactions[transactionId];
+        require(!txn.removed, "Transaction was removed");
         txn.executed = true;
 
         // Execute the contract call using the stored calldata
         (bool success, ) = txn.to.call{value: txn.value}(txn.data);
         require(success, "Transaction failed");
+        removeTransaction(transactionId); // Remove the transaction after execution
 
-        emit TransactionExecuted(msg.sender, transactionId);
+        emit TransactionExecuted(msg.sender, txn.to, txn.value, txn.data, transactionId);
     }
 
     // Function to reject a transaction
@@ -99,6 +104,16 @@ contract MultiSig {
         require(approvals[transactionId] < required, "Cannot reject executed or approved transactions");
         approvals[transactionId] = 0;
         emit TransactionRejected(msg.sender, transactionId);
+    }
+
+    // Function to remove a transaction
+    function removeTransaction(uint256 transactionId) public onlyOwner transactionExists(transactionId) {
+        Transaction storage txn = transactions[transactionId];
+        require(!txn.executed, "Cannot remove executed transactions");
+        require(!txn.removed, "Transaction already removed");
+
+        txn.removed = true;
+        emit TransactionRemoved(msg.sender, transactionId);
     }
 
     // Function to get the transaction count
