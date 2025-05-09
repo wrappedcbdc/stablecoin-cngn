@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/ERC20.sol)
 
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.11;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol"; // Added for reentrancy protection
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -11,10 +10,9 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import "./IOperations.sol";
 
-contract Cngn is
+contract Cngn2 is
     Initializable,
     OwnableUpgradeable,
-    IERC20Upgradeable,
     IERC20MetadataUpgradeable,
     PausableUpgradeable,
     ReentrancyGuardUpgradeable // Added for reentrancy protection
@@ -27,8 +25,8 @@ contract Cngn is
     uint256 private _totalSupply;
     string private _name;
     string private _symbol;
-    address trustedForwarderContract;
-    address adminOperationsContract;
+    address public trustedForwarderContract;
+    address public adminOperationsContract;
 
     // /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -159,8 +157,8 @@ contract Cngn is
             _burn(to, amount);
         } else {
             // Standard transfer
-            require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()));
-            require(!IAdmin(adminOperationsContract).isBlackListed(to));
+            require(!IAdmin(adminOperationsContract).isBlackListed(owner), "Sender is blacklisted");
+            require(!IAdmin(adminOperationsContract).isBlackListed(to), "Recipient is blacklisted");
             _transfer(owner, to, amount);
         }
         
@@ -248,15 +246,12 @@ contract Cngn is
     function mint(
         uint256 _amount,
         address _mintTo
-    ) public virtual onlyDeployerOrForwarder nonReentrant returns (bool) {
+    ) public virtual nonReentrant returns (bool) {
         address signer = customSender();
         require(
-            !IAdmin(adminOperationsContract).isBlackListed(signer),
-            "User is blacklisted"
-        );
-        require(
+            !IAdmin(adminOperationsContract).isBlackListed(signer) ||
             !IAdmin(adminOperationsContract).isBlackListed(_mintTo),
-            "Receiver is blacklisted"
+            "Signer or receiver is blacklisted"
         );
         require(
             IAdmin(adminOperationsContract).canMint(signer),
@@ -267,11 +262,17 @@ contract Cngn is
             "Attempting to mint more than allowed"
         );
 
-        bool removed = IAdmin(adminOperationsContract).removeCanMint(signer);
-        require(removed, "Failed to revoke minting authorization");
+
+        require(
+            IAdmin(adminOperationsContract).removeCanMint(signer), 
+            "Failed to revoke minting authorization"
+        );
+        require(
+            IAdmin(adminOperationsContract).removeMintAmount(signer),
+            "Failed to remove mint amount"
+        );
 
         _mint(_mintTo, _amount);
-
 
         return true;
     }
@@ -285,7 +286,8 @@ contract Cngn is
      */
     function burnByUser(
         uint256 _amount
-    ) public virtual onlyDeployerOrForwarder nonReentrant returns (bool) {
+    ) public virtual nonReentrant returns (bool) {
+        require(!IAdmin(adminOperationsContract).isBlackListed(_msgSender()), "User is blacklisted");
         _burn(_msgSender(), _amount);
         return true;
     }
@@ -401,8 +403,7 @@ contract Cngn is
             "Address is not blacklisted"
         );
         uint dirtyFunds = balanceOf(_blackListedUser);
-        _balances[_blackListedUser] = 0;
-        _totalSupply -= dirtyFunds;
+        _burn(_blackListedUser, dirtyFunds);
         emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
         return true;
     }

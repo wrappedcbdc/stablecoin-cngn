@@ -61,6 +61,12 @@ async function main() {
       address: cngnImplementationAddress,
       constructorArguments: [forwarder.address,admin.address], 
     });
+
+      // Add Cngn2 as a trusted contract in Admin2
+  console.log("Adding Cngn2 as a trusted contract in Admin2...");
+  const addTrustedTx = await admin.addTrustedContract(cngn2.address);
+  await addTrustedTx.wait();
+  console.log("Cngn2 added as trusted contract in Admin2");
 }
 
 main()
