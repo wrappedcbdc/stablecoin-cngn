@@ -65,14 +65,20 @@ async function main() {
   await cngn.deployed();
   console.log("Upgradeable cngn Contract deployed to:", cngn.address);
 
-  // Automatically verify the Admin proxy implementation
-  const cngnImplementationAddress = await upgrades.erc1967.getImplementationAddress(admin.address);
-  console.log("cNGN Implementation address:", cngnImplementationAddress);
-  
-  // await hre.run("verify:verify", {
-  //   address: cngnImplementationAddress,
-  //   constructorArguments: [forwarder.address, admin.address],
-  // });
+
+    // Automatically verify the Admin proxy implementation
+    const cngnImplementationAddress = await upgrades.erc1967.getImplementationAddress(admin.address);
+    console.log("cNGN Implementation address:", cngnImplementationAddress);
+  await hre.run("verify:verify", {
+      address: cngnImplementationAddress,
+      constructorArguments: [forwarder.address,admin.address], 
+    });
+
+      // Add Cngn2 as a trusted contract in Admin2
+  console.log("Adding Cngn2 as a trusted contract in Admin2...");
+  const addTrustedTx = await admin.addTrustedContract(cngn2.address);
+  await addTrustedTx.wait();
+  console.log("Cngn2 added as trusted contract in Admin2");
 }
 
 main()

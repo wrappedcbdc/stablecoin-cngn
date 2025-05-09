@@ -55,6 +55,7 @@ contract MultiSig {
     event ApprovalRevoked(address indexed owner, uint256 indexed transactionId);
 
     // Modifiers
+
     modifier onlyOwner() {
         require(isOwner[msg.sender], "Not an owner");
         _;
@@ -215,6 +216,7 @@ contract MultiSig {
 
         // Execute if we have enough approvals
         if (approvalCount[transactionId] == required) {
+
             executeTransaction(transactionId);
         }
     }
