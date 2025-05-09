@@ -84,7 +84,7 @@ contract MultiSig {
     }
 
     // Function to execute a transaction once enough approvals are received
-    function executeTransaction(uint256 transactionId) public onlyOwner transactionExists(transactionId) notExecuted(transactionId) {
+    function executeTransaction(uint256 transactionId) internal onlyOwner transactionExists(transactionId) notExecuted(transactionId) {
         require(approvals[transactionId] >= required, "Not enough approvals");
 
         Transaction storage txn = transactions[transactionId];
