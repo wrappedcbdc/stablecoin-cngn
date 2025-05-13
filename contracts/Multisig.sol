@@ -214,8 +214,8 @@ contract MultiSig {
 
         emit ApprovalReceived(msg.sender, transactionId);
 
-        // Execute if we have enough approvals
-        if (approvalCount[transactionId] == required) {
+        // Execute if we have at least the required number of approvals
+        if (approvalCount[transactionId] >= required) {
 
             executeTransaction(transactionId);
         }
@@ -262,9 +262,9 @@ contract MultiSig {
         notExecuted(transactionId)
         notExpired(transactionId)
     {
-        // Check that we have enough approvals
+        // Check that we have at least the required number of approvals
         require(
-            approvalCount[transactionId] == required,
+            approvalCount[transactionId] >= required,
             "Not enough approvals"
         );
 
