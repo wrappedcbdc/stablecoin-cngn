@@ -90,6 +90,17 @@ contract MultiSig {
         _;
     }
 
+        /**
+     * @dev Modifier that requires function to be called through executeTransaction
+     */
+    modifier onlyWallet() {
+        require(
+            msg.sender == address(this),
+            "Only callable through wallet execution"
+        );
+        _;
+    }
+
     // Struct to store transaction details
     struct Transaction {
         address to; // Target address
@@ -103,28 +114,6 @@ contract MultiSig {
 
     // Array of transactions
     Transaction[] public transactions;
-
-    /**
-     * @dev Internal helper to clear approvals from a removed owner
-     * @param removedOwner Address of the owner whose approvals should be cleared
-     */
-    function _clearApprovalsFromOwner(address removedOwner) internal {
-        for (uint256 i = 0; i < transactions.length; i++) {
-            // Only process active, non-executed, non-expired transactions
-            if (isActive[i] && 
-                !transactions[i].executed && 
-                block.timestamp <= transactions[i].expirationTime) {
-                
-                // If the removed owner had approved this transaction
-                if (approvalStatus[i][removedOwner]) {
-                    // Clear the approval
-                    approvalStatus[i][removedOwner] = false;
-                    // Decrement the approval count
-                    approvalCount[i]--;
-                }
-            }
-        }
-    }
 
     /**
      * @dev Constructor to initialize the contract
@@ -153,17 +142,6 @@ contract MultiSig {
         }
 
         required = _requiredApprovals;
-    }
-
-    /**
-     * @dev Modifier that requires function to be called through executeTransaction
-     */
-    modifier onlyWallet() {
-        require(
-            msg.sender == address(this),
-            "Only callable through wallet execution"
-        );
-        _;
     }
 
     /**
@@ -268,6 +246,28 @@ contract MultiSig {
         approvalCount[transactionId]--;
 
         emit ApprovalRevoked(msg.sender, transactionId);
+    }
+
+    /**
+     * @dev Internal helper to clear approvals from a removed owner
+     * @param removedOwner Address of the owner whose approvals should be cleared
+     */
+    function _clearApprovalsFromOwner(address removedOwner) internal {
+        for (uint256 i = 0; i < transactions.length; i++) {
+            // Only process active, non-executed, non-expired transactions
+            if (isActive[i] && 
+                !transactions[i].executed && 
+                block.timestamp <= transactions[i].expirationTime) {
+                
+                // If the removed owner had approved this transaction
+                if (approvalStatus[i][removedOwner]) {
+                    // Clear the approval
+                    approvalStatus[i][removedOwner] = false;
+                    // Decrement the approval count
+                    approvalCount[i]--;
+                }
+            }
+        }
     }
 
     /**
