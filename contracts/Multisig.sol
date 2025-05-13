@@ -233,6 +233,7 @@ contract MultiSig {
         transactionExists(transactionId)
         activeTransaction(transactionId)
         notExecuted(transactionId)
+        notExpired(transactionId)
     {
         // Check that the owner has approved this transaction
         require(

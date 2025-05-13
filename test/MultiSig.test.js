@@ -251,6 +251,25 @@ describe("Deployment", function () {
       assert.ok(error, "Expected an error but did not get one");
       assert.ok(error.message.includes("Transaction not approved by this owner"), "Expected error message not found");
     });
+
+    it("Should not allow revoking approvals for expired transactions", async function () {
+      // Increase time by 31 days (more than PROPOSAL_EXPIRATION)
+      await ethers.provider.send("evm_increaseTime", [31 * 24 * 60 * 60]);
+      await ethers.provider.send("evm_mine");
+
+      // Mark the transaction as expired
+      await multiSig.markExpiredTransaction(0);
+
+      // Try to revoke approval on an expired transaction
+      let error;
+      try {
+        await multiSig.revokeApproval(0);
+      } catch (e) {
+        error = e;
+      }
+      assert.ok(error, "Expected an error but did not get one");
+      assert.ok(error.message.includes("Transaction has expired"), "Expected error message not found");
+    });
   });
 
   describe("Transaction Cancellation", function () {
