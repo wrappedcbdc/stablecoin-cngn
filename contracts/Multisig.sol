@@ -105,6 +105,28 @@ contract MultiSig {
     Transaction[] public transactions;
 
     /**
+     * @dev Internal helper to clear approvals from a removed owner
+     * @param removedOwner Address of the owner whose approvals should be cleared
+     */
+    function _clearApprovalsFromOwner(address removedOwner) internal {
+        for (uint256 i = 0; i < transactions.length; i++) {
+            // Only process active, non-executed, non-expired transactions
+            if (isActive[i] && 
+                !transactions[i].executed && 
+                block.timestamp <= transactions[i].expirationTime) {
+                
+                // If the removed owner had approved this transaction
+                if (approvalStatus[i][removedOwner]) {
+                    // Clear the approval
+                    approvalStatus[i][removedOwner] = false;
+                    // Decrement the approval count
+                    approvalCount[i]--;
+                }
+            }
+        }
+    }
+
+    /**
      * @dev Constructor to initialize the contract
      * @param _owners Array of initial owner addresses
      * @param _requiredApprovals Number of required approvals for executing transactions
@@ -360,6 +382,9 @@ contract MultiSig {
         );
 
         isOwner[ownerToRemove] = false;
+        
+        // Clear all approvals from the removed owner
+        _clearApprovalsFromOwner(ownerToRemove);
 
         // Remove from owners array
         for (uint i = 0; i < owners.length; i++) {
@@ -404,6 +429,9 @@ contract MultiSig {
         // Update the mapping
         isOwner[oldOwner] = false;
         isOwner[newOwner] = true;
+        
+        // Clear all approvals from the old owner
+        _clearApprovalsFromOwner(oldOwner);
 
         emit OwnerRemoved(oldOwner);
         emit OwnerAdded(newOwner);

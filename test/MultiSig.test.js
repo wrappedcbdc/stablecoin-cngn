@@ -395,6 +395,33 @@ describe("Deployment", function () {
       assert.equal(owners.length, 2);
     });
 
+    it("Should clear approvals from removed owner on active transactions", async function () {
+      // Submit a regular transaction first
+      const data = testContract.interface.encodeFunctionData("setValue", [42]);
+      await multiSig.submitTransaction(testContract.address, 0, data);
+      
+      // Have owner2 approve it
+      await multiSig.connect(owner2).approveTransaction(0);
+      
+      // Verify initial approval state
+      assert.equal(await multiSig.isApprovedBy(0, owner2.address), true);
+      assert.equal((await multiSig.approvalCount(0)).toNumber(), 2);
+      
+      // Now submit transaction to remove owner2
+      const removeOwner2Data = await multiSig.buildOwnerTx("removeOwner", owner2.address);
+      await multiSig.submitTransaction(multiSig.address, 0, removeOwner2Data);
+      
+      // Have owner3 approve to execute the removal
+      await multiSig.connect(owner3).approveTransaction(1);
+      
+      // Check if owner2 was removed
+      assert.equal(await multiSig.isOwner(owner2.address), false);
+      
+      // Verify that owner2's approval was cleared from the first transaction
+      assert.equal(await multiSig.isApprovedBy(0, owner2.address), false);
+      assert.equal((await multiSig.approvalCount(0)).toNumber(), 1);
+    });
+
     it("Should change requirement through multisig approval", async function () {
       // Submit transaction to change required confirmations to 1
       await multiSig.submitTransaction(multiSig.address, 0, changeRequirementData);
@@ -423,6 +450,34 @@ describe("Deployment", function () {
       // Owner count should still be 3
       const owners = await multiSig.getOwners();
       assert.equal(owners.length, 3);
+    });
+
+    it("Should clear approvals from replaced owner on active transactions", async function () {
+      // Submit a regular transaction first
+      const data = testContract.interface.encodeFunctionData("setValue", [42]);
+      await multiSig.submitTransaction(testContract.address, 0, data);
+      
+      // Have owner3 approve it
+      await multiSig.connect(owner3).approveTransaction(0);
+      
+      // Verify initial approval state
+      assert.equal(await multiSig.isApprovedBy(0, owner3.address), true);
+      assert.equal((await multiSig.approvalCount(0)).toNumber(), 2);
+      
+      // Now submit transaction to replace owner3 with nonOwner
+      const replaceOwnerData = await multiSig.buildReplaceTx(owner3.address, nonOwner.address);
+      await multiSig.submitTransaction(multiSig.address, 0, replaceOwnerData);
+      
+      // Have owner2 approve to execute the replacement
+      await multiSig.connect(owner2).approveTransaction(1);
+      
+      // Check if owner3 was replaced
+      assert.equal(await multiSig.isOwner(owner3.address), false);
+      assert.equal(await multiSig.isOwner(nonOwner.address), true);
+      
+      // Verify that owner3's approval was cleared from the first transaction
+      assert.equal(await multiSig.isApprovedBy(0, owner3.address), false);
+      assert.equal((await multiSig.approvalCount(0)).toNumber(), 1);
     });
   });
 
