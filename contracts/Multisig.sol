@@ -299,11 +299,12 @@ contract MultiSig {
         // Mark transaction as inactive (helps with gas optimization in array cleanup)
         isActive[transactionId] = false;
 
+        emit TransactionExecuted(msg.sender, transactionId);
+
         // Execute the transaction
         (bool success, ) = txn.to.call{value: txn.value}(txn.data);
         require(success, "Transaction execution failed");
 
-         emit TransactionExecuted(msg.sender, transactionId);
     }
 
     /**
