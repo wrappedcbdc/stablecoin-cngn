@@ -17,7 +17,18 @@ contract Cngn2 is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable // Added for reentrancy protection
 {
-    event DestroyedBlackFunds(address indexed user, uint256 amount);
+    event DestroyedBlackFunds(
+        address indexed user, 
+        uint256 amount
+    );
+    event UpdateAdminOperations(
+        address indexed oldAddress,
+        address indexed newAddress
+    );
+    event UpdateForwarderContract(
+        address indexed oldAddress,
+        address indexed newAddress
+    );
 
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
@@ -92,6 +103,14 @@ contract Cngn2 is
     function updateAdminOperationsAddress(
         address _newAdmin
     ) public virtual onlyOwner returns (bool) {
+        require(
+            _newAdmin != address(0),
+            "New admin operations contract address cannot be zero"
+        );
+        emit UpdateAdminOperations(
+            adminOperationsContract,
+            _newAdmin
+        );
         adminOperationsContract = _newAdmin;
         return true;
     }
@@ -99,6 +118,14 @@ contract Cngn2 is
     function updateForwarderContract(
         address _newForwarderContract
     ) public virtual onlyOwner returns (bool) {
+        require(
+            _newForwarderContract != address(0),
+            "New forwarder contract address cannot be zero"
+        );
+        emit UpdateForwarderContract(
+            trustedForwarderContract,
+            _newForwarderContract
+        );
         trustedForwarderContract = _newForwarderContract;
         return true;
     }
