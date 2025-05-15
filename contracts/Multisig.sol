@@ -453,11 +453,6 @@ contract MultiSig {
             }
         }
 
-        // Adjust required confirmations if necessary
-        if (required > owners.length) {
-            changeRequirement(owners.length);
-        }
-
         emit OwnerRemoved(ownerToRemove);
     }
 
