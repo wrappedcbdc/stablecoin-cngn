@@ -53,6 +53,7 @@ contract MultiSig {
         uint256 indexed transactionId
     );
     event ApprovalRevoked(address indexed owner, uint256 indexed transactionId);
+    event TransactionRemoved(address indexed remover, uint256 indexed transactionId);
 
     // Modifiers
 
@@ -188,6 +189,7 @@ contract MultiSig {
         return transactionId;
     }
 
+    
     /**
      * @dev Allows an owner to approve a transaction
      * @param transactionId ID of the transaction to approve
@@ -297,11 +299,12 @@ contract MultiSig {
         // Mark transaction as inactive (helps with gas optimization in array cleanup)
         isActive[transactionId] = false;
 
+        emit TransactionExecuted(msg.sender, transactionId);
+
         // Execute the transaction
         (bool success, ) = txn.to.call{value: txn.value}(txn.data);
         require(success, "Transaction execution failed");
 
-         emit TransactionExecuted(msg.sender, transactionId);
     }
 
     /**
@@ -357,6 +360,59 @@ contract MultiSig {
     }
 
     /**
+     * @dev Removes a transaction from the transactions array
+     * @param transactionId ID of the transaction to remove
+     */
+    function removeTransaction(
+        uint256 transactionId
+    )
+        public
+        onlyOwner
+        transactionExists(transactionId)
+        activeTransaction(transactionId)
+        notExecuted(transactionId)
+    {
+        Transaction storage txn = transactions[transactionId];
+
+        // Only the creator or a consensus of owners can remove a transaction
+        require(
+            txn.creator == msg.sender || approvalCount[transactionId] >= required,
+            "Only creator or consensus can remove"
+        );
+
+        uint256 lastIndex = transactions.length - 1;
+
+        // If not removing the last element, swap with the last one
+        if (transactionId != lastIndex) {
+            // Copy the last transaction to the current position
+            transactions[transactionId] = transactions[lastIndex];
+            
+            // Update mappings for the moved transaction
+            isActive[transactionId] = isActive[lastIndex];
+            approvalCount[transactionId] = approvalCount[lastIndex];
+            
+            // Transfer all approval statuses
+            for (uint i = 0; i < owners.length; i++) {
+                approvalStatus[transactionId][owners[i]] = approvalStatus[lastIndex][owners[i]];
+            }
+        }
+
+        // Remove the last transaction
+        transactions.pop();
+        
+        // Clean up mappings for the removed index
+        delete isActive[lastIndex];
+        delete approvalCount[lastIndex];
+        
+        // Clean up approval statuses for all owners
+        for (uint i = 0; i < owners.length; i++) {
+            delete approvalStatus[lastIndex][owners[i]];
+        }
+
+        emit TransactionRemoved(msg.sender, transactionId);
+    }
+
+    /**
      * @dev Add a new owner to the multisig (requires multisig consensus)
      * @param newOwner Address of the new owner
      */
@@ -395,11 +451,6 @@ contract MultiSig {
                 owners.pop();
                 break;
             }
-        }
-
-        // Adjust required confirmations if necessary
-        if (required > owners.length) {
-            changeRequirement(owners.length);
         }
 
         emit OwnerRemoved(ownerToRemove);
