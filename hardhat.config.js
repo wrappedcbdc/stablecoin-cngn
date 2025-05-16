@@ -1,4 +1,5 @@
 require("dotenv").config();
+require("@nomiclabs/hardhat-waffle");
 require('@nomicfoundation/hardhat-verify');
 require('@nomiclabs/hardhat-ethers');
 require('@openzeppelin/hardhat-upgrades');
@@ -118,5 +119,6 @@ etherscan: {
   },
   mocha: {
     timeout: 20000,
+    require: ["test/setup-chai.js"]
   },
 };
