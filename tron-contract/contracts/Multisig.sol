@@ -24,6 +24,18 @@ contract MultiSig {
     // Mapping to store approval counts for transactions
     mapping(uint256 => uint256) public approvalCount;
 
+    // Mappings to track cancel votes
+    mapping(uint256 => mapping(address => bool)) public cancelVotes;
+    mapping(uint256 => uint256)        public cancelVoteCount;
+    
+    // Mappings to track remove votes
+    mapping(uint256 => mapping(address => bool)) public removeVotes;
+    mapping(uint256 => uint256)        public removeVoteCount;
+    
+    // Mappings to track transaction states
+    mapping(uint256 => bool)           public isCanceled;
+    mapping(uint256 => bool)           public isRemoved;
+
     // Mapping for transactions pendency status
     mapping(uint256 => bool) public isActive;
 
@@ -54,6 +66,8 @@ contract MultiSig {
     );
     event ApprovalRevoked(address indexed owner, uint256 indexed transactionId);
     event TransactionRemoved(address indexed remover, uint256 indexed transactionId);
+    event CancelVoteCast(address indexed voter, uint256 indexed transactionId, uint256 votes);
+    event RemoveVoteCast(address indexed voter, uint256 indexed transactionId, uint256 votes);
 
     // Modifiers
 
@@ -64,7 +78,7 @@ contract MultiSig {
 
     modifier transactionExists(uint256 transactionId) {
         require(
-            transactionId < transactions.length,
+            transactionId < _transactions.length,
             "Transaction does not exist"
         );
         _;
@@ -77,7 +91,7 @@ contract MultiSig {
 
     modifier notExecuted(uint256 transactionId) {
         require(
-            !transactions[transactionId].executed,
+            !_transactions[transactionId].executed,
             "Transaction already executed"
         );
         _;
@@ -85,7 +99,7 @@ contract MultiSig {
 
     modifier notExpired(uint256 transactionId) {
         require(
-            block.timestamp <= transactions[transactionId].expirationTime,
+            block.timestamp <= _transactions[transactionId].expirationTime,
             "Transaction has expired"
         );
         _;
@@ -114,7 +128,50 @@ contract MultiSig {
     }
 
     // Array of transactions
-    Transaction[] public transactions;
+    Transaction[] private _transactions;
+    
+    /**
+     * @dev Custom getter for transactions that properly handles non-existent transactions
+     * @param transactionId ID of the transaction to retrieve
+     * @return to Target address for the transaction
+     * @return value ETH value of the transaction
+     * @return data Function call data of the transaction
+     * @return executed Whether the transaction has been executed
+     * @return creationTime Timestamp when the transaction was created
+     * @return expirationTime Timestamp when the transaction expires
+     * @return creator Address of the owner who created the transaction
+     */
+    function transactions(uint256 transactionId) public view returns (
+        address to,
+        uint256 value,
+        bytes memory data,
+        bool executed,
+        uint256 creationTime,
+        uint256 expirationTime,
+        address creator
+    ) {
+        require(transactionId < _transactions.length, "Transaction does not exist");
+        require(!isRemoved[transactionId], "Transaction does not exist");
+        
+        Transaction storage txn = _transactions[transactionId];
+        return (
+            txn.to,
+            txn.value,
+            txn.data,
+            txn.executed,
+            txn.creationTime,
+            txn.expirationTime,
+            txn.creator
+        );
+    }
+    
+    /**
+     * @dev Returns the total number of transactions
+     * @return Number of transactions
+     */
+    function getTransactionCount() public view returns (uint256) {
+        return _transactions.length;
+    }
 
     /**
      * @dev Constructor to initialize the contract
@@ -159,11 +216,11 @@ contract MultiSig {
     ) public onlyOwner returns (uint256 transactionId) {
         require(to != address(0), "Invalid target address");
 
-        transactionId = transactions.length;
+        transactionId = _transactions.length;
 
         uint256 expirationTime = block.timestamp + PROPOSAL_EXPIRATION;
 
-        transactions.push(
+        _transactions.push(
             Transaction({
                 to: to,
                 value: value,
@@ -255,11 +312,11 @@ contract MultiSig {
      * @param removedOwner Address of the owner whose approvals should be cleared
      */
     function _clearApprovalsFromOwner(address removedOwner) internal {
-        for (uint256 i = 0; i < transactions.length; i++) {
+        for (uint256 i = 0; i < _transactions.length; i++) {
             // Only process active, non-executed, non-expired transactions
             if (isActive[i] && 
-                !transactions[i].executed && 
-                block.timestamp <= transactions[i].expirationTime) {
+                !_transactions[i].executed && 
+                block.timestamp <= _transactions[i].expirationTime) {
                 
                 // If the removed owner had approved this transaction
                 if (approvalStatus[i][removedOwner]) {
@@ -287,13 +344,17 @@ contract MultiSig {
         notExecuted(transactionId)
         notExpired(transactionId)
     {
+        // Check that the transaction is not canceled or removed
+        require(!isCanceled[transactionId], "Transaction canceled");
+        require(!isRemoved[transactionId], "Transaction removed");
+        
         // Check that we have at least the required number of approvals
         require(
             approvalCount[transactionId] >= required,
             "Not enough approvals"
         );
 
-        Transaction storage txn = transactions[transactionId];
+        Transaction storage txn = _transactions[transactionId];
         txn.executed = true;
 
         // Mark transaction as inactive (helps with gas optimization in array cleanup)
@@ -308,30 +369,34 @@ contract MultiSig {
     }
 
     /**
-     * @dev Allows transaction creator to cancel a pending transaction
-     * @param transactionId ID of the transaction to cancel
+     * @dev Allows owners to propose cancellation of a transaction through voting
+     * @param transactionId ID of the transaction to propose for cancellation
      */
-    function cancelTransaction(
+    function proposeCancelTransaction(
         uint256 transactionId
     )
         public
+        onlyOwner
         transactionExists(transactionId)
         activeTransaction(transactionId)
         notExecuted(transactionId)
     {
-        Transaction storage txn = transactions[transactionId];
-
-        // Only the creator or a consensus of owners can cancel a transaction
-        require(
-            txn.creator == msg.sender ||
-                approvalCount[transactionId] >= required,
-            "Only creator or consensus can cancel"
-        );
-
-        // Mark as inactive
-        isActive[transactionId] = false;
-
-        emit TransactionCancelled(msg.sender, transactionId);
+        // Prevent duplicate votes
+        require(!cancelVotes[transactionId][msg.sender], "Already voted to cancel");
+        
+        // Register the vote
+        cancelVotes[transactionId][msg.sender] = true;
+        cancelVoteCount[transactionId] += 1;
+        
+        // Emit vote cast event
+        emit CancelVoteCast(msg.sender, transactionId, cancelVoteCount[transactionId]);
+        
+        // If we have enough votes, cancel the transaction
+        if (cancelVoteCount[transactionId] >= required) {
+            isCanceled[transactionId] = true;
+            isActive[transactionId] = false;
+            emit TransactionCancelled(msg.sender, transactionId);
+        }
     }
 
     /**
@@ -346,7 +411,7 @@ contract MultiSig {
         activeTransaction(transactionId)
         notExecuted(transactionId)
     {
-        Transaction storage txn = transactions[transactionId];
+        Transaction storage txn = _transactions[transactionId];
 
         require(
             block.timestamp > txn.expirationTime,
@@ -360,56 +425,74 @@ contract MultiSig {
     }
 
     /**
-     * @dev Removes a transaction from the transactions array
-     * @param transactionId ID of the transaction to remove
+     * @dev Allows owners to propose removal of a canceled transaction through voting
+     * @param transactionId ID of the transaction to propose for removal
      */
-    function removeTransaction(
+    function proposeRemoveTransaction(
         uint256 transactionId
     )
         public
         onlyOwner
         transactionExists(transactionId)
-        activeTransaction(transactionId)
-        notExecuted(transactionId)
     {
-        Transaction storage txn = transactions[transactionId];
-
-        // Only the creator or a consensus of owners can remove a transaction
-        require(
-            txn.creator == msg.sender || approvalCount[transactionId] >= required,
-            "Only creator or consensus can remove"
-        );
-
-        uint256 lastIndex = transactions.length - 1;
-
-        // If not removing the last element, swap with the last one
-        if (transactionId != lastIndex) {
-            // Copy the last transaction to the current position
-            transactions[transactionId] = transactions[lastIndex];
+        // Transaction must be canceled first
+        require(isCanceled[transactionId], "Must be canceled first");
+        
+        // Prevent duplicate votes
+        require(!removeVotes[transactionId][msg.sender], "Already voted to remove");
+        
+        // Register the vote
+        removeVotes[transactionId][msg.sender] = true;
+        removeVoteCount[transactionId] += 1;
+        
+        // Emit vote cast event
+        emit RemoveVoteCast(msg.sender, transactionId, removeVoteCount[transactionId]);
+        
+        // If we have enough votes, remove the transaction
+        if (removeVoteCount[transactionId] >= required) {
+            isRemoved[transactionId] = true;
             
-            // Update mappings for the moved transaction
-            isActive[transactionId] = isActive[lastIndex];
-            approvalCount[transactionId] = approvalCount[lastIndex];
-            
-            // Transfer all approval statuses
-            for (uint i = 0; i < owners.length; i++) {
-                approvalStatus[transactionId][owners[i]] = approvalStatus[lastIndex][owners[i]];
+            uint256 lastIndex = _transactions.length - 1;
+
+            // If not removing the last element, swap with the last one
+            if (transactionId != lastIndex) {
+                // Copy the last transaction to the current position
+                _transactions[transactionId] = _transactions[lastIndex];
+                
+                // Update mappings for the moved transaction
+                isActive[transactionId] = isActive[lastIndex];
+                approvalCount[transactionId] = approvalCount[lastIndex];
+                cancelVoteCount[transactionId] = cancelVoteCount[lastIndex];
+                removeVoteCount[transactionId] = removeVoteCount[lastIndex];
+                isCanceled[transactionId] = isCanceled[lastIndex];
+                
+                // Transfer all approval, cancel, and remove statuses
+                for (uint i = 0; i < owners.length; i++) {
+                    approvalStatus[transactionId][owners[i]] = approvalStatus[lastIndex][owners[i]];
+                    cancelVotes[transactionId][owners[i]] = cancelVotes[lastIndex][owners[i]];
+                    removeVotes[transactionId][owners[i]] = removeVotes[lastIndex][owners[i]];
+                }
             }
-        }
 
-        // Remove the last transaction
-        transactions.pop();
-        
-        // Clean up mappings for the removed index
-        delete isActive[lastIndex];
-        delete approvalCount[lastIndex];
-        
-        // Clean up approval statuses for all owners
-        for (uint i = 0; i < owners.length; i++) {
-            delete approvalStatus[lastIndex][owners[i]];
-        }
+            // Remove the last transaction
+            _transactions.pop();
+            
+            // Clean up mappings for the removed index
+            delete isActive[lastIndex];
+            delete approvalCount[lastIndex];
+            delete cancelVoteCount[lastIndex];
+            delete removeVoteCount[lastIndex];
+            delete isCanceled[lastIndex];
+            
+            // Clean up approval, cancel, and remove statuses for all owners
+            for (uint i = 0; i < owners.length; i++) {
+                delete approvalStatus[lastIndex][owners[i]];
+                delete cancelVotes[lastIndex][owners[i]];
+                delete removeVotes[lastIndex][owners[i]];
+            }
 
-        emit TransactionRemoved(msg.sender, transactionId);
+            emit TransactionRemoved(msg.sender, transactionId);
+        }
     }
 
     /**
@@ -516,10 +599,10 @@ contract MultiSig {
         bool pending,
         bool executed
     ) public view returns (uint256 count) {
-        for (uint i = 0; i < transactions.length; i++) {
+        for (uint i = 0; i < _transactions.length; i++) {
             if (
-                (pending && isActive[i] && !transactions[i].executed) ||
-                (executed && transactions[i].executed)
+                (pending && isActive[i] && !_transactions[i].executed) ||
+                (executed && _transactions[i].executed)
             ) {
                 count++;
             }
