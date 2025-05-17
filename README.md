@@ -4,6 +4,59 @@ cNGN stands apart as the first regulated stablecoin in Africa. As a fully compli
 
 cNGN, fosters the expansion of fintechs, liquidity providers, and virtual asset entities in Nigeria's digital economy. This initiative is bolstered by regulatory approval under the SEC's Regulatory Incubation (RI) Program, significantly contributing to the growth of Nigeria's digital asset ecosystem.
 
+## CloudHSM Integration
+
+The cNGN platform supports AWS CloudHSM for secure key management and transaction signing. This integration provides hardware-level security for private keys used in contract deployments and administrative operations.
+
+### Prerequisites
+
+- AWS CloudHSM cluster set up and configured
+- PKCS#11 library installed (`libpkcs11.so`)
+- CloudHSM crypto user credentials
+
+### Environment Configuration
+
+Create a `.env` file with the following CloudHSM-specific variables:
+
+```
+AWS_CLOUDHSM_ENDPOINT=<your-hsm-endpoint>
+AWS_CLOUDHSM_USER_PIN=<user-pin>
+AWS_CLOUDHSM_SLOT_LABEL=<slot-label>
+CLOUDHSM_ENABLED=true
+```
+
+### Installing Dependencies
+
+The CloudHSM integration requires additional dependencies:
+
+```bash
+npm install pkcs11js aws-sdk
+```
+
+### Deploying with CloudHSM
+
+To deploy contracts using keys stored in CloudHSM:
+
+```bash
+# Deploy Gnosis Safe with CloudHSM signing
+CLOUDHSM_ENABLED=true \
+RPC_URL=<your_rpc_url> \
+npx hardhat run scripts/deployGnosisSafe.js --network <network> --hsmKeyLabel=<your_key_label>
+```
+
+You can also set `AWS_CLOUDHSM_KEY_LABEL` in your environment variables instead of passing the `--hsmKeyLabel` parameter.
+
+### Testing with CloudHSM
+
+For testing with CloudHSM integration:
+
+```bash
+# Run tests with CloudHSM signer
+SIGNER=cloudhsm npm test
+```
+
+This will use the CloudHSM signer implementation for all tests that support custom signers.
+
 ## Architecture Overview
 
 The cNGN stablecoin implementation follows a modular architecture with the following key components:
@@ -25,6 +78,11 @@ The cNGN stablecoin implementation follows a modular architecture with the follo
    - Verifies signatures from users
    - Forwards transactions to the token contract
    - Maintains nonce management to prevent replay attacks
+
+4. **Gnosis Safe Integration**: Multi-signature wallet for secure governance:
+   - Threshold-based transaction approval
+   - AWS CloudHSM integration for secure key storage
+   - Supports role-based operations through the Safe
 
 ### Meta-Transaction Flow
 
