@@ -3,6 +3,8 @@ require("@nomiclabs/hardhat-waffle");
 require('@nomicfoundation/hardhat-verify');
 require('@nomiclabs/hardhat-ethers');
 require('@openzeppelin/hardhat-upgrades');
+require("@nomiclabs/hardhat-ethers");
+require("hardhat-dependency-compiler");
 
 /**
  * Hardhat Configuration
@@ -46,6 +48,17 @@ module.exports = {
         },
       },
     ],
+  },
+  dependencyCompiler: {
+    paths: [
+      "@safe-global/safe-contracts/contracts/Safe.sol",
+      "@safe-global/safe-contracts/contracts/proxies/SafeProxyFactory.sol",
+      "@safe-global/safe-contracts/contracts/handler/CompatibilityFallbackHandler.sol",
+      "@safe-global/safe-contracts/contracts/libraries/MultiSend.sol",
+      "@safe-global/safe-contracts/contracts/libraries/MultiSendCallOnly.sol",
+      "@safe-global/safe-contracts/contracts/libraries/SignMessageLib.sol",
+      "@safe-global/safe-contracts/contracts/libraries/CreateCall.sol"
+    ]
   },
   sourcify: {
     enabled: true

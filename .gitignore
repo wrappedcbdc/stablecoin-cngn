@@ -8,3 +8,8 @@ node_modules/
 artifacts/
 package-lock.json
 scripts/
+
+
+# Include specific files
+!deploy-gnosis.js
+!deploy-safe-contracts.js
