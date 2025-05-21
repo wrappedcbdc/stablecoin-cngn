@@ -7,7 +7,7 @@ use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct MintTokens<'info> {
-    #[account(mut)]
+   
     pub authority: Signer<'info>,
 
     #[account(
@@ -43,16 +43,16 @@ pub struct MintTokens<'info> {
 
     #[account(
         mut,
-        seeds = [b"can-mint", mint.key().as_ref()],
+        seeds = [b"can-mint", token_config.mint.as_ref()],
         bump,
     )]
     pub can_mint: Account<'info, CanMint>,
 
     #[account(
-        seeds = [b"trusted-contracts", mint.key().as_ref()],
+        seeds = [b"can-forward", token_config.mint.as_ref()],
         bump,
     )]
-    pub trusted_contracts: Account<'info, TrustedContracts>,
+   pub can_forward: Account<'info, CanForward>,
 
     pub token_program: Program<'info, Token>,
 }
@@ -60,6 +60,7 @@ pub struct MintTokens<'info> {
 pub fn handler(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
     let signer = ctx.accounts.authority.key();
     let mint_to = ctx.accounts.token_account.owner;
+
 
     // Check if signer is blacklisted
     if ctx.accounts.blacklist.is_blacklisted(&signer) {
@@ -71,15 +72,21 @@ pub fn handler(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         return Err(ErrorCode::ReceiverBlacklisted.into());
     }
 
-    // Check if signer is authorized to mint
-    if !ctx.accounts.can_mint.can_mint(&signer) {
+        // Check if signer is authorized to mint (either in can_mint list OR a can forward)
+    let is_authorized_minter = ctx.accounts.can_mint.can_mint(&signer);
+    let is_trusted_forwarder = ctx.accounts.can_forward.is_trusted_forwarder(&signer);
+    
+    if !is_authorized_minter && !is_trusted_forwarder {
         return Err(ErrorCode::MinterNotAuthorized.into());
     }
 
-    // Check if mint amount matches the allowed amount
-    let allowed_amount = ctx.accounts.can_mint.get_mint_amount(&signer)?;
-    if amount != allowed_amount {
-        return Err(ErrorCode::InvalidMintAmount.into());
+     // If it's an authorized minter, check the mint amount
+    if is_authorized_minter {
+        // Check if mint amount matches the allowed amount
+        let allowed_amount = ctx.accounts.can_mint.get_mint_amount(&signer)?;
+        if amount != allowed_amount {
+            return Err(ErrorCode::InvalidMintAmount.into());
+        }
     }
 
     // Prepare for token minting
@@ -114,18 +121,18 @@ pub fn handler(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         ctx.accounts.can_mint.remove_authority(&signer)?;
 
         // Emit can mint removed event
-        emit!(BlackListedMinter {
+        emit!(BlackListedMinterEvent {
             mint: ctx.accounts.token_config.mint,
             authority: signer,
         });
     }
-    
+
     token::mint_to(cpi_ctx, amount)?;
 
     // Emit minting event
     emit!(TokensMintedEvent {
         mint: ctx.accounts.mint.key(),
-        to: ctx.accounts.token_account.key(),
+        to: ctx.accounts.token_account.owner,
         amount,
     });
 

@@ -1,21 +1,21 @@
 //src/instructions/forwarder.rs
+
 use crate::errors::ErrorCode;
 use crate::events::*;
 use crate::state::*;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::ed25519_program;
 use anchor_lang::solana_program::sysvar::instructions::{
     load_current_index_checked, load_instruction_at_checked,
 };
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
-
+use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer}; // Import the transfer module
 #[derive(Accounts)]
 pub struct Execute<'info> {
-    #[account(mut)]
     pub forwarder: Signer<'info>,
 
-    /// CHECK:
+    /// CHECK: Sender verification is done via ed25519 signature in the handler function
     #[account(mut)]
-    pub sender: AccountInfo<'info>,
+    pub sender: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub from: Account<'info, TokenAccount>,
@@ -36,6 +36,17 @@ pub struct Execute<'info> {
     )]
     pub can_forward: Account<'info, CanForward>,
 
+    // UserNonce PDA account to track the sender's nonce
+    #[account(
+        mut,
+        seeds = [b"user-nonce", sender.key().as_ref(), can_forward.key().as_ref()],
+        bump = user_nonce.bump,
+        // This allows the account to be initialized if it doesn't exist yet
+        has_one = can_forward,
+        has_one = sender @ ErrorCode::InvalidOwner,
+    )]
+    pub user_nonce: Account<'info, UserNonce>,
+
     #[account(
         seeds = [b"token-config", token_config.mint.as_ref()],
         bump = token_config.bump,
@@ -54,13 +65,13 @@ pub struct Execute<'info> {
     )]
     pub external_whitelist: Account<'info, ExternalWhiteList>,
 
-    /// CHECK:
+    /// CHECK: This is a PDA that is only used as a signer for the token transfer
+    /// We don't need to initialize it as an account; we just need its address for signing
     #[account(
-        mut,
         seeds = [b"transfer-auth", from.key().as_ref()], 
         bump,
     )]
-    pub transfer_auth: AccountInfo<'info>, // PDA acts as an intermediary
+    pub transfer_auth: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub mint: Account<'info, Mint>,
@@ -74,6 +85,45 @@ pub struct Execute<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct InitializeUserNonce<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        seeds = [b"can-forward", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_forward: Account<'info, CanForward>,
+
+    #[account(
+        init,
+        payer = user,
+        space = UserNonce::space(),
+        seeds = [b"user-nonce", user.key().as_ref(), can_forward.key().as_ref()],
+        bump,
+    )]
+    pub user_nonce: Account<'info, UserNonce>,
+
+    #[account(
+        seeds = [b"token-config", token_config.mint.as_ref()],
+        bump = token_config.bump,
+    )]
+    pub token_config: Account<'info, TokenConfig>,
+
+    pub system_program: Program<'info, System>,
+}
+
+pub fn initialize_user_nonce_handler(ctx: Context<InitializeUserNonce>) -> Result<()> {
+    let user_nonce = &mut ctx.accounts.user_nonce;
+    user_nonce.sender = ctx.accounts.user.key();
+    user_nonce.can_forward = ctx.accounts.can_forward.key();
+    user_nonce.nonce = 0;
+    user_nonce.bump = ctx.bumps.user_nonce;
+
+    Ok(())
+}
+
 pub fn verify_ed25519_instruction(
     ctx: Context<Execute>,
     expected_public_key: &[u8],
@@ -81,12 +131,16 @@ pub fn verify_ed25519_instruction(
     signature: &[u8],
     amount: u64,
 ) -> Result<String> {
-    
+    require!(
+        ctx.accounts.from.mint == ctx.accounts.mint.key(),
+        ErrorCode::MintMismatch
+    );
+
     require!(
         !ctx.accounts.can_forward.is_executed,
         ErrorCode::ReentrancyDetected
     );
-    ctx.accounts.can_forward.is_executed = true;
+    ctx.accounts.can_forward.lock()?;
 
     require!(
         ctx.accounts
@@ -100,6 +154,13 @@ pub fn verify_ed25519_instruction(
     if sender_balance < amount {
         return Err(ErrorCode::InsufficientFunds.into());
     }
+    let sender = ctx.accounts.from.key();
+    let recipient = ctx.accounts.to.owner; // Check if either sender or recipient is blacklisted
+    if ctx.accounts.blacklist.is_blacklisted(&sender)
+        || ctx.accounts.blacklist.is_blacklisted(&recipient)
+    {
+        return Err(ErrorCode::UserBlacklisted.into());
+    }
     let instruction_sysvar = &mut ctx.accounts.instruction_sysvar;
     let current_index = load_current_index_checked(instruction_sysvar)?;
     if current_index == 0 {
@@ -109,8 +170,15 @@ pub fn verify_ed25519_instruction(
     let ed25519_instruction =
         load_instruction_at_checked((current_index - 1) as usize, instruction_sysvar)?;
 
+    // Verify that the previous instruction is from the Ed25519 program
+    let ed25519_program_id = ed25519_program::id();
+    if ed25519_instruction.program_id != ed25519_program_id {
+        return Err(ErrorCode::InvalidEd25519Instruction.into());
+    }
+
     // Verify the content of the Ed25519 instruction
     let instruction_data = ed25519_instruction.data;
+
     if instruction_data.len() < 2 {
         return Err(ErrorCode::InvalidEd25519Instruction.into());
     }
@@ -120,9 +188,44 @@ pub fn verify_ed25519_instruction(
         return Err(ErrorCode::InvalidEd25519Instruction.into());
     }
 
-    // Parse Ed25519SignatureOffsets
+    // Must have at least 16 bytes to contain Ed25519SignatureOffsets
+    require!(
+        instruction_data.len() >= 16,
+        ErrorCode::InvalidEd25519Instruction
+    );
+
+    // Parse Ed25519SignatureOffsets (bytes 2..16)
     let offsets: Ed25519SignatureOffsets =
-        Ed25519SignatureOffsets::try_from_slice(&instruction_data[2..16])?;
+        Ed25519SignatureOffsets::try_from_slice(&instruction_data[2..16])
+            .map_err(|_| ErrorCode::InvalidEd25519Instruction)?;
+
+    // Validate offsets are in current instruction (u16::MAX)
+    require!(
+        offsets.signature_instruction_index == u16::MAX
+            && offsets.public_key_instruction_index == u16::MAX
+            && offsets.message_instruction_index == u16::MAX,
+        ErrorCode::InvalidEd25519Instruction
+    );
+
+    let data_len = instruction_data.len();
+
+    // Bounds check for signature
+    require!(
+        (offsets.signature_offset as usize + 64) <= data_len,
+        ErrorCode::InvalidEd25519Instruction
+    );
+
+    // Bounds check for public key
+    require!(
+        (offsets.public_key_offset as usize + 32) <= data_len,
+        ErrorCode::InvalidEd25519Instruction
+    );
+
+    // Bounds check for message
+    require!(
+        (offsets.message_data_offset as usize + offsets.message_data_size as usize) <= data_len,
+        ErrorCode::InvalidEd25519Instruction
+    );
 
     // Verify public key
     let pubkey_start = offsets.public_key_offset as usize;
@@ -145,6 +248,29 @@ pub fn verify_ed25519_instruction(
         return Err(ErrorCode::InvalidSignature.into());
     }
 
+    // Convert message to string for processing
+    let message_str = match std::str::from_utf8(message) {
+        Ok(s) => s,
+        Err(_) => return Err(ErrorCode::InvalidInstructionFormat.into()),
+    };
+
+    // Parse message to extract nonce
+    // Expected format: "action:amount:nonce"
+    let parts: Vec<&str> = message_str.split(':').collect();
+    if parts.len() < 3 {
+        return Err(ErrorCode::InvalidInstructionFormat.into());
+    }
+
+    // Parse nonce from message
+    let nonce = match parts[2].parse::<u64>() {
+        Ok(n) => n,
+        Err(_) => return Err(ErrorCode::InvalidInstructionFormat.into()),
+    };
+
+    // Verify and update nonce to prevent replay attacks
+    // Now using the separate UserNonce PDA account
+    ctx.accounts.user_nonce.verify_and_update_nonce(nonce)?;
+
     let from_key = ctx.accounts.from.key();
     let seeds = &[
         b"transfer-auth",
@@ -165,25 +291,54 @@ pub fn verify_ed25519_instruction(
         signer_seeds,
     );
 
-    token::transfer(transfer_cpi_ctx, amount)?;
+    // Special case: If sender is external whitelisted AND recipient is internal whitelisted
+    // We burn the tokens from the sender's account before transferring
+    if ctx.accounts.external_whitelist.is_whitelisted(&sender)
+        && ctx.accounts.internal_whitelist.is_whitelisted(&recipient)
+    {
+        // 1. Burn the tokens from the sender's account (where we have authority)
+        let burn_cpi_accounts = Burn {
+            mint: ctx.accounts.mint.to_account_info(),
+            from: ctx.accounts.from.to_account_info(),
+            authority: ctx.accounts.transfer_auth.to_account_info(), // Use the PDA
+        };
 
-    // Emit standard transfer event
-    emit!(TokensTransferredEvent {
-        from: ctx.accounts.from.key(),
-        to: ctx.accounts.to.key(),
-        amount,
-    });
-    ctx.accounts.can_forward.is_executed = false;
-    // Convert message to string and return it
-    match std::str::from_utf8(message) {
-        Ok(message_str) => {
-            emit!(ForwardedEvent {
-                message: message_str.to_string(),
-            });
-            Ok(message_str.to_string())
-        }
-        Err(_) => Err(ErrorCode::InvalidInstructionFormat.into()),
+        let burn_cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            burn_cpi_accounts,
+        );
+
+        // Burn the tokens
+        token::burn(burn_cpi_ctx, amount)?;
+
+        // Standard transfer
+        token::transfer(transfer_cpi_ctx, amount)?;
+
+        // Emit special event
+        emit!(TokensTransferredEvent {
+            from: ctx.accounts.from.key(),
+            to: ctx.accounts.to.key(),
+            amount,
+        });
+    } else {
+        // Standard transfer
+        token::transfer(transfer_cpi_ctx, amount)?;
+
+        // Emit standard transfer event
+        emit!(TokensTransferredEvent {
+            from: ctx.accounts.from.key(),
+            to: ctx.accounts.to.key(),
+            amount,
+        });
     }
+
+    ctx.accounts.can_forward.unlock(); // Unlock can_forward
+
+    // Convert message to string and return it
+    emit!(ForwardedEvent {
+        message: message_str.to_string(),
+    });
+    Ok(message_str.to_string())
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]

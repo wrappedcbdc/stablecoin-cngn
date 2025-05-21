@@ -33,6 +33,7 @@ pub struct TokensMintedEvent {
 pub struct TokensBurnedEvent {
    pub from: Pubkey,
    pub amount:u64,
+   pub owner:Pubkey
 }
 
 #[event]
@@ -54,95 +55,76 @@ pub struct TokenTransferPauseEvent {
     pub transfer_paused: bool,
 }
 
-#[event]
-pub struct TokenUnpausedEvent {
-    pub mint: Pubkey,
-    pub mint_paused: bool,
-    pub transfer_paused: bool,
-}
 
 #[event]
-pub struct AdminChangedEvent {
-    pub mint: Pubkey,
-    pub old_admin: Pubkey,
-    pub new_admin: Pubkey,
-}
-
-
-
-
-
-
-
-#[event]
-pub struct WhitelistedMinter {
+pub struct WhitelistedMinterEvent {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct BlackListedMinter {
+pub struct BlackListedMinterEvent {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct MintAmountAdded {
+pub struct MintAmountAddedEvent {
     pub mint: Pubkey,
     pub authority: Pubkey,
     pub amount: u64,
 }
 
 #[event]
-pub struct MintAmountRemoved {
+pub struct MintAmountRemovedEvent {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct WhitelistedContract {
+pub struct WhitelistedContractEvent {
     pub mint: Pubkey,
     pub contract: Pubkey,
 }
 
 #[event]
-pub struct BlackListedContract {
+pub struct BlackListedContractEvent {
     pub mint: Pubkey,
     pub contract: Pubkey,
 }
 
 #[event]
-pub struct AddedBlackList {
+pub struct AddedBlackListEvent {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct RemovedBlackList {
+pub struct RemovedBlackListEvent {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct WhitelistedInternalUser {
+pub struct WhitelistedInternalUserEvent {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct BlackListedInternalUser {
+pub struct BlackListedInternalUserEvent {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct WhitelistedExternalSender {
+pub struct WhitelistedExternalSenderEvent {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct BlackListedExternalSender {
+pub struct BlackListedExternalSenderEvent {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
@@ -156,13 +138,13 @@ pub struct MintAmountUpdatedEvent {
 
 // Add to your events.rs file
 #[event]
-pub struct WhitelistedForwarder {
+pub struct WhitelistedForwarderEvent {
     pub mint: Pubkey,
     pub forwarder: Pubkey,
 }
 
 #[event]
-pub struct BlackListedForwarder {
+pub struct BlackListedForwarderEvent {
     pub mint: Pubkey,
     pub forwarder: Pubkey,
 }

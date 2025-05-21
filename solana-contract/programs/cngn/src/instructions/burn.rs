@@ -6,7 +6,7 @@ use crate::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct BurnTokens<'info> {
-    #[account(mut)]
+   
     pub owner: Signer<'info>,
     
     #[account(
@@ -53,6 +53,7 @@ pub fn handler(ctx: Context<BurnTokens>, amount: u64) -> Result<()> {
     emit!(TokensBurnedEvent {
         from: ctx.accounts.burn_from.key(),
         amount,
+        owner: ctx.accounts.owner.key(),
     });
     
     Ok(())
