@@ -35,7 +35,7 @@ pub fn remove(&mut self, address: &Pubkey) -> Result<()> {
         Ok(())
     } else {
         // Add this error to your ErrorCode enum
-        Err(ErrorCode::AddressNotBlacklisted.into())
+        Err(ErrorCode::UserNotBlacklisted.into())
     }
 }
 }

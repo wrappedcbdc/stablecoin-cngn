@@ -8,7 +8,7 @@ import { AuthorityType, createSetAuthorityInstruction, getMint, TOKEN_PROGRAM_ID
 import { calculatePDAs, createTokenAccountIfNeeded } from '../utils/helpers';
 import { initializeToken } from "../utils/token_initializer";
 import { transferMintAuthority } from "../utils/transfer_authority";
-import { transferAuthorityToPDA } from "./tranfer_authority_to_pda";
+import { transferAuthorityToPDA } from "./transfer_authority_to_pda";
 
 describe("cngn admin functionality tests", () => {
   // Configure the client to use the local cluster

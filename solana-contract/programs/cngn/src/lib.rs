@@ -31,12 +31,13 @@ pub mod cngn {
     pub fn initialize_third(ctx: Context<InitializeThird>) -> Result<()> {
         instructions::initialize::initialize_third_handler(ctx)
     }
+
     pub fn mint(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         instructions::mint::handler(ctx, amount)
     }
 
     pub fn transfer(ctx: Context<TransferTokens>, amount: u64) -> Result<()> {
-        instructions::transfer::handler(ctx, amount)
+        instructions::transfer::transfer_handler(ctx, amount)
     }
 
     pub fn pause_minting(ctx: Context<PauseMint>, pause_mint: bool) -> Result<()> {
@@ -59,28 +60,17 @@ pub mod cngn {
         instructions::admin::remove_can_mint_handler(ctx, user)
     }
 
-    pub fn set_mint_amount(
-        ctx: Context<SetMintAmount>,
-        user: Pubkey,
-        amount: u64,
-    ) -> Result<()> {
+    pub fn set_mint_amount(ctx: Context<SetMintAmount>, user: Pubkey, amount: u64) -> Result<()> {
         instructions::admin::set_mint_amount_handler(ctx, user, amount)
     }
 
-
-
-    pub fn remove_mint_amount(
-        ctx: Context<RemoveMintAmount>,
-        user: Pubkey,
-      
-    ) -> Result<()> {
+    pub fn remove_mint_amount(ctx: Context<RemoveMintAmount>, user: Pubkey) -> Result<()> {
         instructions::admin::remove_mint_amount_handler(ctx, user)
     }
 
     pub fn get_mint_amount(ctx: Context<GetMintAmount>, user: Pubkey) -> Result<u64> {
         instructions::admin::get_mint_amount_handler(ctx, user)
     }
-
 
     pub fn add_trusted_contract(ctx: Context<AddTrustedContract>, contract: Pubkey) -> Result<()> {
         instructions::admin::add_trusted_contract_handler(ctx, contract)
@@ -136,16 +126,20 @@ pub mod cngn {
         instructions::admin::remove_can_forward_handler(ctx, forwarder)
     }
 
+    pub fn initialize_user_nonce(ctx: Context<InitializeUserNonce>) -> Result<()> {
+        instructions::forwarder::initialize_user_nonce_handler(ctx)
+    }
+
     pub fn execute(
         ctx: Context<Execute>,
         message_string: String,
         signature_string: String,
         amount: u64,
     ) -> Result<String> {
-      
         // Convert hex strings to bytes
         let sender_public_key =
-            hex::decode(bytes_to_hex_string(&ctx.accounts.sender.key.to_bytes())).map_err(|_| ErrorCode::InvalidPublicKey)?;
+            hex::decode(bytes_to_hex_string(&ctx.accounts.sender.key.to_bytes()))
+                .map_err(|_| ErrorCode::InvalidPublicKey)?;
 
         let message = hex::decode(&message_string).map_err(|_| ErrorCode::InvalidMessage)?;
 
@@ -155,8 +149,8 @@ pub mod cngn {
             ctx,
             &sender_public_key,
             &message,
-            &signature,  
-             amount,
+            &signature,
+            amount,
         )
     }
 }

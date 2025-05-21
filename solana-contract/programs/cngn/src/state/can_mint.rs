@@ -36,7 +36,7 @@ impl CanMint {
             self.mint_amounts.remove(index); // Remove corresponding mint amount
             Ok(())
         } else {
-            Err(ErrorCode::AdminNotFound.into())
+            Err(ErrorCode::NotMinter.into())
         }
     }
 
@@ -46,7 +46,7 @@ impl CanMint {
             self.mint_amounts[index] = amount;
             Ok(())
         } else {
-            Err(ErrorCode::AdminNotFound.into())
+            Err(ErrorCode::NotMinter.into())
         }
     }
 
@@ -56,7 +56,7 @@ impl CanMint {
         if let Some(index) = self.authorities.iter().position(|x| x == authority) {
             Ok(self.mint_amounts[index])
         } else {
-            Err(ErrorCode::AdminNotFound.into())
+            Err(ErrorCode::NotMinter.into())
         }
     }
 

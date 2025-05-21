@@ -11,7 +11,7 @@ import {
   initializeToken,
   setupUserAccounts
 } from '../utils/token_initializer';
-import { transferAuthorityToPDA } from "./tranfer_authority_to_pda";
+import { transferAuthorityToPDA } from "./transfer_authority_to_pda";
 
 describe("cngn mint test", () => {
   // Configure the client to use the local cluster.
@@ -179,8 +179,14 @@ describe("cngn mint test", () => {
       })
       .signers([authorizedUser])
       .rpc();
-
+  
     console.log("Mint transaction signature:", mintTx);
+    program.addEventListener('tokensMintedEvent', (event, slot) => {
+      console.log("=======Event received=====:", event);
+      expect(event.mint.toString()).to.equal(mint.publicKey.toString());
+      expect(event.to.toBase58().toString()).to.equal(authorizedUser.publicKey.toString());
+      expect(event.amount.toString()).to.equal(`${mintAmount.toString()}`);
+    })
 
     // Verify the tokens were minted correctly
     const tokenAccountInfoAfter = await getAccount(provider.connection, authorizedUserTokenAccount);
@@ -203,6 +209,7 @@ describe("cngn mint test", () => {
       -1,
       "Authorized user should be removed from can_mint list after minting"
     );
+      program.removeEventListener(0);
   });
 
   it('Fails to mint when user is not in can_mint list', async () => {

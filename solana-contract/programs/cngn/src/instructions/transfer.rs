@@ -7,7 +7,7 @@ use crate::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct TransferTokens<'info> {
-    #[account(mut)]
+  
     pub owner: Signer<'info>,
     
     #[account(
@@ -56,7 +56,7 @@ pub struct TransferTokens<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handler(ctx: Context<TransferTokens>, amount: u64) -> Result<()> {
+pub fn transfer_handler(ctx: Context<TransferTokens>, amount: u64) -> Result<()> {
     let sender = ctx.accounts.owner.key();
     let recipient = ctx.accounts.to.owner;
     
@@ -88,6 +88,21 @@ pub fn handler(ctx: Context<TransferTokens>, amount: u64) -> Result<()> {
         
         // Burn the tokens
         token::burn(burn_cpi_ctx, amount)?;
+
+
+         // Standard transfer
+        let transfer_cpi_accounts = Transfer {
+            from: ctx.accounts.from.to_account_info(),
+            to: ctx.accounts.to.to_account_info(),
+            authority: ctx.accounts.owner.to_account_info(),
+        };
+        
+        let transfer_cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            transfer_cpi_accounts
+        );
+        
+        token::transfer(transfer_cpi_ctx, amount)?;
         
         // Emit special event
         emit!(TokensTransferredEvent {
