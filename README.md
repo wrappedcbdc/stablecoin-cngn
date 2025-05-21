@@ -35,16 +35,27 @@ npm install pkcs11js aws-sdk
 
 ### Deploying with CloudHSM
 
-To deploy contracts using keys stored in CloudHSM:
+To deploy Gnosis Safe using the Hardhat task:
 
 ```bash
+# Deploy Gnosis Safe with standard signing
+npx hardhat deploy-safe --network <network> --first-owner <address> --second-owner <address> --threshold <n>
+
 # Deploy Gnosis Safe with CloudHSM signing
 CLOUDHSM_ENABLED=true \
-RPC_URL=<your_rpc_url> \
-npx hardhat run scripts/deployGnosisSafe.js --network <network> --hsmKeyLabel=<your_key_label>
+npx hardhat deploy-safe --network <network> --first-owner <address> --second-owner <address> --threshold <n> --signer-type cloudhsm --hsm-key-label <your_key_label>
 ```
 
-You can also set `AWS_CLOUDHSM_KEY_LABEL` in your environment variables instead of passing the `--hsmKeyLabel` parameter.
+#### Parameters:
+
+- `--network`: Target blockchain network (required)
+- `--first-owner`: First owner address for the Safe (required)
+- `--second-owner`: Second owner address for the Safe (required)
+- `--threshold`: Number of required confirmations (optional, defaults to 1)
+- `--signer-type`: Type of signer to use (optional, defaults to standard, use 'cloudhsm' for HSM)
+- `--hsm-key-label`: Label of the key in CloudHSM (required when using CloudHSM)
+
+You can also set `AWS_CLOUDHSM_KEY_LABEL` in your environment variables instead of passing the `--hsm-key-label` parameter.
 
 ### Testing with CloudHSM
 

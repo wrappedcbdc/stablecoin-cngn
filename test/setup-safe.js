@@ -1,6 +1,6 @@
 const { ethers } = require('hardhat');
 const Safe = require('@gnosis.pm/safe-core-sdk');
-const EthersAdapter = require('@gnosis.pm/safe-ethers-lib');
+const EthersAdapter = require('@gnosis.pm/safe-ethers-lib').default;
 const { CloudHsmSigner } = require('../scripts/cloudhsm-signer');
 
 async function setupSafe({ signerType = 'ethers', signerIndex = 0, owners = [], threshold = 2 } = {}) {

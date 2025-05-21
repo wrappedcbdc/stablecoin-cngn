@@ -6,11 +6,12 @@
     "test": "test"
   },
   "dependencies": {
+    "@safe-global/protocol-kit": "^6.0.4",
+    "@safe-global/safe-contracts": "^1.4.1-2",
     "@truffle/hdwallet-provider": "^2.0.9",
     "aws-sdk": "^2.x",
     "bl": "^4.0.3",
-    "dotenv": "^8.6.0",
-    "ethers": "^5.7.2",
+    "ethers": "^5.4.0",
     "latest": "^0.2.0",
     "pkcs11js": "^2.x",
     "tronbox": "^3.1.0",
@@ -25,14 +26,18 @@
     "@openzeppelin/contracts-upgradeable": "^4.8.0",
     "@openzeppelin/hardhat-upgrades": "1.21.0",
     "@openzeppelin/upgrades": "^2.8.0",
+    "@safe-global/safe-core-sdk": "^3.3.5",
+    "@safe-global/safe-ethers-lib": "^1.9.4",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
+    "dotenv": "^16.5.0",
     "ethereum-waffle": "^3.4.4",
-    "hardhat": "^2.22.15"
+    "hardhat": "^2.24.0",
+    "hardhat-dependency-compiler": "^1.2.1"
   },
   "scripts": {
     "test": "mocha --require test/setup-chai.js --timeout 20000"
-  },
+ },
   "repository": {
     "type": "git",
     "url": "https://github.com/wrappedcbdc/stablecoin-cngn"
