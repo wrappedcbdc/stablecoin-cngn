@@ -126,7 +126,7 @@ The project uses Hardhat for testing. To run the test suite:
 npx hardhat test
 
 # Run specific test file
-npx hardhat test ./test/Cngn.test.js
+npx hardhat test ./test/execute.js
 
 # Run tests with gas reporting
 REPORT_GAS=true npx hardhat test
