@@ -8,7 +8,7 @@ use anchor_lang::solana_program::ed25519_program;
 use anchor_lang::solana_program::sysvar::instructions::{
     load_current_index_checked, load_instruction_at_checked,
 };
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer}; // Import the transfer module
+use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer}; // Import the transfer module
 #[derive(Accounts)]
 pub struct Execute<'info> {
     pub forwarder: Signer<'info>,
@@ -149,12 +149,17 @@ pub fn verify_ed25519_instruction(
         ErrorCode::UnauthorizedForwarder
     );
 
-    
-
     //get token balance of sender and verify they have enough before transfer
     let sender_balance = ctx.accounts.from.amount;
     if sender_balance < amount {
         return Err(ErrorCode::InsufficientFunds.into());
+    }
+    let sender = ctx.accounts.from.key();
+    let recipient = ctx.accounts.to.owner; // Check if either sender or recipient is blacklisted
+    if ctx.accounts.blacklist.is_blacklisted(&sender)
+        || ctx.accounts.blacklist.is_blacklisted(&recipient)
+    {
+        return Err(ErrorCode::UserBlacklisted.into());
     }
     let instruction_sysvar = &mut ctx.accounts.instruction_sysvar;
     let current_index = load_current_index_checked(instruction_sysvar)?;
@@ -286,14 +291,46 @@ pub fn verify_ed25519_instruction(
         signer_seeds,
     );
 
-    token::transfer(transfer_cpi_ctx, amount)?;
+    // Special case: If sender is external whitelisted AND recipient is internal whitelisted
+    // We burn the tokens from the sender's account before transferring
+    if ctx.accounts.external_whitelist.is_whitelisted(&sender)
+        && ctx.accounts.internal_whitelist.is_whitelisted(&recipient)
+    {
+        // 1. Burn the tokens from the sender's account (where we have authority)
+        let burn_cpi_accounts = Burn {
+            mint: ctx.accounts.mint.to_account_info(),
+            from: ctx.accounts.from.to_account_info(),
+            authority: ctx.accounts.transfer_auth.to_account_info(), // Use the PDA
+        };
 
-    // Emit standard transfer event
-    emit!(TokensTransferredEvent {
-        from: ctx.accounts.from.key(),
-        to: ctx.accounts.to.key(),
-        amount,
-    });
+        let burn_cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            burn_cpi_accounts,
+        );
+
+        // Burn the tokens
+        token::burn(burn_cpi_ctx, amount)?;
+
+        // Standard transfer
+        token::transfer(transfer_cpi_ctx, amount)?;
+
+        // Emit special event
+        emit!(TokensTransferredEvent {
+            from: ctx.accounts.from.key(),
+            to: ctx.accounts.to.key(),
+            amount,
+        });
+    } else {
+        // Standard transfer
+        token::transfer(transfer_cpi_ctx, amount)?;
+
+        // Emit standard transfer event
+        emit!(TokensTransferredEvent {
+            from: ctx.accounts.from.key(),
+            to: ctx.accounts.to.key(),
+            amount,
+        });
+    }
 
     ctx.accounts.can_forward.unlock(); // Unlock can_forward
 
