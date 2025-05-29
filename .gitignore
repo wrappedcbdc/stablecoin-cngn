@@ -9,8 +9,3 @@ artifacts/
 package-lock.json
 scripts/
 
-# Ignore everything
-/*
-
-# But not the .gitignore file itself!
-!.gitignore
