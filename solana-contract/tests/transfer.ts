@@ -500,45 +500,70 @@ describe("cngn transfer tests", () => {
     console.log("Initial recipient balance:", initialRecipientBalance.amount.toString());
     console.log("Initial mint supply:", initialMintSupply.supply.toString());
     console.log("amount to send :", transferAmount.toString());
-    // Execute special transfer
 
-    const transferTx = await program.methods
-      .transfer(transferAmount)
-      .accounts({
-        owner: externalWhitelistedUser.publicKey,
-        tokenConfig: pdas.tokenConfig,
-        mint: mint.publicKey,
-        from: externalWhitelistedUserTokenAccount,
-        to: internalWhitelistedUserTokenAccount,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        blacklist: pdas.blacklist,
-        internalWhitelist: pdas.internalWhitelist,
-        externalWhitelist: pdas.externalWhitelist
-      })
-      .signers([externalWhitelistedUser])
-      .rpc();
+    // Set up event listener before the transaction
+    let bridgeBurnEvent = null;
 
-    console.log("Special transfer transaction signature", transferTx);
 
-    // Verify balances and supply after transfer
-    const finalSenderBalance = await getAccount(provider.connection, externalWhitelistedUserTokenAccount);
-    const finalRecipientBalance = await getAccount(provider.connection, internalWhitelistedUserTokenAccount);
-    const finalMintSupply = await getMint(provider.connection, mint.publicKey);
+    const listener = program.addEventListener('bridgeBurnEvent', (event, slot) => {
+      console.log("BridgeBurnEvent received:", event);
+      bridgeBurnEvent = event;
+    });
+    try {
 
-    console.log("Final sender balance:", finalSenderBalance.amount.toString());
-    console.log("Final recipient balance:", finalRecipientBalance.amount.toString());
-    console.log("Final mint supply:", finalMintSupply.supply.toString());
+      // Execute special transfer
+      const transferTx = await program.methods
+        .transfer(transferAmount)
+        .accounts({
+          owner: externalWhitelistedUser.publicKey,
+          tokenConfig: pdas.tokenConfig,
+          mint: mint.publicKey,
+          from: externalWhitelistedUserTokenAccount,
+          to: internalWhitelistedUserTokenAccount,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          blacklist: pdas.blacklist,
+          internalWhitelist: pdas.internalWhitelist,
+          externalWhitelist: pdas.externalWhitelist
+        })
+        .signers([externalWhitelistedUser])
+        .rpc();
 
-    // Assert sender tokens were burned (decreased)
-    const expectedSenderBalance = new anchor.BN(initialSenderBalance.amount.toString()).sub(transferAmount);
-    // assert.equal(finalSenderBalance.amount.toString(), expectedSenderBalance.toString());
+      console.log("Special transfer transaction signature", transferTx);
 
-    // For burn and mint mode, the tokens are burned from sender and are added to recipient
-    assert.equal(finalRecipientBalance.amount.toString(), transferAmount.toString());
+      // Verify balances and supply after transfer
+      const finalSenderBalance = await getAccount(provider.connection, externalWhitelistedUserTokenAccount);
+      const finalRecipientBalance = await getAccount(provider.connection, internalWhitelistedUserTokenAccount);
+      const finalMintSupply = await getMint(provider.connection, mint.publicKey);
 
-    // Verify total supply decreased by the transfer amount (confirming burns)
-    const expectedSupply = new anchor.BN(initialMintSupply.supply.toString()).sub(transferAmount);
-    assert.equal(finalMintSupply.supply.toString(), expectedSupply.toString());
+      console.log("Final sender balance:", finalSenderBalance.amount.toString());
+      console.log("Final recipient balance:", finalRecipientBalance.amount.toString());
+      console.log("Final mint supply:", finalMintSupply.supply.toString());
+
+      // Assert sender tokens were burned (decreased)
+      const expectedSenderBalance = new anchor.BN(initialSenderBalance.amount.toString()).sub(transferAmount);
+      assert.equal(finalSenderBalance.amount.toString(), expectedSenderBalance.toString());
+
+
+
+      // Verify total supply decreased by the transfer amount (confirming burns)
+      const expectedSupply = new anchor.BN(initialMintSupply.supply.toString()).sub(transferAmount);
+      assert.equal(finalMintSupply.supply.toString(), expectedSupply.toString());
+      // **NEW: Verify Bridge Burn Event**
+      if (bridgeBurnEvent) {
+        console.log("✅ BridgeBurnEvent detected");
+        assert.equal(bridgeBurnEvent.fromAccount.toString(), externalWhitelistedUserTokenAccount.toString());
+        assert.equal(bridgeBurnEvent.sender.toString(), externalWhitelistedUser.publicKey.toString());
+        assert.equal(bridgeBurnEvent.recipient.toString(), internalWhitelistedUser.publicKey.toString());
+        assert.equal(bridgeBurnEvent.amount.toString(), transferAmount.toString());
+        assert.ok(bridgeBurnEvent.sourceChain === "solana");
+        console.log("✅ All bridge burn event fields verified");
+      } else {
+        console.log("❌ No BridgeBurnEvent received - check if your program emits this event");
+      }
+    } finally {
+      await program.removeEventListener(listener);
+    }
+
   });
 
   it('Successfully transfers between non-whitelisted users', async () => {

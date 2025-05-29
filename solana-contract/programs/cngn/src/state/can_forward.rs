@@ -66,7 +66,6 @@ impl CanForward {
         32 + // mint
         32 + // admin
         4 + (32 * max_forwarders) + // vec length + forwarders
-        32 + // admin
         1 + // bump
         1 // is_executed
     }

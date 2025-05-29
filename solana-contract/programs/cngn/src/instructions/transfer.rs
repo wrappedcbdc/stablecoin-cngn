@@ -90,26 +90,18 @@ pub fn transfer_handler(ctx: Context<TransferTokens>, amount: u64) -> Result<()>
         // Burn the tokens
         token::burn(burn_cpi_ctx, amount)?;
 
-        // Standard transfer
-        let transfer_cpi_accounts = Transfer {
-            from: ctx.accounts.from.to_account_info(),
-            to: ctx.accounts.to.to_account_info(),
-            authority: ctx.accounts.owner.to_account_info(),
-        };
-
-        let transfer_cpi_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
-            transfer_cpi_accounts,
-        );
-
-        token::transfer(transfer_cpi_ctx, amount)?;
-
-        // Emit special event
-        emit!(TokensTransferredEvent {
-            from: ctx.accounts.from.key(),
-            to: ctx.accounts.to.key(),
+      // Emit bridge-specific event for indexer
+        emit!(BridgeBurnEvent {
+            from_account: ctx.accounts.from.key(),
+            sender: sender,
+            recipient: recipient,
             amount,
+            timestamp: Clock::get()?.unix_timestamp,
+            source_chain: "solana".to_string(),
+       
         });
+
+        msg!("Bridge burn completed: {} tokens burned for cross-chain transfer", amount);
     } else {
         // Standard transfer
         let transfer_cpi_accounts = Transfer {

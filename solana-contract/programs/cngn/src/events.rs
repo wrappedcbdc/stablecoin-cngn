@@ -152,5 +152,19 @@ pub struct BlackListedForwarderEvent {
 #[event]
 pub struct ForwardedEvent {
     pub message: String,
-  
+    pub sender: Pubkey,
+    pub recipient: Pubkey,
+    pub amount: u64,
+    pub forwarder: Pubkey
+}
+
+// Add this to your events.rs
+#[event]
+pub struct BridgeBurnEvent {
+    pub from_account: Pubkey,
+    pub sender: Pubkey,
+    pub recipient: Pubkey,
+    pub amount: u64,
+    pub timestamp: i64,
+    pub source_chain: String
 }

@@ -3,12 +3,13 @@
 use crate::errors::ErrorCode;
 use crate::events::*;
 use crate::state::*;
+
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::ed25519_program;
 use anchor_lang::solana_program::sysvar::instructions::{
     load_current_index_checked, load_instruction_at_checked,
 };
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer}; // Import the transfer module
+use anchor_spl::token::{burn, transfer, Burn, Mint, Token, TokenAccount, Transfer}; // Import the transfer module
 #[derive(Accounts)]
 pub struct Execute<'info> {
     pub forwarder: Signer<'info>,
@@ -49,6 +50,7 @@ pub struct Execute<'info> {
 
     #[account(
         seeds = [b"token-config", token_config.mint.as_ref()],
+        constraint = !token_config.transfer_paused @ ErrorCode::TransfersPaused,
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -309,10 +311,7 @@ pub fn verify_ed25519_instruction(
         );
 
         // Burn the tokens
-        token::burn(burn_cpi_ctx, amount)?;
-
-        // Standard transfer
-        token::transfer(transfer_cpi_ctx, amount)?;
+        burn(burn_cpi_ctx, amount)?;
 
         // Emit special event
         emit!(TokensTransferredEvent {
@@ -322,7 +321,7 @@ pub fn verify_ed25519_instruction(
         });
     } else {
         // Standard transfer
-        token::transfer(transfer_cpi_ctx, amount)?;
+        transfer(transfer_cpi_ctx, amount)?;
 
         // Emit standard transfer event
         emit!(TokensTransferredEvent {
@@ -337,7 +336,12 @@ pub fn verify_ed25519_instruction(
     // Convert message to string and return it
     emit!(ForwardedEvent {
         message: message_str.to_string(),
+        sender: ctx.accounts.sender.key(),
+        recipient: ctx.accounts.to.owner,
+        amount,
+        forwarder: ctx.accounts.forwarder.key(),
     });
+
     Ok(message_str.to_string())
 }
 
