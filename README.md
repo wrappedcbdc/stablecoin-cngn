@@ -4,6 +4,70 @@ cNGN stands apart as the first regulated stablecoin in Africa. As a fully compli
 
 cNGN, fosters the expansion of fintechs, liquidity providers, and virtual asset entities in Nigeria's digital economy. This initiative is bolstered by regulatory approval under the SEC's Regulatory Incubation (RI) Program, significantly contributing to the growth of Nigeria's digital asset ecosystem.
 
+## CloudHSM Integration
+
+The cNGN platform supports AWS CloudHSM for secure key management and transaction signing. This integration provides hardware-level security for private keys used in contract deployments and administrative operations.
+
+### Prerequisites
+
+- AWS CloudHSM cluster set up and configured
+- PKCS#11 library installed (`libpkcs11.so`)
+- CloudHSM crypto user credentials
+
+### Environment Configuration
+
+Create a `.env` file with the following CloudHSM-specific variables:
+
+```
+AWS_CLOUDHSM_ENDPOINT=<your-hsm-endpoint>
+AWS_CLOUDHSM_USER_PIN=<user-pin>
+AWS_CLOUDHSM_SLOT_LABEL=<slot-label>
+CLOUDHSM_ENABLED=true
+```
+
+### Installing Dependencies
+
+The CloudHSM integration requires additional dependencies:
+
+```bash
+npm install pkcs11js aws-sdk
+```
+
+### Deploying with CloudHSM
+
+To deploy Gnosis Safe using the Hardhat task:
+
+```bash
+# Deploy Gnosis Safe with standard signing
+npx hardhat deploy-safe --network <network> --first-owner <address> --second-owner <address> --threshold <n>
+
+# Deploy Gnosis Safe with CloudHSM signing
+CLOUDHSM_ENABLED=true \
+npx hardhat deploy-safe --network <network> --first-owner <address> --second-owner <address> --threshold <n> --signer-type cloudhsm --hsm-key-label <your_key_label>
+```
+
+#### Parameters:
+
+- `--network`: Target blockchain network (required)
+- `--first-owner`: First owner address for the Safe (required)
+- `--second-owner`: Second owner address for the Safe (required)
+- `--threshold`: Number of required confirmations (optional, defaults to 1)
+- `--signer-type`: Type of signer to use (optional, defaults to standard, use 'cloudhsm' for HSM)
+- `--hsm-key-label`: Label of the key in CloudHSM (required when using CloudHSM)
+
+You can also set `AWS_CLOUDHSM_KEY_LABEL` in your environment variables instead of passing the `--hsm-key-label` parameter.
+
+### Testing with CloudHSM
+
+For testing with CloudHSM integration:
+
+```bash
+# Run tests with CloudHSM signer
+SIGNER=cloudhsm npm test
+```
+
+This will use the CloudHSM signer implementation for all tests that support custom signers.
+
 ## Architecture Overview
 
 The cNGN stablecoin implementation follows a modular architecture with the following key components:
@@ -25,6 +89,11 @@ The cNGN stablecoin implementation follows a modular architecture with the follo
    - Verifies signatures from users
    - Forwards transactions to the token contract
    - Maintains nonce management to prevent replay attacks
+
+4. **Gnosis Safe Integration**: Multi-signature wallet for secure governance:
+   - Threshold-based transaction approval
+   - AWS CloudHSM integration for secure key storage
+   - Supports role-based operations through the Safe
 
 ### Meta-Transaction Flow
 

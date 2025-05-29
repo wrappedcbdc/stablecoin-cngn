@@ -1,21 +1,3 @@
-// SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/ERC20.sol)
-
-pragma solidity ^0.8.11;
-
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol"; // Added for reentrancy protection
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import "./IOperations.sol";
-
-contract Cngn2 is
-    Initializable,
-    OwnableUpgradeable,
-    IERC20MetadataUpgradeable,
-    PausableUpgradeable,
-    ReentrancyGuardUpgradeable // Added for reentrancy protection
 {
     event DestroyedBlackFunds(
         address indexed user, 

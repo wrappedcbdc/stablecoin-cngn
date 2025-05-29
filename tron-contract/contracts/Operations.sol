@@ -81,10 +81,11 @@ contract Admin is
         return true;
     }
 
-    function removeCanMint(address _User) public returns (bool) {
+    function removeCanMint(address _User) public onlyOwnerOrTrustedContract returns (bool) {
 
         require(canMint[_User], "User is not a minter");
         canMint[_User] = false;
+        mintAmount[_User] = 0;
         emit BlackListedMinter(_User);
         return true;
     }
@@ -101,7 +102,7 @@ contract Admin is
         return true;
     }
 
-    function removeMintAmount(address _User) public onlyOwner returns (bool) {
+    function removeMintAmount(address _User) public onlyOwnerOrTrustedContract returns (bool) {
         mintAmount[_User] = 0;
 
         emit MintAmountRemoved(_User);
