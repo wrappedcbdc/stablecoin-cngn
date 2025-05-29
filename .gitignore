@@ -9,7 +9,14 @@ artifacts/
 package-lock.json
 scripts/
 
+# Ignore everything
+/*
+
+# But not the .gitignore file itself!
+!.gitignore
+
 
 # Include specific files
 !deploy-gnosis.js
 !deploy-safe-contracts.js
+
