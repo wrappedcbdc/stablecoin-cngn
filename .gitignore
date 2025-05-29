@@ -14,3 +14,9 @@ scripts/
 
 # But not the .gitignore file itself!
 !.gitignore
+
+
+# Include specific files
+!deploy-gnosis.js
+!deploy-safe-contracts.js
+

@@ -180,12 +180,9 @@ contract Cngn is
         // Added nonReentrant modifier for reentrancy protection
         address signer = msgSender();
         require(
-            !IAdmin(adminOperationsContract).isBlackListed(signer),
-            "User is blacklisted"
-        );
-        require(
+            !IAdmin(adminOperationsContract).isBlackListed(signer) ||
             !IAdmin(adminOperationsContract).isBlackListed(_mintTo),
-            "Receiver is blacklisted"
+            "Signer or receiver is blacklisted"
         );
         require(
             IAdmin(adminOperationsContract).canMint(signer),
@@ -195,10 +192,13 @@ contract Cngn is
             IAdmin(adminOperationsContract).mintAmount(signer) == _amount,
             "Attempting to mint more than allowed"
         );
+
         _mint(_mintTo, _amount);
 
-        bool removed = IAdmin(adminOperationsContract).removeCanMint(signer);
-        require(removed, "Failed to revoke minting authorization");
+        require(
+            IAdmin(adminOperationsContract).removeCanMint(signer), 
+            "Failed to revoke minting authorization"
+        );
 
         return true;
     }
