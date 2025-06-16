@@ -1,110 +1,175 @@
 // SPDX-License-Identifier: MIT
-// Further information: https://eips.ethereum.org/EIPS/eip-2770
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IOperations.sol";
 
-
 /**
- * @title Forwarder Smart Contract
- * @dev Simple forwarder for extensible meta-transaction forwarding.
- * This contract has been updated with security improvements.
+ * @title Forwarder
+ * @dev Transparent-upgradeable proxy implementation of an ERC-2771 meta-transaction forwarder.
+ *      Uses OpenZeppelin’s EIP-712 base, plus nonce-based replay protection.
  */
-contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
+contract Forwarder is
+    Initializable,
+    EIP712Upgradeable,
+    OwnableUpgradeable,
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     using ECDSA for bytes32;
 
+    /// @notice Emitted when a bridge address is authorized or deauthorized
     event BridgeAuthorized(address indexed bridgeAddress);
     event BridgeDeauthorized(address indexed bridgeAddress);
-    event AdminOperationsAddressUpdated(address indexed newAdminAddress);
-    event executed(bool indexed success, bytes returnData);
-    
-    struct ForwardRequest {
-        address from;
-        address to;
-        uint256 value;
-        uint256 gas;
-        uint256 nonce;
-        bytes data;
-    }
 
+    /// @notice Emitted after attempting to execute a forwarded request
+    event Executed(bool indexed success, uint256 nonce, bytes returnData);
+
+    /// @notice Emitted when the admin-operations contract is updated
+    event AdminOperationsAddressUpdated(address indexed newAdminAddress);
+
+    /// @dev Mapping of “from address” → current nonce
+    mapping(address => uint256) private _nonces;
+
+    /// @dev Set of bridges that are allowed to call `executeByBridge(...)`
+    mapping(address => bool) public authorizedBridges;
+
+    /// @dev Tracks which transaction hashes have already been processed (replay protection)
+    mapping(bytes32 => bool) public processedTxHashes;
+
+    /// @dev The admin-operations contract (for blacklist/whitelist/canForward checks)
     address public adminOperationsContract;
-    uint256 private immutable _CHAIN_ID;
-    bytes32 private immutable _DOMAIN_SEPARATOR;
-    bytes32 public constant _TYPEHASH =
+
+    /// @dev EIP-712 typehash for `ForwardRequest`
+    bytes32 public constant TYPEHASH =
         keccak256(
             "ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data)"
         );
 
-    mapping(address => bool) public authorizedBridges; // Track authorized bridge contracts
-    mapping(bytes32 => bool) public processedTxHashes; // Prevent replay attacks
-    mapping(address => uint256) private _nonces;
+    /**
+     * @notice Initializes the forwarder with the given `adminOperationsContract`.
+     * @param _adminOperationsContract The admin-operations contract address.
+     */
+    function initialize(address _adminOperationsContract) public initializer {
+        __Ownable_init();
+        __Pausable_init();
+        __ReentrancyGuard_init();
 
-    modifier onlyAuthorizedBridge() {
-        require(authorizedBridges[msg.sender], "Unauthorized bridge");
-        _;
-    }
-    constructor(
-        address _adminOperationsContract
-    ) EIP712("cNGN", "0.0.1") {
-        _CHAIN_ID = block.chainid;
-        _DOMAIN_SEPARATOR = _calculateDomainSeparator();
+        // EIP-712 domain: name = "cNGN", version = "0.0.1"
+        __EIP712_init("cNGN", "0.0.1");
+
         adminOperationsContract = _adminOperationsContract;
     }
 
-    function _calculateDomainSeparator() internal view returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes("cNGN")),
-                keccak256(bytes("0.0.1")),
-                block.chainid,
-                address(this)
-            )
+    /** ───────────────────────────────────────────────────────────────
+     *                              STRUCTS
+     *  ───────────────────────────────────────────────────────────────
+     */
+
+    struct ForwardRequest {
+        address from; // Original signer
+        address to; // Target contract
+        uint256 value; // msg.value to pass along
+        uint256 gas; // Gas limit for the call
+        uint256 nonce; // Must equal _nonces[from]
+        bytes data; // Calldata (excluding appended “from”)
+    }
+
+    /** ───────────────────────────────────────────────────────────────
+     *                             MODIFIERS
+     *  ───────────────────────────────────────────────────────────────
+     */
+
+    /// @dev Reverts if `_msgSender()` is not in `authorizedBridges`.
+    modifier onlyAuthorizedBridge() {
+        require(
+            authorizedBridges[_msgSender()],
+            "Forwarder: unauthorized bridge"
         );
+        _;
     }
 
-    function getDomainSeparator() public view returns (bytes32) {
-        return _DOMAIN_SEPARATOR;
-    }
+    /** ───────────────────────────────────────────────────────────────
+     *                     ADMIN-OPERATIONS UPDATES
+     *  ───────────────────────────────────────────────────────────────
+     */
 
-    function getChainId() public view returns (uint256) {
-        return _CHAIN_ID;
-    }
-
+    /**
+     * @notice Owner can update the admin-operations contract address.
+     */
     function updateAdminOperationsAddress(
         address _newAdmin
-    ) public virtual onlyOwner returns (bool) {
+    ) external onlyOwner returns (bool) {
+        require(_newAdmin != address(0), "Forwarder: new admin zero");
         adminOperationsContract = _newAdmin;
-        emit AdminOperationsAddressUpdated(_newAdmin);  // Emit event
+        emit AdminOperationsAddressUpdated(_newAdmin);
         return true;
     }
 
-    function getNonce(address from) public view returns (uint256) {
+    /**
+     * @notice Authorize a bridge so it may call `executeByBridge(...)`.
+     */
+    function authorizeBridge(address bridgeAddress) external onlyOwner {
+        authorizedBridges[bridgeAddress] = true;
+        emit BridgeAuthorized(bridgeAddress);
+    }
+
+    /**
+     * @notice Deauthorize a previously authorized bridge address.
+     */
+    function deauthorizeBridge(address bridgeAddress) external onlyOwner {
+        authorizedBridges[bridgeAddress] = false;
+        emit BridgeDeauthorized(bridgeAddress);
+    }
+
+    /** ───────────────────────────────────────────────────────────────
+     *                        NONCE / REPLAY PROTECTION
+     *  ───────────────────────────────────────────────────────────────
+     */
+
+    /**
+     * @notice Returns the current nonce for `from`.
+     */
+    function getNonce(address from) external view returns (uint256) {
         return _nonces[from];
     }
 
+    /**
+     * @dev Internal: verifies that `req.nonce` exactly equals `_nonces[from]`.
+     */
+    function _requireValidNonce(ForwardRequest calldata req) internal view {
+        require(req.nonce == _nonces[req.from], "Forwarder: nonce mismatch");
+    }
+
+    /**
+     * @dev Internal: marks a `txHash` as processed.
+     */
     function _preventReplay(bytes32 txHash) internal {
-        // Check if this transaction hash has been processed before
-        require(!processedTxHashes[txHash], "Replay attack prevented");
-        // Mark this transaction hash as processed
+        require(!processedTxHashes[txHash], "Forwarder: replay prevented");
         processedTxHashes[txHash] = true;
     }
 
-    function verify(ForwardRequest calldata req, bytes calldata signature)
-        public
-        view
-        returns (bool)
-    {
-        // Recover the signer's address from the signature using EIP-712 typed data
-        address signer = _hashTypedDataV4(
+    /** ───────────────────────────────────────────────────────────────
+     *                          SIGNATURE VERIFICATION
+     *  ───────────────────────────────────────────────────────────────
+     */
+
+    /**
+     * @notice Verifies that `signature` matches `req.from` for the typed-data `ForwardRequest`.
+     */
+    function verify(
+        ForwardRequest calldata req,
+        bytes calldata signature
+    ) public view returns (bool) {
+        bytes32 digest = _hashTypedDataV4(
             keccak256(
                 abi.encode(
-                    _TYPEHASH,
+                    TYPEHASH,
                     req.from,
                     req.to,
                     req.value,
@@ -113,105 +178,133 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
                     keccak256(req.data)
                 )
             )
-        ).recover(signature);
-        
-        // Verify both the signer matches the from address AND the nonce is correct
-        // This prevents both signature forgery and replay attacks
-        // return (signer == req.from && req.nonce == _nonces[req.from]);
-        return (signer == req.from);
+        );
+        return digest.recover(signature) == req.from;
     }
 
-    function authorizeBridge(address bridgeAddress) external onlyOwner {
-        authorizedBridges[bridgeAddress] = true;
-        emit BridgeAuthorized(bridgeAddress);  // Emit event
-    }
+    /** ───────────────────────────────────────────────────────────────
+     *                      INTERNAL EXECUTION LOGIC
+     *  ───────────────────────────────────────────────────────────────
+     */
 
-    function deauthorizeBridge(address bridgeAddress) external onlyOwner {
-        authorizedBridges[bridgeAddress] = false;
-        emit BridgeDeauthorized(bridgeAddress);  // Emit event
-    }
-
-     function _executeTransaction(
+    /**
+     * @dev Performs all security checks, then `call{value:req.value}` to `req.to` with `req.data`
+     *      (appending `req.from` as the last 20 bytes of calldata). Increments nonce and prevents replay.
+     */
+    function _executeTransaction(
         ForwardRequest calldata req,
         bytes calldata signature
     ) internal returns (bool, bytes memory) {
-        // Check if the sender is authorized to use this forwarding route
+        // 1) Nonce must match exactly:
+        _requireValidNonce(req);
+
+        // 2) Signature must be valid
+        require(verify(req, signature), "Forwarder: invalid signature");
+
+        // 3) Check that 'from' is allowed to forward, and neither the relayer nor the actual sender is blacklisted:
         require(
             IAdmin(adminOperationsContract).canForward(req.from),
-            "You are not allowed to use this tx route"
+            "Forwarder: not allowed to forward"
         );
-        // Verify the relayer is not blacklisted
         require(
             !IAdmin(adminOperationsContract).isBlackListed(_msgSender()),
-            "Relayer is blacklisted"
+            "Forwarder: relayer blacklisted"
         );
-        // Verify the transaction signer is not blacklisted
         require(
             !IAdmin(adminOperationsContract).isBlackListed(req.from),
-            "Blacklisted"
+            "Forwarder: from blacklisted"
         );
         // Verify the signer has minting privileges
         require(
             IAdmin(adminOperationsContract).canMint(req.from),
             "Minter not authorized to sign"
         );
-        // Verify the signature matches and nonce is correct
-        require(
-            verify(req, signature),
-            "Forwarder: signature does not match request or invalid nonce"
-        );
 
-        // Create a unique transaction hash to prevent replay attacks
+        // 4) Prevent replay by hashing the entire request data:
         bytes32 txHash = keccak256(
-            abi.encode(req.from, req.to, req.value, req.nonce, req.data)
+            abi.encode(
+                req.from,
+                req.to,
+                req.value,
+                req.gas,
+                req.nonce,
+                req.data
+            )
         );
-        // Check and mark this transaction as processed to prevent replays
         _preventReplay(txHash);
-        // Increment the nonce for the sender to prevent future replay attacks
+
+        // 5) Increment the nonce
         _nonces[req.from] = req.nonce + 1;
 
-        // Execute the actual transaction
-        (bool success, bytes memory returndata) = req.to.call{value: req.value}(
+        // 6) Execute the call, appending `req.from` to the calldata so that
+        //    the target contract can extract the original signer.
+        (bool success, bytes memory returnData) = req.to.call{value: req.value}(
             abi.encodePacked(req.data, req.from)
         );
 
-        // Emit appropriate event based on transaction outcome
-        if (success) {
-            emit executed(true, "Transaction executed successfully");
-        } else {
-            // Include the error data for debugging when transaction fails
-            emit executed(false, returndata);
-        }
-
-        return (success, returndata);
+        emit Executed(success, req.nonce, returnData);
+        return (success, returnData);
     }
 
+    /** ───────────────────────────────────────────────────────────────
+     *                         PUBLIC EXECUTE METHODS
+     *  ───────────────────────────────────────────────────────────────
+     */
+
+    /**
+     * @notice The contract owner can execute ANY `ForwardRequest`.
+     * @param req       The typed request (including `from`, `to`, `value`, `gas`, `nonce`, `data`).
+     * @param signature The EIP-712 signature by `req.from`.
+     */
     function execute(
         ForwardRequest calldata req,
         bytes calldata signature
-    ) public payable onlyOwner  whenNotPaused nonReentrant  returns (bool, bytes memory) {
-        return _executeTransaction(req, signature);
-    }
-
-    function executeByBridge(
-        ForwardRequest calldata req,
-        bytes calldata signature
     )
-        public
+        external
         payable
-        onlyAuthorizedBridge
+        onlyOwner
+        whenNotPaused
         nonReentrant
         returns (bool, bytes memory)
     {
         return _executeTransaction(req, signature);
     }
 
+    /**
+     * @notice An authorized bridge (in `authorizedBridges`) can call this to forward a request.
+     * @param req       The typed request (including `from`, `to`, `value`, `gas`, `nonce`, `data`).
+     * @param signature The EIP-712 signature by `req.from`.
+     */
+    function executeByBridge(
+        ForwardRequest calldata req,
+        bytes calldata signature
+    )
+        external
+        payable
+        onlyAuthorizedBridge
+        whenNotPaused
+        nonReentrant
+        returns (bool, bytes memory)
+    {
+        return _executeTransaction(req, signature);
+    }
+
+    /**
+     * @notice Pause all forwarding.  Only owner may call.
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpause all forwarding.  Only owner may call.
+     */
     function unpause() external onlyOwner {
         _unpause();
     }
+
+    /// @dev Allow receiving native ETH (for use-cases where `req.value > 0`).
     receive() external payable {}
+
+    uint256[45] private __gap;
 }
