@@ -25,15 +25,15 @@
     "absolutePath": "@openzeppelin/contracts-upgradeable/interfaces/draft-IERC1822Upgradeable.sol",
     "exportedSymbols": {
       "IERC1822ProxiableUpgradeable": [
-        2898
+        2776
       ]
     },
-    "id": 2899,
+    "id": 2777,
     "license": "MIT",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 2890,
+        "id": 2768,
         "literals": [
           "solidity",
           "^",
@@ -41,7 +41,7 @@
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "113:23:6"
+        "src": "113:23:9"
       },
       {
         "abstract": false,
@@ -50,54 +50,54 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 2891,
+          "id": 2769,
           "nodeType": "StructuredDocumentation",
-          "src": "138:203:6",
+          "src": "138:203:9",
           "text": " @dev ERC1822: Universal Upgradeable Proxy Standard (UUPS) documents a method for upgradeability through a simplified\n proxy whose upgrades are fully controlled by the current implementation."
         },
         "fullyImplemented": false,
-        "id": 2898,
+        "id": 2776,
         "linearizedBaseContracts": [
-          2898
+          2776
         ],
         "name": "IERC1822ProxiableUpgradeable",
-        "nameLocation": "352:28:6",
+        "nameLocation": "352:28:9",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 2892,
+              "id": 2770,
               "nodeType": "StructuredDocumentation",
-              "src": "387:438:6",
+              "src": "387:438:9",
               "text": " @dev Returns the storage slot that the proxiable contract assumes is being used to store the implementation\n address.\n IMPORTANT: A proxy pointing at a proxiable contract should not be considered proxiable itself, because this risks\n bricking a proxy that upgrades to it, by delegating to itself until out of gas. Thus it is critical that this\n function revert if invoked through a proxy."
             },
             "functionSelector": "52d1902d",
-            "id": 2897,
+            "id": 2775,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "proxiableUUID",
-            "nameLocation": "839:13:6",
+            "nameLocation": "839:13:9",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 2893,
+              "id": 2771,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "852:2:6"
+              "src": "852:2:9"
             },
             "returnParameters": {
-              "id": 2896,
+              "id": 2774,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 2895,
+                  "id": 2773,
                   "mutability": "mutable",
                   "name": "",
                   "nameLocation": "-1:-1:-1",
                   "nodeType": "VariableDeclaration",
-                  "scope": 2897,
-                  "src": "878:7:6",
+                  "scope": 2775,
+                  "src": "878:7:9",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -105,10 +105,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 2894,
+                    "id": 2772,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "878:7:6",
+                    "src": "878:7:9",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -117,35 +117,36 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "877:9:6"
+              "src": "877:9:9"
             },
-            "scope": 2898,
-            "src": "830:57:6",
+            "scope": 2776,
+            "src": "830:57:9",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 2899,
-        "src": "342:547:6",
-        "usedErrors": []
+        "scope": 2777,
+        "src": "342:547:9",
+        "usedErrors": [],
+        "usedEvents": []
       }
     ],
-    "src": "113:777:6"
+    "src": "113:777:9"
   },
   "legacyAST": {
     "absolutePath": "@openzeppelin/contracts-upgradeable/interfaces/draft-IERC1822Upgradeable.sol",
     "exportedSymbols": {
       "IERC1822ProxiableUpgradeable": [
-        2898
+        2776
       ]
     },
-    "id": 2899,
+    "id": 2777,
     "license": "MIT",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 2890,
+        "id": 2768,
         "literals": [
           "solidity",
           "^",
@@ -153,7 +154,7 @@
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "113:23:6"
+        "src": "113:23:9"
       },
       {
         "abstract": false,
@@ -162,54 +163,54 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 2891,
+          "id": 2769,
           "nodeType": "StructuredDocumentation",
-          "src": "138:203:6",
+          "src": "138:203:9",
           "text": " @dev ERC1822: Universal Upgradeable Proxy Standard (UUPS) documents a method for upgradeability through a simplified\n proxy whose upgrades are fully controlled by the current implementation."
         },
         "fullyImplemented": false,
-        "id": 2898,
+        "id": 2776,
         "linearizedBaseContracts": [
-          2898
+          2776
         ],
         "name": "IERC1822ProxiableUpgradeable",
-        "nameLocation": "352:28:6",
+        "nameLocation": "352:28:9",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 2892,
+              "id": 2770,
               "nodeType": "StructuredDocumentation",
-              "src": "387:438:6",
+              "src": "387:438:9",
               "text": " @dev Returns the storage slot that the proxiable contract assumes is being used to store the implementation\n address.\n IMPORTANT: A proxy pointing at a proxiable contract should not be considered proxiable itself, because this risks\n bricking a proxy that upgrades to it, by delegating to itself until out of gas. Thus it is critical that this\n function revert if invoked through a proxy."
             },
             "functionSelector": "52d1902d",
-            "id": 2897,
+            "id": 2775,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "proxiableUUID",
-            "nameLocation": "839:13:6",
+            "nameLocation": "839:13:9",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 2893,
+              "id": 2771,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "852:2:6"
+              "src": "852:2:9"
             },
             "returnParameters": {
-              "id": 2896,
+              "id": 2774,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 2895,
+                  "id": 2773,
                   "mutability": "mutable",
                   "name": "",
                   "nameLocation": "-1:-1:-1",
                   "nodeType": "VariableDeclaration",
-                  "scope": 2897,
-                  "src": "878:7:6",
+                  "scope": 2775,
+                  "src": "878:7:9",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -217,10 +218,10 @@
                     "typeString": "bytes32"
                   },
                   "typeName": {
-                    "id": 2894,
+                    "id": 2772,
                     "name": "bytes32",
                     "nodeType": "ElementaryTypeName",
-                    "src": "878:7:6",
+                    "src": "878:7:9",
                     "typeDescriptions": {
                       "typeIdentifier": "t_bytes32",
                       "typeString": "bytes32"
@@ -229,27 +230,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "877:9:6"
+              "src": "877:9:9"
             },
-            "scope": 2898,
-            "src": "830:57:6",
+            "scope": 2776,
+            "src": "830:57:9",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 2899,
-        "src": "342:547:6",
-        "usedErrors": []
+        "scope": 2777,
+        "src": "342:547:9",
+        "usedErrors": [],
+        "usedEvents": []
       }
     ],
-    "src": "113:777:6"
+    "src": "113:777:9"
   },
   "compiler": {
     "name": "solc",
-    "version": "0.8.11+commit.b01f3284.mod.Emscripten.clang"
+    "version": "0.8.20+commit.5f1834bc.Emscripten.clang"
   },
   "networks": {},
   "schemaVersion": "2.0.1",
-  "updatedAt": "2024-12-14T15:38:16.798Z"
+  "updatedAt": "2025-05-06T16:08:44.456Z"
 }

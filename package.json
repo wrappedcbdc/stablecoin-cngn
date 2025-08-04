@@ -13,10 +13,12 @@
     "@safe-global/safe-ethers-lib": "^1.9.4",
     "@safe-global/types-kit": "^2.0.1",
     "@truffle/hdwallet-provider": "^2.0.9",
+    "aws-sdk": "^2.x",
     "bl": "^4.0.3",
     "dotenv": "^8.6.0",
     "ethers": "^5.8.0",
     "latest": "^0.2.0",
+    "pkcs11js": "^2.x",
     "tronbox": "^3.1.0",
     "tronweb": "^6.0.0",
     "yamljs": "^0.3.0"
@@ -36,8 +38,8 @@
     "hardhat": "^2.22.15"
   },
   "scripts": {
-    "test": "mocha"
-  },
+    "test": "mocha --require test/setup-chai.js --timeout 20000"
+ },
   "repository": {
     "type": "git",
     "url": "https://github.com/wrappedcbdc/stablecoin-cngn"

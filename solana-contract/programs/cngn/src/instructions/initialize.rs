@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token};
 
 use crate::events::*;
+use crate::errors::ErrorCode;
 use crate::state::*;
 
 // Split the accounts into multiple contexts to reduce stack usage
@@ -134,6 +135,13 @@ pub fn initialize_handler(
     let mint = &ctx.accounts.mint;
     let can_mint = &mut ctx.accounts.can_mint;
 
+    if name.len() > TokenConfig::MAX_NAME_LENGTH {
+        return Err(ErrorCode::InvalidInstructionFormat.into());
+    }
+
+    if symbol.len() > TokenConfig::MAX_SYMBOL_LENGTH {
+        return Err(ErrorCode::InvalidInstructionFormat.into());
+    }
     // Set token config data
     token_config.name = name.clone();
     token_config.symbol = symbol.clone();
@@ -150,7 +158,8 @@ pub fn initialize_handler(
     mint_authority.update_authority = ctx.accounts.initializer.key();
     mint_authority.freeze_authority = ctx.accounts.initializer.key();
     mint_authority.bump = ctx.bumps.mint_authority;
-
+    mint_authority.authority =  ctx.accounts.initializer.key();
+    
     // Initialize can_mint with a single element to reduce memory usage
     can_mint.mint = mint.key();
     can_mint.authorities = vec![ctx.accounts.initializer.key()];
@@ -184,6 +193,8 @@ pub fn initialize_secondary_handler(ctx: Context<InitializeSecondary>) -> Result
     can_forward.mint = ctx.accounts.mint.key();
     can_forward.forwarders = Vec::new();
     can_forward.bump = ctx.bumps.can_forward;
+    can_forward.admin =ctx.accounts.initializer.key();
+    can_forward.is_executed = false;
 
     // Initialize trusted_contracts with pre-allocated capacity but empty content
     trusted_contracts.mint = ctx.accounts.mint.key();

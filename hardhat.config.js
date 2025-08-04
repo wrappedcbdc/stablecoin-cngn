@@ -140,5 +140,6 @@ module.exports = {
 
   mocha: {
     timeout: 20000,
+    require: ["test/setup-chai.js"]
   },
 };

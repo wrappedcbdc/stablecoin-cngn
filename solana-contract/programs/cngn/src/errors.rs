@@ -3,8 +3,7 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("Minting is currently paused")]
-    MintingPausing,
+   
     
     #[msg("Token transfers are currently paused")]
     TransfersPaused,
@@ -14,9 +13,6 @@ pub enum ErrorCode {
     
     #[msg("Invalid admin")]
     InvalidAdmin,
-
-    #[msg("Admin not found")]
-    AdminNotFound,
     
     #[msg("Invalid owner")]
     InvalidOwner,
@@ -100,32 +96,18 @@ pub enum ErrorCode {
 
     #[msg("Already set to this state")]
     AlreadyPassedDesiredState,
-
-    #[msg("Unauthorized relayer")]
-    UnauthorizedRelayer,
     
     #[msg("Invalid signature")]
     InvalidSignature,
     
-    #[msg("Transaction expired")]
-    TransactionExpired,
-    
-    #[msg("Invalid nonce")]
-    InvalidNonce,
-    
     #[msg("Payload account mismatch")]
     PayloadAccountMismatch,
-
-
 
     #[msg("Transaction already processed.")]
     AlreadyProcessed,
     
     #[msg("Invalid instruction format.")]
     InvalidInstructionFormat,
-    
-    #[msg("Signature verification failed.")]
-    SignatureVerificationFailed,
     
     #[msg("Forwarded instruction execution failed.")]
     ForwardedInstructionFailed,
@@ -153,7 +135,8 @@ pub enum ErrorCode {
     ReentrancyDetected,
 
     #[msg("User is not blacklisted")]
-    AddressNotBlacklisted,
+    UserNotBlacklisted,
 
- 
+     #[msg("Invalid nonce: possible replay attack")]
+    InvalidNonce,
 }

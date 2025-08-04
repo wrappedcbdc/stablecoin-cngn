@@ -7,7 +7,7 @@ use crate::errors::ErrorCode;
 #[derive(Accounts)]
 pub struct PauseMint<'info> {
     #[account(
-        mut,
+       
         constraint = admin.key() == token_config.admin @ ErrorCode::InvalidAdmin,
     )]
     pub admin: Signer<'info>,

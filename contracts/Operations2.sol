@@ -94,6 +94,7 @@ contract Admin2 is
         require(canMint[_User], "User is not a minter");
         canMint[_User] = false;
         mintAmount[_User] = 0;
+        mintAmount[_User] = 0;
         emit BlackListedMinter(_User);
         return true;
     }

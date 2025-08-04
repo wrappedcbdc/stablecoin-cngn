@@ -11,13 +11,13 @@ import {
   initializeToken,
   setupUserAccounts
 } from '../utils/token_initializer';
-import { transferAuthorityToPDA } from "./tranfer_authority_to_pda";
+import { transferAuthorityToPDA } from "./transfer_authority_to_pda";
 
 describe("cngn transfer tests", () => {
   // Configure the client to use the local cluster
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
- const payer = (provider.wallet as anchor.Wallet).payer;
+  const payer = (provider.wallet as anchor.Wallet).payer;
   const program = anchor.workspace.Cngn as Program<Cngn>;
 
   // Create the mint keypair - this will be the actual token
@@ -38,7 +38,7 @@ describe("cngn transfer tests", () => {
   let blacklistedUserTokenAccount: PublicKey;
   let externalWhitelistedUserTokenAccount: PublicKey;
   let internalWhitelistedUserTokenAccount: PublicKey;
-  
+
   // Initial token balances for reference
   const INITIAL_BALANCE = TOKEN_PARAMS.mintAmount;
   const TRANSFER_AMOUNT = TOKEN_PARAMS.transferAmount;
@@ -49,7 +49,7 @@ describe("cngn transfer tests", () => {
 
     // Initialize the token
     await initializeToken(program, provider, mint, pdas);
-   let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
+    let afterMintInfo = await transferAuthorityToPDA(pdas, mint, payer, provider)
     // Assertions to verify transfer
     assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
     assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
@@ -61,13 +61,13 @@ describe("cngn transfer tests", () => {
     );
 
     [
-      user1TokenAccount, 
-      user2TokenAccount, 
+      user1TokenAccount,
+      user2TokenAccount,
       blacklistedUserTokenAccount,
       externalWhitelistedUserTokenAccount,
       internalWhitelistedUserTokenAccount
     ] = userAccounts;
-    console.log("============= adding minter ============="); 
+    console.log("============= adding minter =============");
     // Add minter to can_mint list
     await program.methods
       .addCanMint(minter.publicKey)
@@ -106,7 +106,7 @@ describe("cngn transfer tests", () => {
       })
       .signers([minter])
       .rpc();
-      console.log("============= minted to user1 ============="); 
+    console.log("============= minted to user1 =============");
     await program.methods
       .addCanMint(minter.publicKey)
       .accounts({
@@ -143,7 +143,7 @@ describe("cngn transfer tests", () => {
       })
       .signers([minter])
       .rpc();
-      console.log("============= adding blacklisted user ============="); 
+    console.log("============= adding blacklisted user =============");
     // Add blacklisted user to the blacklist
     await program.methods
       .addBlacklist(blacklistedUser.publicKey)
@@ -153,7 +153,7 @@ describe("cngn transfer tests", () => {
         blacklist: pdas.blacklist,
       })
       .rpc();
-      console.log("============= adding external whitelisted user ============="); 
+    console.log("============= adding external whitelisted user =============");
     // Add external whitelisted user to external whitelist
     await program.methods
       .whitelistExternalUser(externalWhitelistedUser.publicKey)
@@ -164,7 +164,7 @@ describe("cngn transfer tests", () => {
 
       })
       .rpc();
-      console.log("============= adding internal whitelisted user ============="); 
+    console.log("============= adding internal whitelisted user =============");
     // Add internal whitelisted user to internal whitelist
     await program.methods
       .whitelistInternalUser(internalWhitelistedUser.publicKey)
@@ -178,7 +178,7 @@ describe("cngn transfer tests", () => {
     // Verify tokens were minted to user1
     const senderBalance = await getAccount(provider.connection, user1TokenAccount);
     console.log("Initial user1 token balance:", senderBalance.amount.toString());
-   assert.equal(senderBalance.amount.toString(), INITIAL_BALANCE.toString());
+    assert.equal(senderBalance.amount.toString(), INITIAL_BALANCE.toString());
   });
 
   it('Transfers tokens from user1 to user2 (standard transfer)', async () => {
@@ -221,17 +221,17 @@ describe("cngn transfer tests", () => {
     const expectedSenderBalance = new anchor.BN(initialSenderBalance.amount.toString()).sub(TRANSFER_AMOUNT);
     assert.equal(finalSenderBalance.amount.toString(), expectedSenderBalance.toString());
     assert.equal(
-      finalRecipientBalance.amount.toString(), 
+      finalRecipientBalance.amount.toString(),
       new anchor.BN(initialRecipientBalance.amount.toString()).add(TRANSFER_AMOUNT).toString()
     );
   });
 
   it('Fails when transferring more tokens than the sender has', async () => {
     console.log("Testing insufficient funds transfer...");
-    
+
     const senderBalance = await getAccount(provider.connection, user1TokenAccount);
     const tooLargeAmount = new anchor.BN(senderBalance.amount.toString()).add(new anchor.BN(1000000)); // More than the user has
-    
+
     try {
       await program.methods
         .transfer(tooLargeAmount)
@@ -284,7 +284,7 @@ describe("cngn transfer tests", () => {
 
   it('Fails to transfer when transfers are paused', async () => {
     console.log("Testing transfer when paused...");
-    
+
     // First, pause transfers by updating token_config
     await program.methods
       .pauseTransfers(true) // Don't pause minting, but pause transfers
@@ -321,19 +321,19 @@ describe("cngn transfer tests", () => {
 
     // Unpause for remaining tests
     await program.methods
-      .pauseTransfers( false) // Unpause transfers
+      .pauseTransfers(false) // Unpause transfers
       .accounts({
         authority: provider.wallet.publicKey,
         tokenConfig: pdas.tokenConfig,
       })
       .rpc();
-    
+
     console.log("Transfers unpaused successfully");
   });
 
   it('Fails to transfer to an account with mismatched mint', async () => {
     console.log("Testing transfer with mismatched mint...");
-    
+
     // Create a different token mint and initialize it
     const otherMint = Keypair.generate();
 
@@ -376,7 +376,7 @@ describe("cngn transfer tests", () => {
 
   it('Fails to transfer when sender is blacklisted', async () => {
     console.log("Testing transfer from blacklisted sender...");
-    
+
     // First mint some tokens to the blacklisted user
     // Temporarily remove from blacklist to mint
     await program.methods
@@ -387,7 +387,7 @@ describe("cngn transfer tests", () => {
         blacklist: pdas.blacklist,
       })
       .rpc();
-    
+
     // Update minter allowance
     await program.methods
       .addCanMint(minter.publicKey)
@@ -409,7 +409,7 @@ describe("cngn transfer tests", () => {
         trustedContracts: pdas.trustedContracts
       })
       .rpc();
-    
+
     // Mint tokens to blacklisted user
     await program.methods
       .mint(INITIAL_BALANCE)
@@ -426,7 +426,7 @@ describe("cngn transfer tests", () => {
       })
       .signers([minter])
       .rpc();
-    
+
     // Add user back to blacklist
     await program.methods
       .addBlacklist(blacklistedUser.publicKey)
@@ -436,7 +436,7 @@ describe("cngn transfer tests", () => {
         blacklist: pdas.blacklist,
       })
       .rpc();
-    
+
     try {
       await program.methods
         .transfer(new anchor.BN(1_000_000))
@@ -463,7 +463,7 @@ describe("cngn transfer tests", () => {
 
   it('Fails to transfer when recipient is blacklisted', async () => {
     console.log("Testing transfer to blacklisted recipient...");
-    
+
     try {
       await program.methods
         .transfer(new anchor.BN(1_000_000))
@@ -490,61 +490,86 @@ describe("cngn transfer tests", () => {
 
   it('Burns tokens when transferring from external whitelist to internal whitelist', async () => {
     console.log("Testing external to internal whitelist transfer (burn flow)...");
-    
+
     // Get initial balances and token supply
     const initialSenderBalance = await getAccount(provider.connection, externalWhitelistedUserTokenAccount);
     const initialRecipientBalance = await getAccount(provider.connection, internalWhitelistedUserTokenAccount);
     const initialMintSupply = await getMint(provider.connection, mint.publicKey);
-    
+    const transferAmount = new anchor.BN(10_000_000);
     console.log("Initial sender balance:", initialSenderBalance.amount.toString());
     console.log("Initial recipient balance:", initialRecipientBalance.amount.toString());
     console.log("Initial mint supply:", initialMintSupply.supply.toString());
+    console.log("amount to send :", transferAmount.toString());
 
-    // Execute special transfer
-    const transferAmount = new anchor.BN(10_000_000);
-    const transferTx = await program.methods
-      .transfer(transferAmount)
-      .accounts({
-        owner: externalWhitelistedUser.publicKey,
-        tokenConfig: pdas.tokenConfig,
-        mint: mint.publicKey,
-        from: externalWhitelistedUserTokenAccount,
-        to: internalWhitelistedUserTokenAccount,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        blacklist: pdas.blacklist,
-        internalWhitelist: pdas.internalWhitelist,
-        externalWhitelist: pdas.externalWhitelist
-      })
-      .signers([externalWhitelistedUser])
-      .rpc();
+    // Set up event listener before the transaction
+    let bridgeBurnEvent = null;
 
-    console.log("Special transfer transaction signature", transferTx);
 
-    // Verify balances and supply after transfer
-    const finalSenderBalance = await getAccount(provider.connection, externalWhitelistedUserTokenAccount);
-    const finalRecipientBalance = await getAccount(provider.connection, internalWhitelistedUserTokenAccount);
-    const finalMintSupply = await getMint(provider.connection, mint.publicKey);
-    
-    console.log("Final sender balance:", finalSenderBalance.amount.toString());
-    console.log("Final recipient balance:", finalRecipientBalance.amount.toString());
-    console.log("Final mint supply:", finalMintSupply.supply.toString());
+    const listener = program.addEventListener('bridgeBurnEvent', (event, slot) => {
+      console.log("BridgeBurnEvent received:", event);
+      bridgeBurnEvent = event;
+    });
+    try {
 
-    // Assert sender tokens were burned (decreased)
-    const expectedSenderBalance = new anchor.BN(initialSenderBalance.amount.toString()).sub(transferAmount);
-    assert.equal(finalSenderBalance.amount.toString(), expectedSenderBalance.toString());
-    
-    // For burn and mint mode, the tokens are burned from sender and no tokens are transferred to recipient
-    assert.equal(finalRecipientBalance.amount.toString(), initialRecipientBalance.amount.toString());
-    
-    // Verify total supply decreased by the transfer amount (confirming burns)
-    const expectedSupply = new anchor.BN(initialMintSupply.supply.toString()).sub(transferAmount);
-    assert.equal(finalMintSupply.supply.toString(), expectedSupply.toString());
+      // Execute special transfer
+      const transferTx = await program.methods
+        .transfer(transferAmount)
+        .accounts({
+          owner: externalWhitelistedUser.publicKey,
+          tokenConfig: pdas.tokenConfig,
+          mint: mint.publicKey,
+          from: externalWhitelistedUserTokenAccount,
+          to: internalWhitelistedUserTokenAccount,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          blacklist: pdas.blacklist,
+          internalWhitelist: pdas.internalWhitelist,
+          externalWhitelist: pdas.externalWhitelist
+        })
+        .signers([externalWhitelistedUser])
+        .rpc();
+
+      console.log("Special transfer transaction signature", transferTx);
+
+      // Verify balances and supply after transfer
+      const finalSenderBalance = await getAccount(provider.connection, externalWhitelistedUserTokenAccount);
+      const finalRecipientBalance = await getAccount(provider.connection, internalWhitelistedUserTokenAccount);
+      const finalMintSupply = await getMint(provider.connection, mint.publicKey);
+
+      console.log("Final sender balance:", finalSenderBalance.amount.toString());
+      console.log("Final recipient balance:", finalRecipientBalance.amount.toString());
+      console.log("Final mint supply:", finalMintSupply.supply.toString());
+
+      // Assert sender tokens were burned (decreased)
+      const expectedSenderBalance = new anchor.BN(initialSenderBalance.amount.toString()).sub(transferAmount);
+      assert.equal(finalSenderBalance.amount.toString(), expectedSenderBalance.toString());
+
+
+
+      // Verify total supply decreased by the transfer amount (confirming burns)
+      const expectedSupply = new anchor.BN(initialMintSupply.supply.toString()).sub(transferAmount);
+      assert.equal(finalMintSupply.supply.toString(), expectedSupply.toString());
+      // **NEW: Verify Bridge Burn Event**
+      if (bridgeBurnEvent) {
+        console.log("✅ BridgeBurnEvent detected");
+        assert.equal(bridgeBurnEvent.fromAccount.toString(), externalWhitelistedUserTokenAccount.toString());
+        assert.equal(bridgeBurnEvent.sender.toString(), externalWhitelistedUser.publicKey.toString());
+        assert.equal(bridgeBurnEvent.recipient.toString(), internalWhitelistedUser.publicKey.toString());
+        assert.equal(bridgeBurnEvent.amount.toString(), transferAmount.toString());
+        assert.ok(bridgeBurnEvent.sourceChain === "solana");
+        console.log("✅ All bridge burn event fields verified");
+      } else {
+        console.log("❌ No BridgeBurnEvent received - check if your program emits this event");
+      }
+    } finally {
+      await program.removeEventListener(listener);
+    }
+
   });
 
   it('Successfully transfers between non-whitelisted users', async () => {
     // Just a regular transfer between two normal users
     const transferAmount = new anchor.BN(5_000_000);
-    
+
     // Get initial balances
     const initialSenderBalance = await getAccount(provider.connection, user1TokenAccount);
     const initialRecipientBalance = await getAccount(provider.connection, user2TokenAccount);
@@ -575,7 +600,7 @@ describe("cngn transfer tests", () => {
     // For regular transfer: sender balance decreases, recipient increases, total supply unchanged
     const expectedSenderBalance = new anchor.BN(initialSenderBalance.amount.toString()).sub(transferAmount);
     const expectedRecipientBalance = new anchor.BN(initialRecipientBalance.amount.toString()).add(transferAmount);
-    
+
     assert.equal(finalSenderBalance.amount.toString(), expectedSenderBalance.toString());
     assert.equal(finalRecipientBalance.amount.toString(), expectedRecipientBalance.toString());
     assert.equal(finalMintSupply.supply.toString(), initialMintSupply.supply.toString());
@@ -603,7 +628,7 @@ describe("cngn transfer tests", () => {
         trustedContracts: pdas.trustedContracts
       })
       .rpc();
-    
+
     await program.methods
       .mint(INITIAL_BALANCE)
       .accounts({
@@ -619,10 +644,10 @@ describe("cngn transfer tests", () => {
       })
       .signers([minter])
       .rpc();
-    
+
     // Test transfer from internal whitelist to regular user (not special case, should be normal transfer)
     const transferAmount = new anchor.BN(5_000_000);
-    
+
     // Get initial balances
     const initialSenderBalance = await getAccount(provider.connection, internalWhitelistedUserTokenAccount);
     const initialRecipientBalance = await getAccount(provider.connection, user2TokenAccount);
@@ -653,7 +678,7 @@ describe("cngn transfer tests", () => {
     // For regular transfer: sender balance decreases, recipient increases, total supply unchanged
     const expectedSenderBalance = new anchor.BN(initialSenderBalance.amount.toString()).sub(transferAmount);
     const expectedRecipientBalance = new anchor.BN(initialRecipientBalance.amount.toString()).add(transferAmount);
-    
+
     assert.equal(finalSenderBalance.amount.toString(), expectedSenderBalance.toString());
     assert.equal(finalRecipientBalance.amount.toString(), expectedRecipientBalance.toString());
     assert.equal(finalMintSupply.supply.toString(), initialMintSupply.supply.toString());

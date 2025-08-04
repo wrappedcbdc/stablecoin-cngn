@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -40,13 +40,13 @@ contract Admin is
     event BlackListedInternalUser(address indexed _user);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() initializer {}
 
     // Initializer function for upgradeable contracts
     function initialize() public initializer {
         __Ownable_init();
-        __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+     
 
         // Initialization logic
         canForward[_msgSender()] = true;
@@ -81,11 +81,11 @@ contract Admin is
         return true;
     }
 
-    function removeCanMint(
-        address _User
-    ) public onlyOwnerOrTrustedContract returns (bool) {
+    function removeCanMint(address _User) public onlyOwnerOrTrustedContract returns (bool) {
+
         require(canMint[_User], "User is not a minter");
         canMint[_User] = false;
+        mintAmount[_User] = 0;
         emit BlackListedMinter(_User);
         return true;
     }
@@ -102,7 +102,7 @@ contract Admin is
         return true;
     }
 
-    function removeMintAmount(address _User) public onlyOwner returns (bool) {
+    function removeMintAmount(address _User) public onlyOwnerOrTrustedContract returns (bool) {
         mintAmount[_User] = 0;
 
         emit MintAmountRemoved(_User);

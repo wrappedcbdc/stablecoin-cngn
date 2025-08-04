@@ -11,7 +11,7 @@ import {
 } from "@solana/spl-token";
 import { calculatePDAs } from "../utils/helpers";
 import { initializeToken, setupUserAccounts } from "../utils/token_initializer";
-import { transferAuthorityToPDA } from "./tranfer_authority_to_pda";
+import { transferAuthorityToPDA } from "./transfer_authority_to_pda";
 
 describe("cngn burn test", () => {
     const provider = anchor.AnchorProvider.env();
