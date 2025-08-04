@@ -1,33 +1,14 @@
+require("@nomiclabs/hardhat-ethers");
+require("@openzeppelin/hardhat-upgrades");
+require("@nomiclabs/hardhat-etherscan");
+require("@nomiclabs/hardhat-waffle");
 require("dotenv").config();
-require('@nomicfoundation/hardhat-verify');
-require('@nomiclabs/hardhat-ethers');
-require('@openzeppelin/hardhat-upgrades');
-
-/**
- * Hardhat Configuration
- * 
- * This configuration uses a consolidated set of Solidity compiler versions:
- * - 0.8.28: Primary version for new development
- * - 0.8.0: For compatibility with existing 0.8.x contracts
- * - 0.6.12: For legacy contracts or dependencies
- * 
- * All versions use consistent optimizer settings for gas efficiency.
- */
 
 module.exports = {
- solidity: {
+  solidity: {
     compilers: [
       {
-        version: "0.8.28", // Primary compiler version for new contracts
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200, // Standard optimization setting for balanced gas efficiency
-          },
-        },
-      },
-      {
-        version: "0.8.0", // Maintained for compatibility with 0.8.x contracts
+        version: "0.8.28",
         settings: {
           optimizer: {
             enabled: true,
@@ -36,7 +17,34 @@ module.exports = {
         },
       },
       {
-        version: "0.6.12", // Maintained for legacy contracts or dependencies
+        version: "0.8.0",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.8.23",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.8.20",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.6.12",
         settings: {
           optimizer: {
             enabled: true,
@@ -46,76 +54,90 @@ module.exports = {
       },
     ],
   },
-  sourcify: {
-    enabled: true
-  },
+
   networks: {
-    amoy: {
-      url: process.env.POLYGON_TESTNET,
-      accounts: [process.env.EVM_PRIVATE_KEY]
+    bscTestnet: {
+      url: "https://data-seed-prebsc-1-s1.binance.org:8545/",
+      chainId: 97,
+      accounts: [process.env.BSC_PRIVATE_KEY],
     },
-  bsctestnet: {
-    url: process.env.BSC_TESTNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
-  },
-  basetestnet: {
-    url: process.env.BASE_TESTNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
-  },
-  asctestnet: {
-    url: process.env.ASSETCHAIN_TESTNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
-  },
-  sepolia: {
-    url: process.env.ETH_TESTNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
-  },
-  trontestnet: {
-    url: process.env.TRON_TESTNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
+
+    base: {
+      url: "https://mainnet.base.org",
+      chainId: 8453,
+      accounts: [process.env.BASE_PRIVATE_KEY],
+    },
+
+    baseSepolia: {
+      url: "https://sepolia.base.org",
+      chainId: 84532,
+      accounts: [process.env.BOSS_PRIVATE_KEY],
+    },
+
+    mumbai: {
+      url: "https://rpc-mumbai.maticvigil.com",
+      chainId: 80001,
+      accounts: [process.env.MUMBAI_PRIVATE_KEY],
+    },
+
+    amoy: {
+      url: "https://rpc-amoy.polygon.technology/",
+      chainId: 80002,
+      accounts: [process.env.AMOY_PRIVATE_KEY],
+    },
   },
 
-  polygon: {
-    url:  process.env.POLYGON_MAINNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
- },
- mainnet: {
-    url: process.env.ETH_MAINNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
+  etherscan: {
+    apiKey: {
+      bscTestnet: "",
+      base: process.env.BASESCAN_API_KEY,
+      baseSepolia: process.env.BASESCAN_API_KEY,
+      polygonMumbai: process.env.POLYGONSCAN_API_KEY,
+      polygonAmoy: process.env.POLYGONSCAN_API_KEY,
     },
-  bsc: {
-      url:  process.env.BSC_MAINNET,
-      accounts: [process.env.EVM_PRIVATE_KEY],
-      gasPrice: 3000000000 
-    },
-  base: {
-      url:  process.env.BASE_MAINNET,
-      accounts: [process.env.EVM_PRIVATE_KEY]
-    },
-  assetchain: {
-    url: process.env.ASSETCHAIN_MAINNET,
-    accounts: [process.env.EVM_PRIVATE_KEY]
-  }
-},
-etherscan: {
-  enabled: true,
-  apiKey: {
-      mainnet: process.env.ETH_API_KEY,
-      sepolia: process.env.ETH_API_KEY,
-      base: process.env.BASE_API_KEY,
-      baseSepolia: process.env.BASE_API_KEY,
-      polygon: process.env.POLYGON_API_KEY,
-      polygonAmoy: process.env.POLYGON_API_KEY,
-      bsc: process.env.BSC_API_KEY,
-      bscTestnet: process.env.BSC_API_KEY
-    }
+    customChains: [
+      {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.basescan.org/api",
+          browserURL: "https://basescan.org",
+        },
+      },
+      {
+        network: "baseSepolia",
+        chainId: 84532,
+        urls: {
+          apiURL: "https://api-sepolia.basescan.org/api",
+          browserURL: "https://sepolia.basescan.org",
+        },
+      },
+      {
+        network: "polygonMumbai",
+        chainId: 80001,
+        urls: {
+          apiURL: "https://api-testnet.polygonscan.com/api",
+          browserURL: "https://mumbai.polygonscan.com",
+        },
+      },
+      {
+        network: "polygonAmoy",
+        chainId: 80002,
+        urls: {
+          apiURL: "https://api-amoy.polygonscan.com/api",
+          browserURL: "https://amoy.polygonscan.com",
+        },
+      },
+    ],
   },
+
   paths: {
     sources: "./contracts",
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",
   },
+
   mocha: {
     timeout: 20000,
   },

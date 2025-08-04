@@ -1,0 +1,9 @@
+{
+  "safeMasterCopyAddress": "0x5a7C8462B03b6C6C938DB25Ac07Bf3A2f94b89E6",
+  "safeProxyFactoryAddress": "0xa6B71E26C5e0845f74c812102Ca7114B6A896Ab2",
+  "fallbackHandlerAddress": "0xd9Db270c1B5E3Bd161E8c8503c55cA9aC1e40e73",
+  "multiSendAddress": "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761",
+  "multiSendCallOnlyAddress": "0x40a2aCCbd92BCA938b02010E17A5b8929b49130D",
+  "signMessageLibAddress": "0x0DC49aFfe41A6F21C9E315b6E44bE9F5A7fEb4A9",
+  "createCallAddress": "0x4fC270f418c9aB3fC3581C93b7408E8E9a6Aa00b"
+}

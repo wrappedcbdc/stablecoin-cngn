@@ -8,3 +8,4 @@ node_modules/
 artifacts/
 package-lock.json
 scripts/
+safe-contracts/

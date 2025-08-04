@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+require("@nomiclabs/hardhat-waffle");
 const { ethers, upgrades } = require("hardhat");
 
 describe("Operations2 Security", function () {
@@ -53,13 +54,16 @@ describe("Operations2 Security", function () {
       // Setup: owner grants minting and sets mint amount for user2
       await admin.connect(owner).addCanMint(user2.address);
       await admin.connect(owner).addMintAmount(user2.address, 500);
-      expect(await admin.mintAmount(user2.address)).to.equal(500);
+      // Use string comparison for BigNumber
+      expect((await admin.mintAmount(user2.address)).toString()).to.equal(
+        "500"
+      );
 
       // Owner removes the mint amount
       await expect(admin.connect(owner).removeMintAmount(user2.address))
         .to.emit(admin, "MintAmountRemoved")
         .withArgs(user2.address);
-      expect(await admin.mintAmount(user2.address)).to.equal(0);
+      expect((await admin.mintAmount(user2.address)).toString()).to.equal("0");
     });
   });
 
@@ -76,10 +80,10 @@ describe("Operations2 Security", function () {
 
       // Confirm the removal of privileges in Admin2
       expect(await admin.canMint(user3.address)).to.be.false;
-      expect(await admin.mintAmount(user3.address)).to.equal(0);
+      expect((await admin.mintAmount(user3.address)).toString()).to.equal("0");
 
       // Confirm cNGN balance update
-      expect(await cngn.balanceOf(user3.address)).to.equal(1000);
+      expect((await cngn.balanceOf(user3.address)).toString()).to.equal("1000");
     });
   });
 });

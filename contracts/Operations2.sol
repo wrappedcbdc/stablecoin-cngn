@@ -3,14 +3,14 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 contract Admin2 is
     Initializable,
     OwnableUpgradeable,
-    UUPSUpgradeable,
-    ReentrancyGuardUpgradeable
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable
 {
     // Mappings for managing roles
     mapping(address => bool) public canForward;
@@ -39,18 +39,24 @@ contract Admin2 is
     event WhitelistedInternalUser(address indexed _user);
     event BlackListedInternalUser(address indexed _user);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() initializer {}
+    /*  /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        // Prevent the implementation contract itself from being initialized
+        _disableInitializers();
+    } */
 
     // Initializer function for upgradeable contracts
     function initialize() public initializer {
         __Ownable_init();
-        __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
+        __Pausable_init();
 
         // Initialization logic
         canForward[_msgSender()] = true;
         canMint[_msgSender()] = true;
+
+        // Now lock the implementation so nobody can re-init it
+        // _disableInitializers();
     }
 
     // Security Measures
@@ -71,6 +77,7 @@ contract Admin2 is
         address _User
     )
         public
+        whenNotPaused
         onlyOwnerOrTrustedContract
         notBlacklisted(_User)
         returns (bool)
@@ -83,9 +90,10 @@ contract Admin2 is
 
     function removeCanMint(
         address _User
-    ) public onlyOwnerOrTrustedContract returns (bool) {
+    ) public whenNotPaused onlyOwnerOrTrustedContract returns (bool) {
         require(canMint[_User], "User is not a minter");
         canMint[_User] = false;
+        mintAmount[_User] = 0;
         emit BlackListedMinter(_User);
         return true;
     }
@@ -93,7 +101,7 @@ contract Admin2 is
     function addMintAmount(
         address _User,
         uint256 _Amount
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(canMint[_User] == true);
         mintAmount[_User] = _Amount;
         emit MintAmountAdded(_User);
@@ -102,16 +110,16 @@ contract Admin2 is
 
     function removeMintAmount(
         address _User
-    ) public onlyOwnerOrTrustedContract returns (bool) {
+    ) public whenNotPaused onlyOwnerOrTrustedContract returns (bool) {
         mintAmount[_User] = 0;
         emit MintAmountRemoved(_User);
         return true;
     }
 
-     // Functions for managing external user whitelist
+    // Functions for managing external user whitelist
     function whitelistExternalSender(
         address _User
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(
             !isExternalSenderWhitelisted[_User],
             "User already whitelisted"
@@ -123,21 +131,27 @@ contract Admin2 is
 
     function blacklistExternalSender(
         address _User
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(isExternalSenderWhitelisted[_User], "User not whitelisted");
         isExternalSenderWhitelisted[_User] = false;
         emit BlackListedExternalSender(_User);
         return true;
     }
+
+    /// @notice Pause all state-changing operations
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause to resume operations
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     // Functions for managing forwarders and minters
     function addCanForward(
         address _User
-    )
-        public
-        onlyOwner
-        notBlacklisted(_User)
-        returns (bool)
-    {
+    ) public whenNotPaused onlyOwner notBlacklisted(_User) returns (bool) {
         require(!canForward[_User], "User already added as forwarder");
         canForward[_User] = true;
         emit WhitelistedForwarder(_User);
@@ -146,7 +160,7 @@ contract Admin2 is
 
     function removeCanForward(
         address _User
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(canForward[_User], "User is not a forwarder");
         canForward[_User] = false;
         emit BlackListedForwarder(_User);
@@ -156,7 +170,7 @@ contract Admin2 is
     // Adding trusted contracts
     function addTrustedContract(
         address _trustedContract
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(!trustedContract[_trustedContract], "Contract already added");
         trustedContract[_trustedContract] = true;
         emit WhitelistedContract(_trustedContract);
@@ -165,16 +179,16 @@ contract Admin2 is
 
     function removeTrustedContract(
         address _trustedContract
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(trustedContract[_trustedContract], "Contract does not exist");
         trustedContract[_trustedContract] = false;
-         emit BlackListedContract(_trustedContract);
+        emit BlackListedContract(_trustedContract);
         return true;
     }
 
     function blacklistInternalUser(
         address _User
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(isInternalUserWhitelisted[_User], "User not whitelisted");
         isInternalUserWhitelisted[_User] = false;
         emit BlackListedInternalUser(_User);
@@ -184,14 +198,14 @@ contract Admin2 is
     // Functions for managing internal user whitelist
     function whitelistInternalUser(
         address _User
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(!isInternalUserWhitelisted[_User], "User already whitelisted");
         isInternalUserWhitelisted[_User] = true;
         emit WhitelistedInternalUser(_User);
         return true;
     }
 
-    function addBlackList(address _evilUser) public onlyOwner {
+    function addBlackList(address _evilUser) public whenNotPaused onlyOwner {
         require(!isBlackListed[_evilUser], "User already BlackListed");
 
         isBlackListed[_evilUser] = true;
@@ -201,7 +215,7 @@ contract Admin2 is
 
     function removeBlackList(
         address _clearedUser
-    ) public onlyOwner returns (bool) {
+    ) public whenNotPaused onlyOwner returns (bool) {
         require(isBlackListed[_clearedUser], "Address not a Listed User");
 
         isBlackListed[_clearedUser] = false;
@@ -210,9 +224,4 @@ contract Admin2 is
 
         return true;
     }
-
-    // Authorize upgrades for UUPS proxy pattern
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
 }

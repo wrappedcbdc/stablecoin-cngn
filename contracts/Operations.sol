@@ -3,13 +3,11 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 contract Admin is
     Initializable,
     OwnableUpgradeable,
-    UUPSUpgradeable,
     ReentrancyGuardUpgradeable
 {
     // Mappings for managing roles
@@ -39,14 +37,11 @@ contract Admin is
     event WhitelistedInternalUser(address indexed _user);
     event BlackListedInternalUser(address indexed _user);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() initializer {}
-
     // Initializer function for upgradeable contracts
     function initialize() public initializer {
         __Ownable_init();
-        __UUPSUpgradeable_init();
-        __ReentrancyGuard_init();
+        __ReentrancyGuard_init_unchained(); // ← safer for upgrades
+        // __ReentrancyGuard_init();
 
         // Initialization logic
         canForward[_msgSender()] = true;
@@ -69,12 +64,7 @@ contract Admin is
 
     function addCanMint(
         address _User
-    )
-        public
-        onlyOwnerOrTrustedContract
-        notBlacklisted(_User)
-        returns (bool)
-    {
+    ) public onlyOwnerOrTrustedContract notBlacklisted(_User) returns (bool) {
         require(!canMint[_User], "User already added as minter");
         canMint[_User] = true;
         emit WhitelistedMinter(_User);
@@ -110,7 +100,7 @@ contract Admin is
         return true;
     }
 
-     // Functions for managing external user whitelist
+    // Functions for managing external user whitelist
     function whitelistExternalSender(
         address _User
     ) public onlyOwner returns (bool) {
@@ -131,24 +121,18 @@ contract Admin is
         emit BlackListedExternalSender(_User);
         return true;
     }
+
     // Functions for managing forwarders and minters
     function addCanForward(
         address _User
-    )
-        public
-        onlyOwner
-        notBlacklisted(_User)
-        returns (bool)
-    {
+    ) public onlyOwner notBlacklisted(_User) returns (bool) {
         require(!canForward[_User], "User already added as forwarder");
         canForward[_User] = true;
         emit WhitelistedForwarder(_User);
         return true;
     }
 
-    function removeCanForward(
-        address _User
-    ) public onlyOwner returns (bool) {
+    function removeCanForward(address _User) public onlyOwner returns (bool) {
         require(canForward[_User], "User is not a forwarder");
         canForward[_User] = false;
         emit BlackListedForwarder(_User);
@@ -170,7 +154,7 @@ contract Admin is
     ) public onlyOwner returns (bool) {
         require(trustedContract[_trustedContract], "Contract does not exist");
         trustedContract[_trustedContract] = false;
-         emit BlackListedContract(_trustedContract);
+        emit BlackListedContract(_trustedContract);
         return true;
     }
 
@@ -212,9 +196,4 @@ contract Admin is
 
         return true;
     }
-
-    // Authorize upgrades for UUPS proxy pattern
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyOwner {}
 }
