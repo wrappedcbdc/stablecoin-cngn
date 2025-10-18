@@ -68,11 +68,14 @@ cNGN is currently deployed on the following blockchain protocols:
 | Network    | cNGN Contract Address                                |
 | ---------- | ---------------------------------------------------- |
 | BANTU      | GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI |
-| ASSETCHAIN | 0x069404d2F76Aa4519819a41B4E385074A9F4E8eA           |
-| BASE       | 0x7E29CF1D8b1F4c847D0f821b79dDF6E67A5c11F8           |
+| ASSETCHAIN | 0x4c00E85cd0B0307D8ED0b5534Bc678776C4aa7D3           |
+| BASE       | 0x929A08903C22440182646Bb450a67178Be402f7f           |
 | BNBCHAIN   | 0xA8945B7B12a3808EFD68B072b54E6dae4f0d7AEa           |
-| ETHEREUM   | 0xA1A8892a746685FD8ae09FdCfAdce89fF6FB7234           |
-| POLYGON    | 0x1BE5EaCb5D503fe8D64c810a0b14cdD7eC48df1f          |
+| ETHEREUM   | 0xd076ceCB8af5D92F7f6F32bDf24Da708859593d3           |
+| POLYGON    | 0xf24B1Cee8cA70341FcefBCa10e7e4Db9A4896486           |
+| LISK       | 0x999E3A32eF3F9EAbF133186512b5F29fADB8a816           |
+| MONAD      | 0x4F90098BA5b08ABAf039b95A851F8e764EB84b49           |
+
 
 ## Developer Guide
 
