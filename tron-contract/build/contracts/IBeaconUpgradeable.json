@@ -25,15 +25,15 @@
     "absolutePath": "@openzeppelin/contracts-upgradeable/proxy/beacon/IBeaconUpgradeable.sol",
     "exportedSymbols": {
       "IBeaconUpgradeable": [
-        3233
+        3110
       ]
     },
-    "id": 3234,
+    "id": 3111,
     "license": "MIT",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 3225,
+        "id": 3102,
         "literals": [
           "solidity",
           "^",
@@ -41,7 +41,7 @@
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "93:23:8"
+        "src": "93:23:11"
       },
       {
         "abstract": false,
@@ -50,54 +50,54 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 3226,
+          "id": 3103,
           "nodeType": "StructuredDocumentation",
-          "src": "118:79:8",
+          "src": "118:79:11",
           "text": " @dev This is the interface that {BeaconProxy} expects of its beacon."
         },
         "fullyImplemented": false,
-        "id": 3233,
+        "id": 3110,
         "linearizedBaseContracts": [
-          3233
+          3110
         ],
         "name": "IBeaconUpgradeable",
-        "nameLocation": "208:18:8",
+        "nameLocation": "208:18:11",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 3227,
+              "id": 3104,
               "nodeType": "StructuredDocumentation",
-              "src": "233:162:8",
+              "src": "233:162:11",
               "text": " @dev Must return an address that can be used as a delegate call target.\n {BeaconProxy} will check that this address is a contract."
             },
             "functionSelector": "5c60da1b",
-            "id": 3232,
+            "id": 3109,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "implementation",
-            "nameLocation": "409:14:8",
+            "nameLocation": "409:14:11",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 3228,
+              "id": 3105,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "423:2:8"
+              "src": "423:2:11"
             },
             "returnParameters": {
-              "id": 3231,
+              "id": 3108,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 3230,
+                  "id": 3107,
                   "mutability": "mutable",
                   "name": "",
                   "nameLocation": "-1:-1:-1",
                   "nodeType": "VariableDeclaration",
-                  "scope": 3232,
-                  "src": "449:7:8",
+                  "scope": 3109,
+                  "src": "449:7:11",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -105,10 +105,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 3229,
+                    "id": 3106,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "449:7:8",
+                    "src": "449:7:11",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -118,35 +118,36 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "448:9:8"
+              "src": "448:9:11"
             },
-            "scope": 3233,
-            "src": "400:58:8",
+            "scope": 3110,
+            "src": "400:58:11",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 3234,
-        "src": "198:262:8",
-        "usedErrors": []
+        "scope": 3111,
+        "src": "198:262:11",
+        "usedErrors": [],
+        "usedEvents": []
       }
     ],
-    "src": "93:368:8"
+    "src": "93:368:11"
   },
   "legacyAST": {
     "absolutePath": "@openzeppelin/contracts-upgradeable/proxy/beacon/IBeaconUpgradeable.sol",
     "exportedSymbols": {
       "IBeaconUpgradeable": [
-        3233
+        3110
       ]
     },
-    "id": 3234,
+    "id": 3111,
     "license": "MIT",
     "nodeType": "SourceUnit",
     "nodes": [
       {
-        "id": 3225,
+        "id": 3102,
         "literals": [
           "solidity",
           "^",
@@ -154,7 +155,7 @@
           ".0"
         ],
         "nodeType": "PragmaDirective",
-        "src": "93:23:8"
+        "src": "93:23:11"
       },
       {
         "abstract": false,
@@ -163,54 +164,54 @@
         "contractDependencies": [],
         "contractKind": "interface",
         "documentation": {
-          "id": 3226,
+          "id": 3103,
           "nodeType": "StructuredDocumentation",
-          "src": "118:79:8",
+          "src": "118:79:11",
           "text": " @dev This is the interface that {BeaconProxy} expects of its beacon."
         },
         "fullyImplemented": false,
-        "id": 3233,
+        "id": 3110,
         "linearizedBaseContracts": [
-          3233
+          3110
         ],
         "name": "IBeaconUpgradeable",
-        "nameLocation": "208:18:8",
+        "nameLocation": "208:18:11",
         "nodeType": "ContractDefinition",
         "nodes": [
           {
             "documentation": {
-              "id": 3227,
+              "id": 3104,
               "nodeType": "StructuredDocumentation",
-              "src": "233:162:8",
+              "src": "233:162:11",
               "text": " @dev Must return an address that can be used as a delegate call target.\n {BeaconProxy} will check that this address is a contract."
             },
             "functionSelector": "5c60da1b",
-            "id": 3232,
+            "id": 3109,
             "implemented": false,
             "kind": "function",
             "modifiers": [],
             "name": "implementation",
-            "nameLocation": "409:14:8",
+            "nameLocation": "409:14:11",
             "nodeType": "FunctionDefinition",
             "parameters": {
-              "id": 3228,
+              "id": 3105,
               "nodeType": "ParameterList",
               "parameters": [],
-              "src": "423:2:8"
+              "src": "423:2:11"
             },
             "returnParameters": {
-              "id": 3231,
+              "id": 3108,
               "nodeType": "ParameterList",
               "parameters": [
                 {
                   "constant": false,
-                  "id": 3230,
+                  "id": 3107,
                   "mutability": "mutable",
                   "name": "",
                   "nameLocation": "-1:-1:-1",
                   "nodeType": "VariableDeclaration",
-                  "scope": 3232,
-                  "src": "449:7:8",
+                  "scope": 3109,
+                  "src": "449:7:11",
                   "stateVariable": false,
                   "storageLocation": "default",
                   "typeDescriptions": {
@@ -218,10 +219,10 @@
                     "typeString": "address"
                   },
                   "typeName": {
-                    "id": 3229,
+                    "id": 3106,
                     "name": "address",
                     "nodeType": "ElementaryTypeName",
-                    "src": "449:7:8",
+                    "src": "449:7:11",
                     "stateMutability": "nonpayable",
                     "typeDescriptions": {
                       "typeIdentifier": "t_address",
@@ -231,27 +232,28 @@
                   "visibility": "internal"
                 }
               ],
-              "src": "448:9:8"
+              "src": "448:9:11"
             },
-            "scope": 3233,
-            "src": "400:58:8",
+            "scope": 3110,
+            "src": "400:58:11",
             "stateMutability": "view",
             "virtual": false,
             "visibility": "external"
           }
         ],
-        "scope": 3234,
-        "src": "198:262:8",
-        "usedErrors": []
+        "scope": 3111,
+        "src": "198:262:11",
+        "usedErrors": [],
+        "usedEvents": []
       }
     ],
-    "src": "93:368:8"
+    "src": "93:368:11"
   },
   "compiler": {
     "name": "solc",
-    "version": "0.8.11+commit.b01f3284.mod.Emscripten.clang"
+    "version": "0.8.20+commit.5f1834bc.Emscripten.clang"
   },
   "networks": {},
   "schemaVersion": "2.0.1",
-  "updatedAt": "2024-12-14T15:38:16.799Z"
+  "updatedAt": "2025-05-06T16:08:44.459Z"
 }
