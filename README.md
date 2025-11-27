@@ -7,6 +7,7 @@ cNGN, fosters the expansion of fintechs, liquidity providers, and virtual asset 
 ## Architecture Overview
 
 The cNGN stablecoin implementation follows a modular architecture with the following key components:
+<img width="1463" height="683" alt="cngn smart contract high-level view" src="https://github.com/wrappedcbdc/stablecoin-cngn/blob/main/cNGN.technical.png" />
 
 ### Core Components
 
