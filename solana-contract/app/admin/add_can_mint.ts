@@ -1,7 +1,7 @@
 import * as anchor from '@coral-xyz/anchor';
 import { PublicKey } from '@solana/web3.js';
 import { calculatePDAs, TokenPDAs } from '../../utils/helpers';
-import { loadOrCreateKeypair } from '../../app/utils/helpers';
+import { loadOrCreateKeypair } from '../utils/helpers';
 import cngnidl from '../../target/idl/cngn.json';
 require('dotenv').config();
 
