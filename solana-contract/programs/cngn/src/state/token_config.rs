@@ -4,8 +4,8 @@ use anchor_lang::prelude::*;
 
 pub const MIN_MINT_AMOUNT: u64 = 1; // Minimum mint amount
 pub const MAX_MINT_AMOUNT: u64 = 1_000_000_000; // Maximum mint amount
-
-
+pub const META_LIST_ACCOUNT_SEED: &[u8] = b"extra-account-metas";
+pub const TOKEN_CONFIG_SEED: &[u8] = b"token-config";
 #[account]
 pub struct TokenConfig {
     pub name: String,           // Token name

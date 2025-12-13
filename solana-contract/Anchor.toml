@@ -4,20 +4,17 @@
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-cngn = "4qgc4qUsecrsXdu1oof3YScMDbH1Ck6NsByLbEARHR4D"
-
 [programs.devnet]
-cngn = "4qgc4qUsecrsXdu1oof3YScMDbH1Ck6NsByLbEARHR4D"
+cngn = "25hdB3aDv1sfkMCcXbNkPBPvtU7ZmEPoSdXcC1m1dMZN"
 
-[programs.mainnet]
-cngn = "4qgc4qUsecrsXdu1oof3YScMDbH1Ck6NsByLbEARHR4D"
+[programs.localnet]
+cngn = "25hdB3aDv1sfkMCcXbNkPBPvtU7ZmEPoSdXcC1m1dMZN"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

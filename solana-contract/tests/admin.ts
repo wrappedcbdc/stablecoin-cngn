@@ -7,15 +7,24 @@ import { AuthorityType, createSetAuthorityInstruction, getMint, TOKEN_PROGRAM_ID
 
 import { calculatePDAs, createTokenAccountIfNeeded } from '../utils/helpers';
 import { initializeToken } from "../utils/token_initializer";
-import { transferMintAuthority } from "../utils/transfer_authority";
-import { transferAuthorityToPDA } from "./transfer_authority_to_pda";
+import { transferMintAuthority } from "../utils/transfer_mint_authority";
+import { transferAuthorityToPDA } from "./tranfer-authority-to-pda";
 
 describe("cngn admin functionality tests", () => {
   // Configure the client to use the local cluster
-  const provider = anchor.AnchorProvider.env();
+  // const provider = anchor.AnchorProvider.env();
+  // anchor.setProvider(provider);
+  // const payer = (provider.wallet as anchor.Wallet).payer;
+  // const program = anchor.workspace.Cngn as Program<Cngn>;
+  const connection = new anchor.web3.Connection('http://127.0.0.1:8899', 'confirmed');
+  const wallet = anchor.Wallet.local(); // Uses ~/.config/solana/id.json
+  const provider = new anchor.AnchorProvider(connection, wallet, {
+    commitment: 'confirmed',
+  });
   anchor.setProvider(provider);
   const payer = (provider.wallet as anchor.Wallet).payer;
   const program = anchor.workspace.Cngn as Program<Cngn>;
+
 
   // Create the mint keypair - this will be the actual token
   const mint = Keypair.generate();
@@ -60,13 +69,13 @@ describe("cngn admin functionality tests", () => {
     // Initialize the token
     console.log("Initializing token and accounts...");
     // Initialize the token
-    await initializeToken(program, provider, mint, pdas);
+    await initializeToken(program, provider, mint, pdas, payer.publicKey);
 
 
-   let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
-    // Assertions to verify transfer
-    assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
-    assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
+    //  let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
+    //   // Assertions to verify transfer
+    //   assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
+    //   assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
   });
 
   describe("CanMint Admin Tests", () => {
@@ -899,4 +908,121 @@ describe("cngn admin functionality tests", () => {
       }
     });
   });
+
+
+  describe("Admin Change Tests", () => {
+    const newAdmin = Keypair.generate();
+    const newAdmin2 = Keypair.generate();
+
+    before(async () => {
+      // Fund all admin keypairs upfront
+      for (const admin of [newAdmin, newAdmin2]) {
+        await provider.connection.requestAirdrop(
+          admin.publicKey,
+          1 * anchor.web3.LAMPORTS_PER_SOL
+        );
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    });
+
+    it("Owner can change admin", async () => {
+      console.log("Testing changing admin...");
+
+      // Current admin (provider.wallet) changes to newAdmin
+      const tx = await program.methods
+        .changeAdmin(newAdmin.publicKey)
+        .accounts({
+          authority: provider.wallet.publicKey,
+          tokenConfig: pdas.tokenConfig,
+          trustedContracts: pdas.trustedContracts,
+          blacklist: pdas.blacklist
+        })
+        .rpc();
+
+      console.log("Change admin tx:", tx);
+
+      const tokenConfigAccount = await program.account.tokenConfig.fetch(pdas.tokenConfig);
+      assert.equal(
+        tokenConfigAccount.admin.toString(),
+        newAdmin.publicKey.toString(),
+        "Admin should be newAdmin"
+      );
+    });
+
+    it("New admin can change admin again", async () => {
+      console.log("Testing new admin changing admin...");
+
+      // newAdmin changes to newAdmin2
+      const tx = await program.methods
+        .changeAdmin(newAdmin2.publicKey)
+        .accounts({
+          authority: newAdmin.publicKey,
+          tokenConfig: pdas.tokenConfig,
+          trustedContracts: pdas.trustedContracts,
+          blacklist: pdas.blacklist
+        })
+        .signers([newAdmin])
+        .rpc();
+
+      console.log("Change admin tx:", tx);
+
+      const tokenConfigAccount = await program.account.tokenConfig.fetch(pdas.tokenConfig);
+      assert.equal(
+        tokenConfigAccount.admin.toString(),
+        newAdmin2.publicKey.toString(),
+        "Admin should be newAdmin2"
+      );
+    });
+
+    it("Non-admin cannot change admin", async () => {
+      console.log("Testing non-admin changing admin...");
+
+      try {
+        await program.methods
+          .changeAdmin(regularUser2.publicKey)
+          .accounts({
+            authority: regularUser1.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            trustedContracts: pdas.trustedContracts,
+            blacklist: pdas.blacklist
+          })
+          .signers([regularUser1])
+          .rpc();
+
+        assert.fail("Should have failed with unauthorized error");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "Unauthorized");
+      }
+    });
+
+    it("Current admin (newAdmin2) can add a mint authority", async () => {
+      console.log("Testing current admin adding mint authority...");
+
+      const newMintAuth = Keypair.generate();
+
+      const tx = await program.methods
+        .addCanMint(newMintAuth.publicKey)
+        .accounts({
+          authority: newAdmin2.publicKey, // Current admin
+          tokenConfig: pdas.tokenConfig,
+          blacklist: pdas.blacklist,
+          canMint: pdas.canMint,
+          trustedContracts: pdas.trustedContracts
+        })
+        .signers([newAdmin2]) // Sign with current admin
+        .rpc();
+
+      console.log("Added mint authority tx:", tx);
+
+      const canMintAccount = await program.account.canMint.fetch(pdas.canMint);
+      const authorityFound = canMintAccount.authorities.some(auth =>
+        auth.equals(newMintAuth.publicKey)
+      );
+
+      assert.isTrue(authorityFound, "Mint authority was not added");
+    });
+  });
+
 });

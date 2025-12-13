@@ -1,16 +1,12 @@
 // instructions/mod.rs
 pub mod initialize;
 pub mod mint;
-pub mod transfer;
-pub mod forwarder;
 pub mod pause;
-pub mod burn;
 pub mod admin;
+pub mod redemption;
 
 pub use initialize::*;
 pub use mint::*;
-pub use forwarder::*;
-pub use transfer::*;
+pub use redemption::*;
 pub use pause::*;
-pub use burn::*;
 pub use admin::*;

@@ -1,6 +1,8 @@
 // state/mint_auth.rs
 use anchor_lang::prelude::*;
 
+pub const MINT_AUTHORITY_SEED: &[u8] = b"mint-authority";
+
 #[account]
 pub struct MintAuthority {
     pub mint: Pubkey,              // The mint this authority controls

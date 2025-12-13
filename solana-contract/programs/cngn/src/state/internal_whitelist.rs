@@ -8,6 +8,7 @@ pub struct InternalWhiteList {
     pub whitelist: Vec<Pubkey>,
     pub bump: u8,
 }
+pub const INTERNAL_WHITELIST_SEED: &[u8] = b"internal-whitelist";
 
 impl InternalWhiteList {
     pub const MAX_INTERNAL_WHITELISTED: usize = 100;

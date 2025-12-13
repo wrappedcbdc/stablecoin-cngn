@@ -10,6 +10,7 @@ pub struct ExternalWhiteList {
     pub whitelist: Vec<Pubkey>,
     pub bump: u8,
 }
+pub const EXTERNAL_WHITELIST_SEED: &[u8] = b"external-whitelist";
 
 impl ExternalWhiteList {
     pub const MAX_EXTERNAL_WHITELISTED: usize = 100;

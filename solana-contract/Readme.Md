@@ -34,6 +34,12 @@ edit this section of the anchor.toml file
 cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 
+
+**Export Wallet**
+```sh
+export ANCHOR_WALLET=~/.config/solana/id.json
+```
+
 update the cluster, for devnet change "Localnet" to "Devnet", for mainnet change to "Mainnet"
 
 ```sh
@@ -165,10 +171,7 @@ Security (multi-sig for admin operations).
 Compliance (whitelist/blacklist support).
 Additional Commands
 
-**Export Wallet**
-```sh
-export ANCHOR_WALLET=~/.config/solana/id.json
-```
+
 
 ### Contributing
 We welcome contributions! Please read our contributing guidelines for more information.

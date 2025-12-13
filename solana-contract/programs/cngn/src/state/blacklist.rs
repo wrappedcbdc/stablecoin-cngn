@@ -8,7 +8,7 @@ pub struct BlackList {
     pub blacklist: Vec<Pubkey>,
     pub bump: u8,
 }
-
+pub const BLACK_LIST_SEED: &[u8] = b"black-list";
 impl BlackList {
     pub const MAX_BLACKLISTED: usize = 100;
     
@@ -35,7 +35,7 @@ pub fn remove(&mut self, address: &Pubkey) -> Result<()> {
         Ok(())
     } else {
         // Add this error to your ErrorCode enum
-        Err(ErrorCode::UserNotBlacklisted.into())
+        Err(ErrorCode::AddressNotBlacklisted.into())
     }
 }
 }

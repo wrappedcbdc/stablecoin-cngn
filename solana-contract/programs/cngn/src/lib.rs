@@ -1,15 +1,15 @@
 // lib.rs
 use anchor_lang::prelude::*;
 
-mod instructions;
-mod state;
-
 mod errors;
 mod events;
-use crate::errors::ErrorCode;
+mod instructions;
+mod state;
+//use anchor_spl::token_interface::*;
 use instructions::*;
+//use spl_transfer_hook_interface::instruction::TransferHookInstruction;
 
-declare_id!("4qgc4qUsecrsXdu1oof3YScMDbH1Ck6NsByLbEARHR4D");
+declare_id!("25hdB3aDv1sfkMCcXbNkPBPvtU7ZmEPoSdXcC1m1dMZN");
 
 #[program]
 pub mod cngn {
@@ -20,9 +20,10 @@ pub mod cngn {
         ctx: Context<Initialize>,
         name: String,
         symbol: String,
+        uri: String,
         decimals: u8,
     ) -> Result<()> {
-        instructions::initialize::initialize_handler(ctx, name, symbol, decimals)
+        instructions::initialize::initialize_handler(ctx, name, symbol, uri, decimals)
     }
     pub fn initialize_secondary(ctx: Context<InitializeSecondary>) -> Result<()> {
         instructions::initialize::initialize_secondary_handler(ctx)
@@ -31,13 +32,12 @@ pub mod cngn {
     pub fn initialize_third(ctx: Context<InitializeThird>) -> Result<()> {
         instructions::initialize::initialize_third_handler(ctx)
     }
-
     pub fn mint(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         instructions::mint::handler(ctx, amount)
     }
-
-    pub fn transfer(ctx: Context<TransferTokens>, amount: u64) -> Result<()> {
-        instructions::transfer::transfer_handler(ctx, amount)
+    // #[interface(spl_transfer_hook_interface::execute)]
+    pub fn bridge_token(ctx: Context<RedemptionTransfer>, amount: u64) -> Result<()> {
+        instructions::redemption::redemption_handler(ctx, amount)
     }
 
     pub fn pause_minting(ctx: Context<PauseMint>, pause_mint: bool) -> Result<()> {
@@ -46,10 +46,6 @@ pub mod cngn {
 
     pub fn pause_transfers(ctx: Context<PauseTransfer>, pause_transfer: bool) -> Result<()> {
         instructions::pause::pause_transfer_handler(ctx, pause_transfer)
-    }
-
-    pub fn burn(ctx: Context<BurnTokens>, amount: u64) -> Result<()> {
-        instructions::burn::handler(ctx, amount)
     }
 
     pub fn add_can_mint(ctx: Context<AddCanMint>, user: Pubkey) -> Result<()> {
@@ -117,6 +113,9 @@ pub mod cngn {
         instructions::admin::blacklist_external_user_handler(ctx, user)
     }
 
+    pub fn destroy_black_funds(ctx: Context<DestroyBlackTokens>, amount: u64) -> Result<()> {
+        instructions::admin::destroy_black_funds_handler(ctx, amount)
+    }
     // Add to your program entry point in lib.rs
     pub fn add_can_forward(ctx: Context<AddCanForward>, forwarder: Pubkey) -> Result<()> {
         instructions::admin::add_can_forward_handler(ctx, forwarder)
@@ -126,35 +125,28 @@ pub mod cngn {
         instructions::admin::remove_can_forward_handler(ctx, forwarder)
     }
 
-    pub fn initialize_user_nonce(ctx: Context<InitializeUserNonce>) -> Result<()> {
-        instructions::forwarder::initialize_user_nonce_handler(ctx)
+    pub fn change_admin(ctx: Context<ChangeAdmin>, new_admin: Pubkey) -> Result<()> {
+        instructions::admin::change_admin_handler(ctx, new_admin)
     }
 
-    pub fn execute(
-        ctx: Context<Execute>,
-        message_string: String,
-        signature_string: String,
-        amount: u64,
-    ) -> Result<String> {
-        // Convert hex strings to bytes
-        let sender_public_key =
-            hex::decode(bytes_to_hex_string(&ctx.accounts.sender.key.to_bytes()))
-                .map_err(|_| ErrorCode::InvalidPublicKey)?;
+    // fallback instruction handler as workaround to anchor instruction discriminator check
+    // pub fn fallback<'info>(
+    //     program_id: &Pubkey,
+    //     accounts: &'info [AccountInfo<'info>],
+    //     data: &[u8],
+    // ) -> Result<()> {
+    //     let instruction = TransferHookInstruction::unpack(data)?;
 
-        let message = hex::decode(&message_string).map_err(|_| ErrorCode::InvalidMessage)?;
+    //     // match instruction discriminator to transfer hook interface execute instruction
+    //     // token2022 program CPIs this instruction on token transfer
+    //     match instruction {
+    //         TransferHookInstruction::Execute { amount } => {
+    //             let amount_bytes = amount.to_le_bytes();
 
-        let signature = hex::decode(&signature_string).map_err(|_| ErrorCode::InvalidSignature)?;
-
-        instructions::forwarder::verify_ed25519_instruction(
-            ctx,
-            &sender_public_key,
-            &message,
-            &signature,
-            amount,
-        )
-    }
-}
-
-fn bytes_to_hex_string(bytes: &[u8]) -> String {
-    hex::encode(bytes)
+    //             // invoke custom transfer hook instruction on our program
+    //             __private::__global::transfer_hook(program_id, accounts, &amount_bytes)
+    //         }
+    //         _ => return Err(ProgramError::InvalidInstructionData.into()),
+    //     }
+    // }
 }

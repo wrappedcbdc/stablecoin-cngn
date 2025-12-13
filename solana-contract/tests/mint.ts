@@ -3,7 +3,7 @@ import { Program } from "@coral-xyz/anchor";
 import { Cngn } from "../target/types/cngn";
 import { assert, expect } from 'chai';
 import { PublicKey, Keypair } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID, getAccount } from '@solana/spl-token';
+import { TOKEN_2022_PROGRAM_ID, createMintToInstruction, getAccount, getAssociatedTokenAddressSync } from '@solana/spl-token';
 
 import { calculatePDAs, createTokenAccountIfNeeded, TokenPDAs } from '../utils/helpers';
 import {
@@ -11,7 +11,7 @@ import {
   initializeToken,
   setupUserAccounts
 } from '../utils/token_initializer';
-import { transferAuthorityToPDA } from "./transfer_authority_to_pda";
+
 
 describe("cngn mint test", () => {
   // Configure the client to use the local cluster.
@@ -19,7 +19,7 @@ describe("cngn mint test", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.Cngn as Program<Cngn>;
- const payer = (provider.wallet as anchor.Wallet).payer;
+  const payer = (provider.wallet as anchor.Wallet).payer;
   // Create the mint keypair - this will be the actual token
   const mint = Keypair.generate();
 
@@ -46,10 +46,7 @@ describe("cngn mint test", () => {
 
     // Initialize the token
     await initializeToken(program, provider, mint, pdas);
-   let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
-    // Assertions to verify transfer
-    assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
-    assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
+
     // Fund the test accounts
     // Airdrop SOL to the test accounts
     const users = [unauthorizedUser, blacklistedUser, authorizedUser, blacklistedReceiver];
@@ -61,11 +58,12 @@ describe("cngn mint test", () => {
       );
       await provider.connection.confirmTransaction(airdropSignature);
     }
+    console.log("======Setting up test users...========");
 
     // Create token accounts for all users
     const userAccounts = await setupUserAccounts(
       provider,
-      [unauthorizedUser, blacklistedUser, authorizedUser, blacklistedReceiver],
+      users,
       mint.publicKey
     );
 
@@ -76,7 +74,7 @@ describe("cngn mint test", () => {
       blacklistedReceiverTokenAccount
     ] = userAccounts;
 
-    console.log("Setting up test users...");
+    console.log("======Setting up test users...========");
 
     try {
       // Add the authorized user to can_mint with specific amount
@@ -151,6 +149,43 @@ describe("cngn mint test", () => {
       throw error;
     }
   });
+  it("Fails when trying to mint directly using SPL Token program", async () => {
+    console.log("Testing direct SPL mint attempt…");
+
+    const attacker = Keypair.generate();
+    const airdropSig = await provider.connection.requestAirdrop(
+      attacker.publicKey,
+      1 * anchor.web3.LAMPORTS_PER_SOL
+    );
+    await provider.connection.confirmTransaction(airdropSig);
+
+    // Attacker tries to mint directly using Token2022 program
+    const mintIx = await createMintToInstruction(
+      mint.publicKey,
+      attacker.publicKey,
+      authorizedUser.publicKey,
+      1_000_000,
+      [mint, attacker],
+      TOKEN_2022_PROGRAM_ID
+    )
+
+
+    const tx = new anchor.web3.Transaction().add(mintIx);
+
+    try {
+      await provider.sendAndConfirm(tx, [attacker]);
+      assert.fail("Direct SPL mint should have failed because PDA mint authority cannot sign");
+    } catch (error) {
+      console.log("Caught expected error for direct SPL mint:", error.toString());
+
+      // SPL normally throws one of these
+      expect(
+        error.toString().includes("Signature verification failed") ||
+        error.toString().includes("owner does not match") ||
+        error.toString().includes("instruction requires a signature")
+      ).to.be.true;
+    }
+  });
 
   it('Successfully mints tokens to an authorized user', async () => {
     console.log("Testing successful minting by an authorized user...");
@@ -172,24 +207,19 @@ describe("cngn mint test", () => {
         mintAuthority: pdas.mintAuthority,
         mint: mint.publicKey,
         tokenAccount: authorizedUserTokenAccount,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
         blacklist: pdas.blacklist,
         canMint: pdas.canMint,
         trustedContracts: pdas.trustedContracts
       })
       .signers([authorizedUser])
       .rpc();
-  
+
     console.log("Mint transaction signature:", mintTx);
-    program.addEventListener('tokensMintedEvent', (event, slot) => {
-      console.log("=======Event received=====:", event);
-      expect(event.mint.toString()).to.equal(mint.publicKey.toString());
-      expect(event.to.toBase58().toString()).to.equal(authorizedUser.publicKey.toString());
-      expect(event.amount.toString()).to.equal(`${mintAmount.toString()}`);
-    })
 
     // Verify the tokens were minted correctly
-    const tokenAccountInfoAfter = await getAccount(provider.connection, authorizedUserTokenAccount);
+
+    const tokenAccountInfoAfter = await getAccount(provider.connection, authorizedUserTokenAccount, null, TOKEN_2022_PROGRAM_ID);
     const expectedBalance = new anchor.BN(tokenAccountInfoBefore.amount.toString()).add(mintAmount);
 
     assert.equal(
@@ -209,7 +239,6 @@ describe("cngn mint test", () => {
       -1,
       "Authorized user should be removed from can_mint list after minting"
     );
-      program.removeEventListener(0);
   });
 
   it('Fails to mint when user is not in can_mint list', async () => {
@@ -224,7 +253,7 @@ describe("cngn mint test", () => {
           mintAuthority: pdas.mintAuthority,
           mint: mint.publicKey,
           tokenAccount: unauthorizedUserTokenAccount,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
           trustedContracts: pdas.trustedContracts
@@ -280,7 +309,7 @@ describe("cngn mint test", () => {
           mintAuthority: pdas.mintAuthority,
           mint: mint.publicKey,
           tokenAccount: authorizedUserTokenAccount,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
           trustedContracts: pdas.trustedContracts
@@ -333,7 +362,7 @@ describe("cngn mint test", () => {
           mintAuthority: pdas.mintAuthority,
           mint: mint.publicKey,
           tokenAccount: blacklistedUserTokenAccount,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
           trustedContracts: pdas.trustedContracts
@@ -360,7 +389,7 @@ describe("cngn mint test", () => {
           mintAuthority: pdas.mintAuthority,
           mint: mint.publicKey,
           tokenAccount: blacklistedReceiverTokenAccount,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
           trustedContracts: pdas.trustedContracts
@@ -401,7 +430,7 @@ describe("cngn mint test", () => {
           mintAuthority: pdas.mintAuthority,
           mint: mint.publicKey,
           tokenAccount: authorizedUserTokenAccount,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
           trustedContracts: pdas.trustedContracts
@@ -459,7 +488,7 @@ describe("cngn mint test", () => {
     }
 
     // Record the balance before minting
-    const tokenAccountInfoBefore = await getAccount(provider.connection, authorizedUserTokenAccount);
+    const tokenAccountInfoBefore = await getAccount(provider.connection, authorizedUserTokenAccount, null, TOKEN_2022_PROGRAM_ID);
 
     // Mint tokens
     const mintTx = await program.methods
@@ -470,7 +499,7 @@ describe("cngn mint test", () => {
         mintAuthority: pdas.mintAuthority,
         mint: mint.publicKey,
         tokenAccount: authorizedUserTokenAccount,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
         blacklist: pdas.blacklist,
         canMint: pdas.canMint,
         trustedContracts: pdas.trustedContracts
@@ -480,7 +509,7 @@ describe("cngn mint test", () => {
     console.log("Mint transaction signature after unpausing:", mintTx);
 
     // Verify the tokens were minted correctly
-    const tokenAccountInfoAfter = await getAccount(provider.connection, authorizedUserTokenAccount);
+    const tokenAccountInfoAfter = await getAccount(provider.connection, authorizedUserTokenAccount, null, TOKEN_2022_PROGRAM_ID);
     const expectedBalance = new anchor.BN(tokenAccountInfoBefore.amount.toString()).add(mintAmount);
 
     assert.equal(
@@ -546,7 +575,7 @@ describe("cngn mint test", () => {
           mintAuthority: pdas.mintAuthority,
           mint: differentMint.publicKey, // Using a different mint
           tokenAccount: authorizedUserTokenAccount,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
           trustedContracts: pdas.trustedContracts
@@ -602,7 +631,7 @@ describe("cngn mint test", () => {
       await provider.sendAndConfirm(tx, [differentMint]);
 
       // Create a token account for the different mint
-      const differentTokenAccount = await getAssociatedTokenAddress(
+      const differentTokenAccount = await getAssociatedTokenAddressSync(
         differentMint.publicKey,
         provider.wallet.publicKey
       );
@@ -619,7 +648,7 @@ describe("cngn mint test", () => {
             mintAuthority: pdas.mintAuthority,
             mint: mint.publicKey,
             tokenAccount: differentTokenAccount, // Token account for different mint
-            tokenProgram: TOKEN_PROGRAM_ID,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
             blacklist: pdas.blacklist,
             canMint: pdas.canMint,
             trustedContracts: pdas.trustedContracts

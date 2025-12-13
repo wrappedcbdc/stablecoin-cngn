@@ -1,4 +1,3 @@
-
 // events.rs
 use anchor_lang::prelude::*;
 
@@ -8,6 +7,7 @@ pub struct TokenInitializedEvent {
     pub admin: Pubkey,
     pub name: String,
     pub symbol: String,
+    pub uri: String,
     pub decimals: u8,
 }
 
@@ -31,9 +31,15 @@ pub struct TokensMintedEvent {
 
 #[event]
 pub struct TokensBurnedEvent {
-   pub from: Pubkey,
-   pub amount:u64,
-   pub owner:Pubkey
+    pub from: Pubkey,
+    pub amount: u64,
+}
+#[event]
+pub struct DestroyedBlackFundsEvent {
+    pub from: Pubkey,
+    pub timestamp: i64,
+    pub amount: u64,
+    pub mint: Pubkey,
 }
 
 #[event]
@@ -55,76 +61,91 @@ pub struct TokenTransferPauseEvent {
     pub transfer_paused: bool,
 }
 
+#[event]
+pub struct TokenUnpausedEvent {
+    pub mint: Pubkey,
+    pub mint_paused: bool,
+    pub transfer_paused: bool,
+}
 
 #[event]
-pub struct WhitelistedMinterEvent {
+pub struct RedemptionEvent {
+    pub from: Pubkey,
+    pub owner: Pubkey,
+    pub to: Pubkey,
+    pub amount: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct WhitelistedMinter {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct BlackListedMinterEvent {
+pub struct BlackListedMinter {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct MintAmountAddedEvent {
+pub struct MintAmountAdded {
     pub mint: Pubkey,
     pub authority: Pubkey,
     pub amount: u64,
 }
 
 #[event]
-pub struct MintAmountRemovedEvent {
+pub struct MintAmountRemoved {
     pub mint: Pubkey,
     pub authority: Pubkey,
 }
 
 #[event]
-pub struct WhitelistedContractEvent {
+pub struct WhitelistedContract {
     pub mint: Pubkey,
     pub contract: Pubkey,
 }
 
 #[event]
-pub struct BlackListedContractEvent {
+pub struct BlackListedContract {
     pub mint: Pubkey,
     pub contract: Pubkey,
 }
 
 #[event]
-pub struct AddedBlackListEvent {
+pub struct AddedBlackList {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct RemovedBlackListEvent {
+pub struct RemovedBlackList {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct WhitelistedInternalUserEvent {
+pub struct WhitelistedInternalUser {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct BlackListedInternalUserEvent {
+pub struct BlackListedInternalUser {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct WhitelistedExternalSenderEvent {
+pub struct WhitelistedExternalSender {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
 
 #[event]
-pub struct BlackListedExternalSenderEvent {
+pub struct BlackListedExternalSender {
     pub mint: Pubkey,
     pub user: Pubkey,
 }
@@ -138,13 +159,13 @@ pub struct MintAmountUpdatedEvent {
 
 // Add to your events.rs file
 #[event]
-pub struct WhitelistedForwarderEvent {
+pub struct WhitelistedForwarder {
     pub mint: Pubkey,
     pub forwarder: Pubkey,
 }
 
 #[event]
-pub struct BlackListedForwarderEvent {
+pub struct BlackListedForwarder {
     pub mint: Pubkey,
     pub forwarder: Pubkey,
 }
@@ -152,19 +173,14 @@ pub struct BlackListedForwarderEvent {
 #[event]
 pub struct ForwardedEvent {
     pub message: String,
-    pub sender: Pubkey,
-    pub recipient: Pubkey,
-    pub amount: u64,
-    pub forwarder: Pubkey
 }
 
-// Add this to your events.rs
+
 #[event]
-pub struct BridgeBurnEvent {
-    pub from_account: Pubkey,
-    pub sender: Pubkey,
-    pub recipient: Pubkey,
-    pub amount: u64,
+pub struct AdminChangedEvent {
+    pub mint: Pubkey,
+    pub old_admin: Pubkey,
+    pub new_admin: Pubkey,
+    pub authority: Pubkey, // The key that signed the transaction (current admin)
     pub timestamp: i64,
-    pub source_chain: String
 }

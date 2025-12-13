@@ -4,24 +4,23 @@
   "version": "0.1.0",
   "repository": "",
   "author": "Ayoseun",
-  "description": "CNGN Solana SPL Token Program",
+  "description": "CNGN Solana SPL Token2022 Program",
   "scripts": {
     "deploy": "RUSTUP_TOOLCHAIN=\"nightly-2024-11-19\" anchor deploy",
     "build": "RUSTUP_TOOLCHAIN=\"nightly-2024-11-19\" anchor build",
     "init": "ts-node migrations/deploy.ts",
-        "start": "ts-node app/app.ts",
+    "start": "ts-node app/app.ts",
     "test": "RUSTUP_TOOLCHAIN=\"nightly-2024-11-19\" anchor test",
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.30.1",
-    "@metaplex-foundation/mpl-token-metadata": "^2.13.0",
-    "@metaplex-foundation/umi": "^1.1.1",
-    "@metaplex-foundation/umi-bundle-defaults": "^1.1.1",
+    "@coral-xyz/anchor": "^0.32.1",
     "@noble/ed25519": "^2.2.3",
     "@solana/spl-token": "^0.4.12",
     "@solana/web3.js": "^1.98.0",
+    "@sqds/multisig": "^2.1.4",
+    "dotenv": "^17.2.3",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {

@@ -9,7 +9,7 @@ pub struct CanMint {
     pub mint_amounts: Vec<u64>,
     pub bump: u8,
 }
-
+pub const CAN_MINT_SEED: &[u8] = b"can-mint";
 impl CanMint {
     pub const MAX_AUTHORITIES: usize = 100;
 
@@ -36,7 +36,7 @@ impl CanMint {
             self.mint_amounts.remove(index); // Remove corresponding mint amount
             Ok(())
         } else {
-            Err(ErrorCode::NotMinter.into())
+            Err(ErrorCode::AdminNotFound.into())
         }
     }
 
@@ -46,7 +46,7 @@ impl CanMint {
             self.mint_amounts[index] = amount;
             Ok(())
         } else {
-            Err(ErrorCode::NotMinter.into())
+            Err(ErrorCode::AdminNotFound.into())
         }
     }
 
@@ -56,7 +56,7 @@ impl CanMint {
         if let Some(index) = self.authorities.iter().position(|x| x == authority) {
             Ok(self.mint_amounts[index])
         } else {
-            Err(ErrorCode::NotMinter.into())
+            Err(ErrorCode::AdminNotFound.into())
         }
     }
 

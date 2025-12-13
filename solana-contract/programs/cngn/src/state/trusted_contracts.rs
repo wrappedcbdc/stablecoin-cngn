@@ -8,6 +8,7 @@ pub struct TrustedContracts {
     pub contracts: Vec<Pubkey>,
     pub bump: u8,
 }
+pub const TRUSTED_CONTRACTS_SEED: &[u8] = b"trusted-contracts";
 
 impl TrustedContracts {
     pub const MAX_CONTRACTS: usize = 50;
