@@ -7,3 +7,4 @@ node_modules/
 artifacts/
 package-lock.json
 scripts/
+ton
