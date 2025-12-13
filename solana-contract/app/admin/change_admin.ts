@@ -50,11 +50,11 @@ async function main() {
         });
 
         console.log("Event listener registered, sending transaction...");
-        let { multisigKey, signer1, signer2 }: any = await createSquadsMultisig(provider.connection, payer)
-        console.log(multisigKey)
+        //let { multisigKey, signer1, signer2 }: any = await createSquadsMultisig(provider.connection, payer)
+       // console.log(multisigKey)
         // Send the transaction
         const tx = await program.methods
-            .changeAdmin(new PublicKey(multisigKey))
+            .changeAdmin(payer.publicKey)
             .accounts({
                 authority: provider.wallet.publicKey,
                 tokenConfig: pdas.tokenConfig,
