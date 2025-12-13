@@ -14,5 +14,8 @@ run-mint-tests:
 run-transfer-tests:
 	npx blueprint test tests/cngn-unit/transfer.spec.ts
 
+run-forwarder-tests:
+	npx blueprint test tests/forwarder.spec.ts
+
 run-config-tests:
 	npx blueprint test tests/cngn-unit/configAndSetup.spec.ts

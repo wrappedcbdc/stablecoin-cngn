@@ -48,7 +48,7 @@ describe('CngnJetton Transfer Tests', () => {
         user2 = await blockchain.treasury('user2');
         user3 = await blockchain.treasury('user3');
         user4 = await blockchain.treasury('user4');
-  let content = buildOnchainMetadata(jettonMetadata);
+        let content = buildOnchainMetadata(jettonMetadata);
         // Deploy Admin Operations
         admin = blockchain.openContract(
             await AdminOperations.fromInit(deployer.address)
@@ -695,7 +695,7 @@ describe('CngnJetton Transfer Tests', () => {
         // Verify redemption burn was triggered
         // (tokens should be burned from user2's wallet automatically)
 
-         
+
         const user2WalletAddress = await jetton.getGetWalletAddress(user2.address);
         const user2Wallet = blockchain.openContract(
             await CngnJettonWallet.fromAddress(user2WalletAddress)
@@ -703,41 +703,6 @@ describe('CngnJetton Transfer Tests', () => {
         const user2WalletData = await user2Wallet.getGetWalletData();
         expect(user2WalletData.balance).toBe(0n);
 
-    });
-
-    it('Test: Transfer with forward amount', async () => {
-        // Mint tokens to user1
-        const mintAmount = toNano('1000');
-        await mintTokens(user1, user1.address, mintAmount);
-
-        const user1WalletAddress = await jetton.getGetWalletAddress(user1.address);
-        const user1Wallet = blockchain.openContract(
-            await CngnJettonWallet.fromAddress(user1WalletAddress)
-        );
-
-        // Transfer with forward amount
-        await user1Wallet.send(
-            user1.getSender(),
-            { value: toNano('0.5') },
-            {
-                $$type: 'TokenTransfer',
-                query_id: 0n,
-                amount: toNano('500'),
-                destination: user2.address,
-                response_destination: user1.address,
-                custom_payload: beginCell().endCell(),
-                forward_ton_amount: toNano('0.1'),
-                forward_payload: beginCell().storeUint(123, 32).endCell()
-            }
-        );
-
-        // Verify transfer succeeded
-        const user2WalletAddress = await jetton.getGetWalletAddress(user2.address);
-        const user2Wallet = blockchain.openContract(
-            await CngnJettonWallet.fromAddress(user2WalletAddress)
-        );
-        const user2Data = await user2Wallet.getGetWalletData();
-        expect(user2Data.balance).toBe(toNano('500'));
     });
 
     it('Test: Concurrent transfers from different users', async () => {

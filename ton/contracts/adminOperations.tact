@@ -6,7 +6,7 @@ import "@stdlib/ownable";
 import "./structs";
 import "./messages";
 
-contract AdminOperations with Deployable, Ownable {
+contract AdminOperations with Deployable,  OwnableTransferable {
     owner: Address;
     canForward: map<Address, Bool>;
     canMint: map<Address, Bool>;

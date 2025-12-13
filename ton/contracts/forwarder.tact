@@ -1,38 +1,24 @@
+// ============================================================================
+// IMPROVED FORWARDER CONTRACT
+// Compatible with standard TON wallets and TEP-74
+// ============================================================================
+import "@stdlib/deploy";
+import "@stdlib/ownable";
+import "./messages";
+import "./structs";
+
+// ============================================================================
+// STRUCTS & MESSAGES
+// ============================================================================
+
+
 
 
 // ============================================================================
 // FORWARDER CONTRACT
 // ============================================================================
-import "@stdlib/deploy";
-import "@stdlib/ownable";
 
-struct ForwardRequest {
-    from: Address;
-    to: Address;
-    value: Int as coins;
-    gas: Int as uint64;
-    nonce: Int as uint64;
-    data: Cell;
-}
-
-message AuthorizeBridge {
-    bridge: Address;
-}
-
-message DeauthorizeBridge {
-    bridge: Address;
-}
-
-message ExecuteForward {
-    request: ForwardRequest;
-    signature: Slice;
-}
-
-message UpdateAdminOps {
-    newAdmin: Address;
-}
-
-contract Forwarder with Deployable, Ownable {
+contract Forwarder with Deployable,  OwnableTransferable {
     owner: Address;
     adminOperationsContract: Address;
     chainId: Int as uint256;
@@ -48,6 +34,10 @@ contract Forwarder with Deployable, Ownable {
         self.chainId = 0; // TON workchain
         self.paused = false;
     }
+    
+    // ========================================================================
+    // ADMIN FUNCTIONS
+    // ========================================================================
     
     receive("pause") {
         self.requireOwner();
@@ -74,6 +64,10 @@ contract Forwarder with Deployable, Ownable {
         self.authorizedBridges.set(msg.bridge, false);
     }
     
+    // ========================================================================
+    // CORE FORWARDING LOGIC
+    // ========================================================================
+    
     receive(msg: ExecuteForward) {
         require(!self.paused, "Contract is paused");
         let ctx: Context = context();
@@ -84,12 +78,12 @@ contract Forwarder with Deployable, Ownable {
             "Not authorized"
         );
         
-        // Verify nonce
+        // Verify nonce to prevent replay attacks
         let currentNonce: Int? = self.nonces.get(msg.request.from);
         let expectedNonce: Int = currentNonce != null ? currentNonce!! : 0;
         require(msg.request.nonce == expectedNonce, "Invalid nonce");
         
-        // Create tx hash for replay protection
+        // Create unique transaction hash for additional replay protection
         let txHash: Int = beginCell()
             .storeAddress(msg.request.from)
             .storeAddress(msg.request.to)
@@ -101,11 +95,13 @@ contract Forwarder with Deployable, Ownable {
         
         require(self.processedTxHashes.get(txHash) != true, "Replay attack");
         
-        // Mark as processed and increment nonce
+        // Mark transaction as processed and increment nonce
         self.processedTxHashes.set(txHash, true);
         self.nonces.set(msg.request.from, expectedNonce + 1);
         
-        // Forward the message
+        // Forward the message with original sender context preserved in data
+        // The receiving contract will see the Forwarder as sender, 
+        // but can parse the original sender from msg.request.data
         send(SendParameters{
             to: msg.request.to,
             value: msg.request.value,
@@ -114,6 +110,10 @@ contract Forwarder with Deployable, Ownable {
             body: msg.request.data
         });
     }
+    
+    // ========================================================================
+    // GETTER METHODS
+    // ========================================================================
     
     get fun getNonce(user: Address): Int {
         let nonce: Int? = self.nonces.get(user);

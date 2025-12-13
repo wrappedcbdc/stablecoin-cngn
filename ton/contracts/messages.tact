@@ -1,188 +1,276 @@
-// -------------------------------
-// Messages / Structs (explicit)
-// -------------------------------
+// ============================================================================
+// TEP-74 COMPLIANT JETTON MESSAGES (Standard Opcodes)
+// ============================================================================
 
-message TokenTransfer {
+// Standard Jetton Transfer (TEP-74 Compliant)
+// TL-B: transfer#0f8a7ea5 query_id:uint64 amount:(VarUInteger 16) 
+//       destination:MsgAddress response_destination:MsgAddress 
+//       custom_payload:(Maybe ^Cell) forward_ton_amount:(VarUInteger 16) 
+//       forward_payload:(Either Cell ^Cell) = InternalMsgBody
+message(0x0f8a7ea5) TokenTransfer {
     query_id: Int as uint64;
     amount: Int as coins;
-    destination: Address; // owner address of recipient
-    response_destination: Address; // optional
+    destination: Address;
+    response_destination: Address;
+    custom_payload: Cell;
     forward_ton_amount: Int as coins;
     forward_payload: Cell;
+}
+
+// Standard Internal Transfer (TEP-74 Compliant)
+// TL-B: internal_transfer#178d4519 query_id:uint64 amount:(VarUInteger 16) 
+//       from:MsgAddress response_destination:MsgAddress 
+//       forward_ton_amount:(VarUInteger 16) forward_payload:(Either Cell ^Cell) = InternalMsgBody
+message(0x178d4519) InternalTransfer {
+    query_id: Int as uint64;
+    amount: Int as coins;
+    from: Address;
+    response_destination: Address;
+    forward_ton_amount: Int as coins;
+    forward_payload: Cell;
+}
+
+// Standard Jetton Burn (TEP-74 Compliant)
+// TL-B: burn#595f07bc query_id:uint64 amount:(VarUInteger 16) 
+//       response_destination:MsgAddress custom_payload:(Maybe ^Cell) = InternalMsgBody
+message(0x595f07bc) Burn {
+    query_id: Int as uint64;
+    amount: Int as coins;
+    response_destination: Address;
     custom_payload: Cell;
 }
-message InternalTransfer {
-    query_id: Int as uint64;
-    amount: Int as coins;
-    from: Address; // sender owner
-    response_destination: Address;
-    forward_ton_amount: Int as coins;
-    forward_payload: Cell;
-}
-message Burn {
-    query_id: Int as uint64;
-    amount: Int as coins;
-    response_destination: Address;
-}
-message BurnNotification {
+
+// Standard Burn Notification (TEP-74 Compliant)
+// TL-B: burn_notification#7bdd97de query_id:uint64 amount:(VarUInteger 16)
+//       sender:MsgAddress response_destination:MsgAddress = InternalMsgBody
+message(0x7bdd97de) BurnNotification {
     query_id: Int as uint64;
     amount: Int as coins;
     sender: Address;
     response_destination: Address;
 }
-// Message for querying excess tokens
+
+// Standard Token Excesses (TEP-74 Compliant)
+// TL-B: excesses#d53276db query_id:uint64 = InternalMsgBody
 message(0xd53276db) TokenExcesses {
-    query_id: Int as uint64; // Unique query ID
-}
-// Notification message for token transfer events
-message(0x7362d09c) TokenNotification {
-    query_id: Int as uint64; // Unique query ID
-    amount: Int as coins; // Amount of tokens transferred
-    from: Address; // Sender's address
-    forward_payload: Slice as remaining; // Remaining payload for forwarding
-    // Comment: Text message when notifying token transfer
-}
-message Mint {
-    amount: Int as coins;
-    receiver: Address; // owner address
-}
-message UpdateAdminOperations {
-    newAdmin: Address;
-}
-message UpdateForwarder {
-    newForwarder: Address;
-}
-message ForceBurn {
     query_id: Int as uint64;
-    target: Address; // owner to burn from
 }
 
-message AddCanMint {
-    user: Address;
-}
-message RemoveCanMint {
-    user: Address;
-}
-message AddMintAmount {
-    user: Address;
+// Standard Transfer Notification (TEP-74 Compliant)
+// TL-B: transfer_notification#7362d09c query_id:uint64 amount:(VarUInteger 16) 
+//       sender:MsgAddress forward_payload:(Either Cell ^Cell) = InternalMsgBody
+message(0x7362d09c) TokenNotification {
+    query_id: Int as uint64;
     amount: Int as coins;
+    from: Address;
+    forward_payload: Slice as remaining;
 }
-message RemoveMintAmount {
-    user: Address;
+
+// ============================================================================
+// MINTING MESSAGES (Custom - Auto-generated opcodes)
+// ============================================================================
+
+message Mint {
+    amount: Int as coins;
+    receiver: Address;
 }
-message WhitelistExternalSender {
-    user: Address;
-}
-message BlacklistExternalSender {
-    user: Address;
-}
-message AddCanForward {
-    user: Address;
-}
-message RemoveCanForward {
-    user: Address;
-}
-message AddTrustedContract {
-    contractAddr: Address;
-}
-message RemoveTrustedContract {
-    contractAddr: Address;
-}
-message WhitelistInternalUser {
-    user: Address;
-}
-message BlacklistInternalUser {
-    user: Address;
-}
-message AddBlacklist {
-    user: Address;
-}
-message RemoveBlacklist {
-    user: Address;
-}
-message DestroyBlacklistedFunds {
-    user: Address;
-}
-// Step 1: User requests mint
+
 message RequestMint {
     amount: Int as coins;
-     receiver: Address;
+    receiver: Address;
 }
-// Step 2: Jetton asks Admin to verify
+
 message VerifyMintRequest {
     minter: Address;
     amount: Int as coins;
-      receiver: Address;
+    receiver: Address;
     queryId: Int as uint64;
 }
-// Step 3: Admin responds with verification result
-message(0x12345678) MintVerificationResponse {
+
+message MintVerificationResponse {
     approved: Bool;
     minter: Address;
     amount: Int as coins;
-     receiver: Address;
+    receiver: Address;
     queryId: Int as uint64;
 }
-// Step 4: After successful mint, notify Admin to remove mint permission
+
 message NotifyMintComplete {
     minter: Address;
     receiver: Address;
     amount: Int as coins;
 }
+
+// ============================================================================
+// ADMIN OPERATIONS MESSAGES (Custom - Auto-generated opcodes)
+// ============================================================================
+
+message AddCanMint {
+    user: Address;
+}
+
+message RemoveCanMint {
+    user: Address;
+}
+
+message AddMintAmount {
+    user: Address;
+    amount: Int as coins;
+}
+
+message RemoveMintAmount {
+    user: Address;
+}
+
+message WhitelistExternalSender {
+    user: Address;
+}
+
+message BlacklistExternalSender {
+    user: Address;
+}
+
+message AddCanForward {
+    user: Address;
+}
+
+message RemoveCanForward {
+    user: Address;
+}
+
+message AddTrustedContract {
+    contractAddr: Address;
+}
+
+message RemoveTrustedContract {
+    contractAddr: Address;
+}
+
+message WhitelistInternalUser {
+    user: Address;
+}
+
+message BlacklistInternalUser {
+    user: Address;
+}
+
+message AddBlacklist {
+    user: Address;
+}
+
+message RemoveBlacklist {
+    user: Address;
+}
+
+message DestroyBlacklistedFunds {
+    user: Address;
+}
+
+message UpdateAdminOperations {
+    newAdmin: Address;
+}
+
+message UpdateForwarder {
+    newForwarder: Address;
+}
+
+message ForceBurn {
+    query_id: Int as uint64;
+    target: Address;
+}
+
 message SetJettonMaster {
     jettonMaster: Address;
 }
-// Wallet asks Master to verify
+
+// ============================================================================
+// TRANSFER/BURN VERIFICATION MESSAGES (Custom - Auto-generated opcodes)
+// ============================================================================
+
 message VerifyWalletTransfer {
     sender: Address;
     recipient: Address;
     amount: Int as coins;
     queryId: Int as uint64;
 }
-message VerifyWalletBurn {
-    user: Address;
-    amount: Int as coins;
-    queryId: Int as uint64;
-}
-// Master responds to Wallet
+
 message TransferApprovalFromMaster {
     approved: Bool;
     isRedemption: Bool;
     queryId: Int as uint64;
 }
-message BurnApprovalFromMaster {
-    approved: Bool;
-    queryId: Int as uint64;
-}
-// For redemption flow
-message RedemptionBurn {
-    user: Address;
-    amount: Int as coins;
-}
-// Transfer verification messages
+
 message VerifyTransferRequest {
     sender: Address;
     recipient: Address;
     amount: Int as coins;
     queryId: Int as uint64;
 }
+
 message TransferVerificationResponse {
     approved: Bool;
-    isRedemption: Bool; // Special flag for redemption flow
+    isRedemption: Bool;
     sender: Address;
     recipient: Address;
     amount: Int as coins;
     queryId: Int as uint64;
 }
-// Burn verification messages
+
+message VerifyWalletBurn {
+    user: Address;
+    amount: Int as coins;
+    queryId: Int as uint64;
+}
+
+message BurnApprovalFromMaster {
+    approved: Bool;
+    queryId: Int as uint64;
+}
+
 message VerifyBurnRequest {
     user: Address;
     amount: Int as coins;
     queryId: Int as uint64;
 }
+
 message BurnVerificationResponse {
     approved: Bool;
     user: Address;
     amount: Int as coins;
     queryId: Int as uint64;
+}
+
+message RedemptionBurn {
+    user: Address;
+    amount: Int as coins;
+}
+
+// ============================================================================
+// FORWARDER MESSAGES (Custom - Auto-generated opcodes)
+// ============================================================================
+
+message AuthorizeBridge {
+    bridge: Address;
+}
+
+message DeauthorizeBridge {
+    bridge: Address;
+}
+
+message UpdateAdminOps {
+    newAdmin: Address;
+}
+
+struct ForwardRequest {
+    from: Address;
+    to: Address;
+    value: Int as coins;
+    gas: Int as uint64;
+    nonce: Int as uint64;
+    data: Cell;
+}
+
+message ExecuteForward {
+    request: ForwardRequest;
+    signature: Slice;
 }
