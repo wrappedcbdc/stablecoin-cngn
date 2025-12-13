@@ -1,0 +1,29 @@
+{
+  "name": "CNGN",
+  "symbol": "cNGN",
+  "description": "cNGN is Nigeria’s first regulated stablecoin, pegged 1:1 to the Nigerian Naira and fully backed by naira reserves held in licensed commercial banks.",
+  "image": "https://aqua-changing-meadowlark-684.mypinata.cloud/ipfs/bafkreifug3lermi2qlcrtyimh5oqd4hmhebi76tevyat3hyul5u32qvb3a",
+  "external_url": "https://cngn.co/",
+  "attributes": [
+    {
+      "trait_type": "Token Type",
+      "value": "Stablecoin"
+    },
+    {
+      "trait_type": "Peg",
+      "value": "1 NGN = 1 cNGN"
+    },
+    {
+      "trait_type": "Backed By",
+      "value": "Naira reserves"
+    },
+    {
+      "trait_type": "Regulation",
+      "value": "Regulated by Nigerian SEC"
+    },
+    {
+      "trait_type": "Circulating Supply",
+      "value": "≈ 602.9 M (as of Sept 2025)"
+    }
+  ]
+}
