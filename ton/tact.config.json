@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tact-lang/tact/main/src/config/configSchema.json",
+  "projects": [
+   {
+      "name": "CngnJetton",
+      "path": "contracts/cngnJetton.tact",
+      "output": "build/CngnJetton",
+      "options": {
+        "debug": false,
+        "external": false
+      },
+      "mode": "full"
+    },{
+      "name": "AdminOperations",
+      "path": "contracts/adminOperations.tact",
+      "output": "build/AdminOperations",
+      "options": {
+        "debug": false,
+        "external": false
+      },
+      "mode": "full"
+    },{
+      "name": "Forwarder",
+      "path": "contracts/forwarder.tact",
+      "output": "build/Forwarder",
+      "options": {
+        "debug": false,
+        "external": false
+      },
+      "mode": "full"
+    }
+  ]
+}
