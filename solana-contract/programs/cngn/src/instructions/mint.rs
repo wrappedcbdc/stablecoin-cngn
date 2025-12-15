@@ -7,8 +7,11 @@ use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount, TokenInterfa
 
 #[derive(Accounts)]
 pub struct MintTokens<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
+    /// CHECK: validated in TokenConfig::validate_caller
+    /// Can be either:
+    /// - EOA (direct signer)
+    /// - SPL Governance PDA (native treasury)
+    pub authority: UncheckedAccount<'info>,
 
     #[account(
         constraint = !token_config.mint_paused @ ErrorCode::MintingPaused)]

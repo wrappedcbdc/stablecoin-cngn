@@ -30,7 +30,7 @@ async function main() {
     try {
 
         // Create the mint keypair
-        const cngnMintKeypair = await loadOrCreateKeypair("cngnMint4");
+        const cngnMintKeypair = await loadOrCreateKeypair("cngnMint");
         console.log("Mint Keypair:", cngnMintKeypair.publicKey.toString());
 
         // Calculate all PDAs for the token
@@ -61,14 +61,14 @@ async function main() {
         let me: PublicKey = new PublicKey(
            "83p8Pmc2jU4by5ZSyhwYEQw7D5YAFz9joC9mnw49NzoP"
         );
-        // await transferMintAuthority(pdas.mintAuthority, cngnMintKeypair.publicKey, payer, connection);
+         //await transferMintAuthority(pdas.mintAuthority, cngnMintKeypair.publicKey, payer, connection);
        let userAccount= await createATAForUser(connection,payer,  cngnMintKeypair.publicKey, payer.publicKey);
-
+const anyone = loadOrCreateKeypair("ANYONE");
         // Send the transaction
         const tx = await program.methods
             .mint(TOKEN_PARAMS.mintAmount)
             .accounts({
-                authority: provider.wallet.publicKey,
+                authority: anyone.publicKey,
                 tokenConfig: pdas.tokenConfig,
                 mintAuthority: pdas.mintAuthority,
                 mint: cngnMintKeypair.publicKey,

@@ -7,7 +7,7 @@ import { initializeToken } from '../utils/token_initializer';
 import { transferMintAuthority } from '../utils/transfer_mint_authority';
 import { loadOrCreateKeypair } from '../app/utils/helpers';
 import { transferFreezeAuthority } from '../utils/transfer_freeze_authority';
-import { CreateMultiSig } from '../app/multisig';
+
 import { createMintAccountWithExtensions } from '../app/utils/metadata2022';
 import cngnidl from '../target/idl/cngn.json';
 require('dotenv').config();

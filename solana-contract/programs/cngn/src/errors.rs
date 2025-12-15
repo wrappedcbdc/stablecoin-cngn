@@ -168,4 +168,10 @@ pub enum ErrorCode {
     #[msg("The token is not currently transferring")]
     IsNotCurrentlyTransferring,
 
+    #[msg("Not a CPI call")]
+    NotCpi,
+    
+    #[msg("Invalid governance program")]
+    InvalidGovernanceProgram,
+
 }

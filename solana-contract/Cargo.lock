@@ -537,6 +537,7 @@ dependencies = [
  "arrayref",
  "bincode",
  "hex",
+ "solana-program",
  "spl-tlv-account-resolution",
  "spl-transfer-hook-interface",
 ]

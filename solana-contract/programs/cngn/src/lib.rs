@@ -36,9 +36,9 @@ pub mod cngn {
         instructions::mint::handler(ctx, amount)
     }
     // #[interface(spl_transfer_hook_interface::execute)]
-    pub fn bridge_token(ctx: Context<RedemptionTransfer>, amount: u64) -> Result<()> {
-        instructions::redemption::redemption_handler(ctx, amount)
-    }
+    // pub fn transfer_hook(ctx: Context<RedemptionTransfer>, amount: u64) -> Result<()> {
+    //     instructions::transfer_hook::transfer_hook_handler(ctx, amount)
+    // }
 
     pub fn pause_minting(ctx: Context<PauseMint>, pause_mint: bool) -> Result<()> {
         instructions::pause::pause_mint_handler(ctx, pause_mint)
@@ -113,9 +113,6 @@ pub mod cngn {
         instructions::admin::blacklist_external_user_handler(ctx, user)
     }
 
-    pub fn destroy_black_funds(ctx: Context<DestroyBlackTokens>, amount: u64) -> Result<()> {
-        instructions::admin::destroy_black_funds_handler(ctx, amount)
-    }
     // Add to your program entry point in lib.rs
     pub fn add_can_forward(ctx: Context<AddCanForward>, forwarder: Pubkey) -> Result<()> {
         instructions::admin::add_can_forward_handler(ctx, forwarder)

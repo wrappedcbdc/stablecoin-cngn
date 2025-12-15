@@ -5,6 +5,7 @@ import { loadOrCreateKeypair } from '../utils/helpers';
 import cngnidl from '../../target/idl/cngn.json';
 import { TOKEN_PARAMS } from '../../utils/token_initializer';
 import { createSquadsMultisig } from '../multisig';
+import { instructions } from '@sqds/multisig';
 
 require('dotenv').config();
 
@@ -29,10 +30,6 @@ async function main() {
         // Create the mint keypair
         const cngnMintKeypair = await loadOrCreateKeypair("cngnMint");
         console.log("Mint Keypair:", cngnMintKeypair.publicKey.toString());
-
-        const upgradeAuthority = new PublicKey(process.env.UPGRADE_AUTHORITY);
-        console.log("Upgrade Authority:", upgradeAuthority.toString());
-
         // Calculate all PDAs for the token
         const pdas: TokenPDAs = calculatePDAs(cngnMintKeypair.publicKey, program.programId);
 
@@ -50,17 +47,20 @@ async function main() {
         });
 
         console.log("Event listener registered, sending transaction...");
-        //let { multisigKey, signer1, signer2 }: any = await createSquadsMultisig(provider.connection, payer)
-       // console.log(multisigKey)
+        const anyone = loadOrCreateKeypair("ANYONE");
+        const anyone2 = loadOrCreateKeypair("ANYONE2");
         // Send the transaction
         const tx = await program.methods
-            .changeAdmin(payer.publicKey)
+            .changeAdmin(new PublicKey("F1t5a77jN9yYMrDRjE1K8TqTWitwBCke3J2La5zk6QjL"))
             .accounts({
-                authority: provider.wallet.publicKey,
+                authority: anyone.publicKey,
                 tokenConfig: pdas.tokenConfig,
                 blacklist: pdas.blacklist,
-                trustedContracts: pdas.trustedContracts
+                mint: cngnMintKeypair.publicKey,
+                trustedContracts: pdas.trustedContracts,
+                //instructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
             })
+            //.signers([anyone])
             .rpc();
 
         console.log("Transaction signature:", tx);

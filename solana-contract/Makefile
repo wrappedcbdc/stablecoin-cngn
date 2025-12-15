@@ -24,5 +24,8 @@ create-multisig:
 change-admin:
 	npx ts-node app/admin/change_admin.ts
 
+burn-by-delegate:
+	npx ts-node app/admin/burn_by_delegate.ts
+
 make run-tests:
 	anchor test

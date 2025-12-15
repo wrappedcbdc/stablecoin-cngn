@@ -11,26 +11,14 @@ use spl_tlv_account_resolution::{
 use spl_transfer_hook_interface::instruction::ExecuteInstruction;
 use anchor_spl::{
     associated_token::{
-        spl_associated_token_account::instruction::{self},
-        AssociatedToken,
+        spl_associated_token_account::instruction::*,
+      
     },
     token_2022::{
-        self,
-        spl_token_2022::{
-            self,
-            extension::{
-                transfer_fee::TransferFeeConfig, BaseStateWithExtensions, ExtensionType,
-                StateWithExtensions,
-            },
-            state::Mint as MintState,
-        },
+        
         Token2022,
     },
-    token_interface::{
-        self, initialize_mint2, mint_to, spl_pod::optional_keys::OptionalNonZeroPubkey,
-        token_metadata_initialize, transfer_fee_initialize, InitializeMint2, MintTo, SetAuthority,
-        TokenInterface, TokenMetadataInitialize, TransferFeeInitialize,
-    },
+
 };
 // Split the accounts into multiple contexts to reduce stack usage
 #[derive(Accounts)]

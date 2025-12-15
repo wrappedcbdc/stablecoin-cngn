@@ -25,7 +25,7 @@ async function main() {
 
     try {
         // Create the mint keypair
-        const cngnMintKeypair = await loadOrCreateKeypair("cngnMint4");
+        const cngnMintKeypair = await loadOrCreateKeypair("cngnMint");
         console.log("Mint Keypair:", cngnMintKeypair.publicKey.toString());
 
         const upgradeAuthority = new PublicKey(process.env.UPGRADE_AUTHORITY);
@@ -48,13 +48,14 @@ async function main() {
         });
 
         console.log("Event listener registered, sending transaction...");
-
+const anyone = loadOrCreateKeypair("ANYONE");
         // Send the transaction
         const tx = await program.methods
-            .setMintAmount(payer.publicKey, TOKEN_PARAMS.mintAmount)
+            .setMintAmount(anyone.publicKey, TOKEN_PARAMS.mintAmount)
             .accounts({
-                authority: provider.wallet.publicKey,
+                authority: anyone.publicKey,
                 tokenConfig: pdas.tokenConfig,
+                mint: cngnMintKeypair.publicKey,
                 canMint: pdas.canMint,
                 trustedContracts: pdas.trustedContracts
             })

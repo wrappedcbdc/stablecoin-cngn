@@ -46,17 +46,21 @@ async function main() {
         });
 
         console.log("Event listener registered, sending transaction...");
-
+         const anyone = loadOrCreateKeypair("ANYONE");
+          const anyone2 = loadOrCreateKeypair("ANYONE2");
         // Send the transaction
         const tx = await program.methods
-            .addCanMint(payer.publicKey)
+            .addCanMint(anyone.publicKey)
             .accounts({
-                authority: provider.wallet.publicKey,
+                authority: anyone.publicKey, // provider.wallet.publicKey,
                 tokenConfig: pdas.tokenConfig,
                 blacklist: pdas.blacklist,
                 canMint: pdas.canMint,
-                trustedContracts: pdas.trustedContracts
+                mint: cngnMintKeypair.publicKey,
+                trustedContracts: pdas.trustedContracts,
+                //instructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
             })
+            //.signers([anyone])
             .rpc();
 
         console.log("Transaction signature:", tx);
