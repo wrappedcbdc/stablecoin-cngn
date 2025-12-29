@@ -7,6 +7,7 @@ pub mod blacklist;
 pub mod internal_whitelist;
 pub mod external_whitelist;
 pub mod trusted_contracts;
+pub mod multisig;
 
 
 
@@ -18,4 +19,5 @@ pub use blacklist::*;
 pub use internal_whitelist::*;
 pub use external_whitelist::*;
 pub use trusted_contracts::*;
+pub use multisig::*;
 

@@ -13,7 +13,7 @@ import {
 import * as nacl from 'tweetnacl';
 import { calculatePDAs, stringToUint8Array, TokenPDAs } from '../utils/helpers';
 import { initializeToken, setupUserAccounts, TOKEN_PARAMS } from "../utils/token_initializer";
-import { transferAuthorityToPDA } from "./tranfer-authority-to-pda";
+import { transferAuthorityToPDA } from "./transfer-authority-to-pda";
 
 describe('Transaction Forwarding Tests', () => {
   const provider = anchor.AnchorProvider.env();

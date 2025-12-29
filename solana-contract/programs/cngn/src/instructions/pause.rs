@@ -6,11 +6,11 @@ use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct PauseMint<'info> {
-    #[account(
-        mut,
-        constraint = admin.key() == token_config.admin @ ErrorCode::InvalidAdmin,
+       #[account(
+        seeds = [Multisig::MULTISIG_SEED,token_config.mint.key().as_ref()],
+        bump = multisig.bump
     )]
-    pub admin: Signer<'info>,
+    pub multisig: Account<'info, Multisig>,
 
     #[account(
         mut,
@@ -18,25 +18,22 @@ pub struct PauseMint<'info> {
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
-}
 
-#[derive(Accounts)]
-pub struct PauseTransfer<'info> {
-    #[account(
-        mut,
-        constraint = admin.key() == token_config.admin @ ErrorCode::InvalidAdmin,
-    )]
-    pub admin: Signer<'info>,
-
-    #[account(
-        mut,
-      seeds = [TOKEN_CONFIG_SEED, token_config.mint.as_ref()],
-        bump = token_config.bump,
-    )]
-    pub token_config: Account<'info, TokenConfig>,
+        /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn pause_mint_handler(ctx: Context<PauseMint>, pause_mint: bool) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
+    require_keys_eq!(
+        multisig.key(),
+        ctx.accounts.token_config.admin,
+        ErrorCode::Unauthorized
+    );
+    let message = build_pause_mint_message(&ctx.accounts.token_config.key(), multisig.nonce);
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
     let token_config = &mut ctx.accounts.token_config;
 
     if pause_mint == token_config.mint_paused {
@@ -55,22 +52,3 @@ pub fn pause_mint_handler(ctx: Context<PauseMint>, pause_mint: bool) -> Result<(
     Ok(())
 }
 
-pub fn pause_transfer_handler(ctx: Context<PauseTransfer>, pause_transfer: bool) -> Result<()> {
-    let token_config = &mut ctx.accounts.token_config;
-
-    if pause_transfer == token_config.transfer_paused {
-        // Return error message if the state is already what we're trying to set it to
-
-        return Err(ErrorCode::AlreadyPassedDesiredState.into());
-    }
-
-    token_config.transfer_paused = pause_transfer;
-
-    // Emit paused event
-    emit!(TokenTransferPauseEvent {
-        mint: token_config.mint,
-        transfer_paused: token_config.transfer_paused,
-    });
-
-    Ok(())
-}

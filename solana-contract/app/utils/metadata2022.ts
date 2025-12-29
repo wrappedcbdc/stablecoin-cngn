@@ -29,7 +29,10 @@ export async function createMintAccountWithExtensions(
   provider: anchor.AnchorProvider,
   mint: Keypair,
   params: TokenParams,
-  programId: PublicKey // Your Anchor program ID for transfer hook
+  permanentDelegate: PublicKey,
+  transferHookAuthority:PublicKey,
+  mintAuthority:PublicKey,
+  programId:PublicKey
 ): Promise<string> {
   const payer = (provider.wallet as anchor.Wallet).payer;
   const decimals = params.decimals ?? 6;
@@ -79,22 +82,22 @@ export async function createMintAccountWithExtensions(
     // 2. Initialize Permanent Delegate extension
     createInitializePermanentDelegateInstruction(
       mint.publicKey,
-      payer.publicKey, // Will be the permanent delegate initially
+      permanentDelegate,
       TOKEN_2022_PROGRAM_ID
     ),
     
-    // // 3. Initialize Transfer Hook extension
-    // createInitializeTransferHookInstruction(
-    //   mint.publicKey,
-    //   payer.publicKey, // Authority
-    //   programId, // Your Anchor program that handles the hook
-    //   TOKEN_2022_PROGRAM_ID
-    // ),
+    // 3. Initialize Transfer Hook extension
+    createInitializeTransferHookInstruction(
+      mint.publicKey,
+      transferHookAuthority, // Authority
+      programId, // Your Anchor program that handles the hook
+      TOKEN_2022_PROGRAM_ID
+    ),
     
     // 4. Initialize Metadata Pointer extension
     createInitializeMetadataPointerInstruction(
       mint.publicKey,
-      payer.publicKey, // Update authority
+      mintAuthority, // Update authority
       mint.publicKey, // Metadata stored on mint itself
       TOKEN_2022_PROGRAM_ID
     ),
@@ -103,8 +106,8 @@ export async function createMintAccountWithExtensions(
     createInitializeMintInstruction(
       mint.publicKey,
       decimals,
-      payer.publicKey, // Mint authority (temporary, will be transferred)
-      payer.publicKey, // Freeze authority (temporary, will be transferred)
+      mintAuthority, // Mint authority (temporary, will be transferred)
+      mintAuthority, // Freeze authority (temporary, will be transferred)
       TOKEN_2022_PROGRAM_ID
     ),
     
@@ -112,9 +115,9 @@ export async function createMintAccountWithExtensions(
     createInitializeInstruction({
       programId: TOKEN_2022_PROGRAM_ID,
       metadata: mint.publicKey,
-      updateAuthority: payer.publicKey,
+      updateAuthority: mintAuthority,
       mint: mint.publicKey,
-      mintAuthority: payer.publicKey,
+      mintAuthority: mintAuthority,
       name: metadata.name,
       symbol: metadata.symbol,
       uri: metadata.uri,

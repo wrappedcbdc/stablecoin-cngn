@@ -7,24 +7,20 @@ use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount, TokenInterfa
 
 #[derive(Accounts)]
 pub struct MintTokens<'info> {
-    /// CHECK: validated in TokenConfig::validate_caller
-    /// Can be either:
-    /// - EOA (direct signer)
-    /// - SPL Governance PDA (native treasury)
-    pub authority: UncheckedAccount<'info>,
+    pub authority: Signer<'info>,
 
     #[account(
         constraint = !token_config.mint_paused @ ErrorCode::MintingPaused)]
     pub token_config: Account<'info, TokenConfig>,
-
-    #[account()]
-    pub mint_authority: Account<'info, MintAuthority>,
 
     #[account(
         mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
     )]
     pub mint: InterfaceAccount<'info, Mint>,
+
+    #[account()]
+    pub mint_authority: Account<'info, MintAuthority>,
 
     #[account(
         mut,

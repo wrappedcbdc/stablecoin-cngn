@@ -27,6 +27,7 @@ hex = "0.4.3"
 
 spl-tlv-account-resolution = "0.10.0"
 spl-transfer-hook-interface = "0.10.0"
+sha2 = "0.10.9"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

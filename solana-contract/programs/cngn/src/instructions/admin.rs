@@ -2,14 +2,15 @@
 use crate::errors::ErrorCode;
 use crate::events::*;
 use crate::state::*;
-use anchor_lang::prelude::sysvar::instructions;
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{ Mint};
+use anchor_spl::token_interface::Mint;
+
+// ============================================================================
+// Add Can Mint (with Multisig)
+// ============================================================================
 
 #[derive(Accounts)]
 pub struct AddCanMint<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
         mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
@@ -18,7 +19,7 @@ pub struct AddCanMint<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -41,21 +42,36 @@ pub struct AddCanMint<'info> {
         bump,
     )]
     pub trusted_contracts: Account<'info, TrustedContracts>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn add_can_mint_handler(ctx: Context<AddCanMint>, user: Pubkey) -> Result<()> {
-    let blacklist = &ctx.accounts.blacklist;
-    let can_mint = &mut ctx.accounts.can_mint;
+    let multisig = &mut ctx.accounts.multisig;
 
-    // ctx.accounts.token_config.validate_caller(
-    //         &ctx.accounts.authority,
-    //         &ctx.accounts.instructions,
-    // )?;
+    // Verify multisig is the admin
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
+
+    // Build the message for multisig validation
+    let message = build_add_can_mint_message(&ctx.accounts.can_mint.key(), &user, multisig.nonce);
+
+    // Validate multisig authorization
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let blacklist = &ctx.accounts.blacklist;
+    let can_mint = &mut ctx.accounts.can_mint;
 
     // Check if the account is blacklisted
     if blacklist.is_blacklisted(&user) {
@@ -66,7 +82,6 @@ pub fn add_can_mint_handler(ctx: Context<AddCanMint>, user: Pubkey) -> Result<()
     if !can_mint.can_mint(&user) {
         can_mint.add_authority(&user)?;
 
-        // Emit can mint added event
         emit!(WhitelistedMinter {
             mint: ctx.accounts.token_config.mint,
             authority: user,
@@ -76,10 +91,12 @@ pub fn add_can_mint_handler(ctx: Context<AddCanMint>, user: Pubkey) -> Result<()
     Ok(())
 }
 
+// ============================================================================
+// Remove Can Mint (with Multisig)
+// ============================================================================
+
 #[derive(Accounts)]
 pub struct RemoveCanMint<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
         mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
@@ -88,7 +105,7 @@ pub struct RemoveCanMint<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -105,21 +122,37 @@ pub struct RemoveCanMint<'info> {
         bump,
     )]
     pub trusted_contracts: Account<'info, TrustedContracts>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn remove_can_mint_handler(ctx: Context<RemoveCanMint>, user: Pubkey) -> Result<()> {
-    let can_mint = &mut ctx.accounts.can_mint;
+    let multisig = &mut ctx.accounts.multisig;
+
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
 
-    // Check if the account is in the can mint list
+    let message =
+        build_remove_can_mint_message(&ctx.accounts.can_mint.key(), &user, multisig.nonce);
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let can_mint = &mut ctx.accounts.can_mint;
+
     if can_mint.can_mint(&user) {
         can_mint.remove_authority(&user)?;
 
-        // Emit can mint removed event
         emit!(BlackListedMinter {
             mint: ctx.accounts.token_config.mint,
             authority: user,
@@ -129,9 +162,347 @@ pub fn remove_can_mint_handler(ctx: Context<RemoveCanMint>, user: Pubkey) -> Res
     Ok(())
 }
 
+// ============================================================================
+// Add Can Forward (with Multisig)
+// ============================================================================
+
+#[derive(Accounts)]
+pub struct AddCanForward<'info> {
+    #[account(
+        mut,
+        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        bump = token_config.bump,
+    )]
+    pub token_config: Account<'info, TokenConfig>,
+
+    #[account(
+        seeds = [BLACK_LIST_SEED, token_config.mint.as_ref()],
+        bump,
+    )]
+    pub blacklist: Account<'info, BlackList>,
+
+    #[account(
+        mut,
+        seeds = [b"can-forward", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_forward: Account<'info, CanForward>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
+}
+
+pub fn add_can_forward_handler(ctx: Context<AddCanForward>, forwarder: Pubkey) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
+
+    require_keys_eq!(
+        multisig.key(),
+        ctx.accounts.token_config.admin,
+        ErrorCode::Unauthorized
+    );
+
+    let message =
+        build_add_can_forward_message(&ctx.accounts.can_forward.key(), &forwarder, multisig.nonce);
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let blacklist = &ctx.accounts.blacklist;
+    let can_forward = &mut ctx.accounts.can_forward;
+
+    if blacklist.is_blacklisted(&forwarder) {
+        return Err(ErrorCode::UserBlacklisted.into());
+    }
+
+    if !can_forward.is_trusted_forwarder(&forwarder) {
+        can_forward.add(&forwarder)?;
+
+        emit!(WhitelistedForwarder {
+            mint: ctx.accounts.token_config.mint,
+            forwarder,
+        });
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// Remove Can Forward (with Multisig)
+// ============================================================================
+
+#[derive(Accounts)]
+pub struct RemoveCanForward<'info> {
+    #[account(
+        mut,
+        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        bump = token_config.bump,
+    )]
+    pub token_config: Account<'info, TokenConfig>,
+
+    #[account(
+        mut,
+        seeds = [b"can-forward", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_forward: Account<'info, CanForward>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
+}
+
+pub fn remove_can_forward_handler(ctx: Context<RemoveCanForward>, forwarder: Pubkey) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
+
+    require_keys_eq!(
+        multisig.key(),
+        ctx.accounts.token_config.admin,
+        ErrorCode::Unauthorized
+    );
+
+    let message = build_remove_can_forward_message(
+        &ctx.accounts.can_forward.key(),
+        &forwarder,
+        multisig.nonce,
+    );
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let can_forward = &mut ctx.accounts.can_forward;
+
+    if can_forward.is_trusted_forwarder(&forwarder) {
+        can_forward.remove(&forwarder)?;
+
+        emit!(BlackListedForwarder {
+            mint: ctx.accounts.token_config.mint,
+            forwarder,
+        });
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// Add Blacklist (with Multisig)
+// ============================================================================
+
+#[derive(Accounts)]
+pub struct AddBlackList<'info> {
+    #[account(
+        mut,
+        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        bump = token_config.bump,
+    )]
+    pub token_config: Account<'info, TokenConfig>,
+
+    #[account(
+        seeds = [CAN_MINT_SEED, token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_mint: Account<'info, CanMint>,
+
+    #[account(
+        seeds = [b"internal-whitelist", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub internal_whitelist: Account<'info, InternalWhiteList>,
+
+    #[account(
+        seeds = [b"external-whitelist", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub external_whitelist: Account<'info, ExternalWhiteList>,
+
+    #[account(
+        seeds = [TRUSTED_CONTRACTS_SEED, token_config.mint.as_ref()],
+        bump,
+    )]
+    pub trusted_contracts: Account<'info, TrustedContracts>,
+
+    #[account(
+        mut,
+        seeds = [b"can-forward", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_forward: Account<'info, CanForward>,
+
+    #[account(
+        mut,
+        seeds = [BLACK_LIST_SEED, token_config.mint.as_ref()],
+        bump,
+    )]
+    pub blacklist: Account<'info, BlackList>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
+}
+
+pub fn add_blacklist_handler(ctx: Context<AddBlackList>, user: Pubkey) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
+
+    require_keys_eq!(
+        multisig.key(),
+        ctx.accounts.token_config.admin,
+        ErrorCode::Unauthorized
+    );
+
+    let message = build_add_blacklist_message(&ctx.accounts.blacklist.key(), &user, multisig.nonce);
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let blacklist = &mut ctx.accounts.blacklist;
+    let can_mint = &mut ctx.accounts.can_mint;
+    let internal_whitelist = &mut ctx.accounts.internal_whitelist;
+    let external_whitelist = &mut ctx.accounts.external_whitelist;
+    let trusted_contracts = &mut ctx.accounts.trusted_contracts;
+    let can_forward = &mut ctx.accounts.can_forward;
+
+    if blacklist.is_blacklisted(&user) {
+        return Err(ErrorCode::UserBlacklisted.into());
+    }
+
+    blacklist.add(&user)?;
+
+    // Remove user from other lists if present
+    if can_mint.can_mint(&user) {
+        can_mint.remove_authority(&user)?;
+    }
+    if internal_whitelist.is_whitelisted(&user) {
+        internal_whitelist.remove(&user)?;
+    }
+    if external_whitelist.is_whitelisted(&user) {
+        external_whitelist.remove(&user)?;
+    }
+    if can_forward.is_trusted_forwarder(&user) {
+        can_forward.remove(&user)?;
+    }
+    if trusted_contracts.is_trusted_contract(&user) {
+        trusted_contracts.remove(&user)?;
+    }
+
+    emit!(AddedBlackList {
+        mint: ctx.accounts.token_config.mint,
+        user,
+    });
+
+    Ok(())
+}
+
+// ============================================================================
+// Remove Blacklist (with Multisig)
+// ============================================================================
+
+#[derive(Accounts)]
+pub struct RemoveBlackList<'info> {
+    #[account(
+        mut,
+        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        bump = token_config.bump,
+    )]
+    pub token_config: Account<'info, TokenConfig>,
+
+    #[account(
+        mut,
+        seeds = [BLACK_LIST_SEED, token_config.mint.as_ref()],
+        bump,
+    )]
+    pub blacklist: Account<'info, BlackList>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
+}
+
+pub fn remove_blacklist_handler(ctx: Context<RemoveBlackList>, user: Pubkey) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
+
+    require_keys_eq!(
+        multisig.key(),
+        ctx.accounts.token_config.admin,
+        ErrorCode::Unauthorized
+    );
+
+    let message =
+        build_remove_blacklist_message(&ctx.accounts.blacklist.key(), &user, multisig.nonce);
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let blacklist = &mut ctx.accounts.blacklist;
+
+    if !blacklist.is_blacklisted(&user) {
+        return Ok(());
+    }
+
+    blacklist.remove(&user)?;
+
+    emit!(RemovedBlackList {
+        mint: ctx.accounts.token_config.mint,
+        user,
+    });
+
+    Ok(())
+}
+
+// ============================================================================
+// Non-Multisig Functions (Keep these for backward compatibility or non-critical ops)
+// ============================================================================
+
 #[derive(Accounts)]
 pub struct SetMintAmount<'info> {
-    pub authority: Signer<'info>,
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
 
     #[account(
         mut,
@@ -141,7 +512,7 @@ pub struct SetMintAmount<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -152,6 +523,9 @@ pub struct SetMintAmount<'info> {
         bump,
     )]
     pub can_mint: Account<'info, CanMint>,
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn set_mint_amount_handler(
@@ -159,27 +533,26 @@ pub fn set_mint_amount_handler(
     user: Pubkey,
     amount: u64,
 ) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
-    // Or validate against a minimum and maximum
-    // require!(
-    //     amount >= TokenConfig::MIN_MINT_AMOUNT && amount <= TokenConfig::MAX_MINT_AMOUNT,
-    //     ErrorCode::InvalidMintAmount
-    // );
+
+    let message =
+        build_set_mint_amount_message(&ctx.accounts.can_mint.key(), &user, multisig.nonce);
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
     let can_mint = &mut ctx.accounts.can_mint;
 
-    // Check if the authority exists in the can_mint list
     if !can_mint.can_mint(&user) {
         return Err(ErrorCode::AdminNotFound.into());
     }
 
-    // Update the mint amount for the specified authority
     can_mint.set_mint_amount(&user, amount)?;
 
-    // Emit mint amount updated event
     emit!(MintAmountUpdatedEvent {
         mint: ctx.accounts.token_config.mint,
         authority: user,
@@ -191,7 +564,11 @@ pub fn set_mint_amount_handler(
 
 #[derive(Accounts)]
 pub struct RemoveMintAmount<'info> {
-    pub authority: Signer<'info>,
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
 
     #[account(
         mut,
@@ -201,7 +578,7 @@ pub struct RemoveMintAmount<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -212,27 +589,32 @@ pub struct RemoveMintAmount<'info> {
         bump,
     )]
     pub can_mint: Account<'info, CanMint>,
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn remove_mint_amount_handler(ctx: Context<RemoveMintAmount>, user: Pubkey) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
-    let amount: u64 = 0;
+    let message =
+        build_remove_mint_amount_message(&ctx.accounts.can_mint.key(), &user, multisig.nonce);
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
 
     let can_mint = &mut ctx.accounts.can_mint;
+    let amount: u64 = 0;
 
-    // Check if the authority exists in the can_mint list
     if !can_mint.can_mint(&user) {
         return Err(ErrorCode::AdminNotFound.into());
     }
 
-    // Update the mint amount for the specified authority
     can_mint.set_mint_amount(&user, amount)?;
 
-    // Emit mint amount updated event
     emit!(MintAmountUpdatedEvent {
         mint: ctx.accounts.token_config.mint,
         authority: user,
@@ -247,8 +629,7 @@ pub struct GetMintAmount<'info> {
     pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
-        mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -263,167 +644,19 @@ pub struct GetMintAmount<'info> {
 pub fn get_mint_amount_handler(ctx: Context<GetMintAmount>, user: Pubkey) -> Result<u64> {
     let can_mint = &ctx.accounts.can_mint;
 
-    // Check if the authority exists in the can_mint list
     if !can_mint.can_mint(&user) {
         return Err(ErrorCode::UserNotFound.into());
     }
 
-    // Get the mint amount for the specified authority
-    can_mint.get_mint_amount(&user)
+    return can_mint.get_mint_amount(&user);
 }
 
-#[derive(Accounts)]
-pub struct AddBlackList<'info> {
-    pub authority: Signer<'info>,
-
-    #[account(
-        mut,
-        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
-    )]
-    pub mint: InterfaceAccount<'info, Mint>,
-
-    #[account(
-        mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
-        bump = token_config.bump,
-    )]
-    pub token_config: Account<'info, TokenConfig>,
-    #[account(
-        seeds = [CAN_MINT_SEED, token_config.mint.as_ref()],
-        bump,
-    )]
-    pub can_mint: Account<'info, CanMint>,
-
-    #[account(
-        seeds = [b"internal-whitelist", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub internal_whitelist: Account<'info, InternalWhiteList>,
-
-    #[account(
-        seeds = [b"external-whitelist", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub external_whitelist: Account<'info, ExternalWhiteList>,
-
-    #[account(
-        seeds = [TRUSTED_CONTRACTS_SEED, token_config.mint.as_ref()],
-        bump,
-    )]
-    pub trusted_contracts: Account<'info, TrustedContracts>,
-
-    #[account(
-        mut,
-        seeds = [b"can-forward", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub can_forward: Account<'info, CanForward>,
-    #[account(
-        mut,
-        seeds = [BLACK_LIST_SEED, token_config.mint.as_ref()],
-        bump,
-    )]
-    pub blacklist: Account<'info, BlackList>,
-}
-
-pub fn add_blacklist_handler(ctx: Context<AddBlackList>, user: Pubkey) -> Result<()> {
-    let blacklist = &mut ctx.accounts.blacklist;
-    let can_mint = &mut ctx.accounts.can_mint;
-    let internal_whitelist = &mut ctx.accounts.internal_whitelist;
-    let external_whitelist = &mut ctx.accounts.external_whitelist;
-    let trusted_contracts = &mut ctx.accounts.trusted_contracts;
-    let can_forward = &mut ctx.accounts.can_forward;
-    // Check if the account is already blacklisted
-    if blacklist.is_blacklisted(&user) {
-        return Err(ErrorCode::UserBlacklisted.into());
-    }
-    require_keys_eq!(
-        ctx.accounts.authority.key(),
-        ctx.accounts.token_config.admin,
-        ErrorCode::Unauthorized
-    );
-    // Add account to blacklist
-    blacklist.add(&user)?;
-
-    // Remove user from other lists if present
-    if can_mint.can_mint(&user) {
-        can_mint.remove_authority(&user)?;
-    }
-
-    if internal_whitelist.is_whitelisted(&user) {
-        internal_whitelist.remove(&user)?;
-    }
-
-    if external_whitelist.is_whitelisted(&user) {
-        external_whitelist.remove(&user)?;
-    }
-
-    if can_forward.is_trusted_forwarder(&user) {
-        can_forward.remove(&user)?;
-    }
-
-    if trusted_contracts.is_trusted_contract(&user) {
-        trusted_contracts.remove(&user)?;
-    }
-
-    // Emit blacklisted event
-    emit!(AddedBlackList {
-        mint: ctx.accounts.token_config.mint,
-        user,
-    });
-
-    Ok(())
-}
-
-#[derive(Accounts)]
-pub struct RemoveBlackList<'info> {
-    pub authority: Signer<'info>,
-
-    #[account(
-        mut,
-        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
-    )]
-    pub mint: InterfaceAccount<'info, Mint>,
-
-    #[account(
-        mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
-        bump = token_config.bump,
-    )]
-    pub token_config: Account<'info, TokenConfig>,
-
-    #[account(
-        mut,
-        seeds = [BLACK_LIST_SEED, token_config.mint.as_ref()],
-        bump,
-    )]
-    pub blacklist: Account<'info, BlackList>,
-}
-
-pub fn remove_blacklist_handler(ctx: Context<RemoveBlackList>, user: Pubkey) -> Result<()> {
-    let blacklist = &mut ctx.accounts.blacklist;
-
-    // Check if the account is not blacklisted
-    if !blacklist.is_blacklisted(&user) {
-        return Ok(());
-    }
-
-    // Remove account from blacklist
-    blacklist.remove(&user)?;
-
-    // Emit remove from blacklist event
-    emit!(RemovedBlackList {
-        mint: ctx.accounts.token_config.mint,
-        user,
-    });
-
-    Ok(())
-}
+// ============================================================================
+// Add Trusted Contract (with Multisig)
+// ============================================================================
 
 #[derive(Accounts)]
 pub struct AddTrustedContract<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
         mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
@@ -432,7 +665,7 @@ pub struct AddTrustedContract<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -443,27 +676,46 @@ pub struct AddTrustedContract<'info> {
         bump,
     )]
     pub trusted_contracts: Account<'info, TrustedContracts>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn add_trusted_contract_handler(
     ctx: Context<AddTrustedContract>,
     contract: Pubkey,
 ) -> Result<()> {
-    let trusted_contracts = &mut ctx.accounts.trusted_contracts;
+    let multisig = &mut ctx.accounts.multisig;
+
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
-    // Check if the contract is already in the trusted list
+
+    let message = build_add_trusted_contract_message(
+        &ctx.accounts.trusted_contracts.key(),
+        &contract,
+        multisig.nonce,
+    );
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let trusted_contracts = &mut ctx.accounts.trusted_contracts;
+
     if trusted_contracts.is_trusted_contract(&contract) {
         return Ok(());
     }
 
-    // Add contract to trusted list
     trusted_contracts.add(&contract)?;
 
-    // Emit trusted contract added event
     emit!(WhitelistedContract {
         mint: ctx.accounts.token_config.mint,
         contract,
@@ -472,10 +724,12 @@ pub fn add_trusted_contract_handler(
     Ok(())
 }
 
+// ============================================================================
+// Remove Trusted Contract (with Multisig)
+// ============================================================================
+
 #[derive(Accounts)]
 pub struct RemoveTrustedContract<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
         mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
@@ -484,7 +738,7 @@ pub struct RemoveTrustedContract<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -495,27 +749,46 @@ pub struct RemoveTrustedContract<'info> {
         bump,
     )]
     pub trusted_contracts: Account<'info, TrustedContracts>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn remove_trusted_contract_handler(
     ctx: Context<RemoveTrustedContract>,
     contract: Pubkey,
 ) -> Result<()> {
-    let trusted_contracts = &mut ctx.accounts.trusted_contracts;
+    let multisig = &mut ctx.accounts.multisig;
+
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
-    // Check if the contract is in the trusted list
+
+    let message = build_remove_trusted_contract_message(
+        &ctx.accounts.trusted_contracts.key(),
+        &contract,
+        multisig.nonce,
+    );
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let trusted_contracts = &mut ctx.accounts.trusted_contracts;
+
     if !trusted_contracts.is_trusted_contract(&contract) {
         return Ok(());
     }
 
-    // Remove contract from trusted list
     trusted_contracts.remove(&contract)?;
 
-    // Emit trusted contract removed event
     emit!(BlackListedContract {
         mint: ctx.accounts.token_config.mint,
         contract,
@@ -524,10 +797,12 @@ pub fn remove_trusted_contract_handler(
     Ok(())
 }
 
+// ============================================================================
+// Whitelist Internal User (with Multisig)
+// ============================================================================
+
 #[derive(Accounts)]
 pub struct WhitelistInternalUser<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
         mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
@@ -536,7 +811,7 @@ pub struct WhitelistInternalUser<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -553,33 +828,51 @@ pub struct WhitelistInternalUser<'info> {
         bump,
     )]
     pub blacklist: Account<'info, BlackList>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn whitelist_internal_user_handler(
     ctx: Context<WhitelistInternalUser>,
     user: Pubkey,
 ) -> Result<()> {
-    let internal_whitelist = &mut ctx.accounts.internal_whitelist;
-    let blacklist = &ctx.accounts.blacklist;
+    let multisig = &mut ctx.accounts.multisig;
+
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
-    // Check if the account is blacklisted
+
+    let message = build_whitelist_internal_message(
+        &ctx.accounts.internal_whitelist.key(),
+        &user,
+        multisig.nonce,
+    );
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let internal_whitelist = &mut ctx.accounts.internal_whitelist;
+    let blacklist = &ctx.accounts.blacklist;
+
     if blacklist.is_blacklisted(&user) {
         return Err(ErrorCode::UserBlacklisted.into());
     }
 
-    // Check if the account is already whitelisted
     if internal_whitelist.is_whitelisted(&user) {
         return Ok(());
     }
 
-    // Add to internal whitelist
     internal_whitelist.add(&user)?;
 
-    // Emit event
     emit!(WhitelistedInternalUser {
         mint: ctx.accounts.token_config.mint,
         user: user
@@ -588,10 +881,12 @@ pub fn whitelist_internal_user_handler(
     Ok(())
 }
 
+// ============================================================================
+// Whitelist External User (with Multisig)
+// ============================================================================
+
 #[derive(Accounts)]
 pub struct WhitelistExternalUser<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
         mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
@@ -600,7 +895,7 @@ pub struct WhitelistExternalUser<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -617,33 +912,51 @@ pub struct WhitelistExternalUser<'info> {
         bump,
     )]
     pub blacklist: Account<'info, BlackList>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn whitelist_external_user_handler(
     ctx: Context<WhitelistExternalUser>,
     user: Pubkey,
 ) -> Result<()> {
-    let external_whitelist = &mut ctx.accounts.external_whitelist;
+    let multisig = &mut ctx.accounts.multisig;
+
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
+
+    let message = build_whitelist_external_message(
+        &ctx.accounts.external_whitelist.key(),
+        &user,
+        multisig.nonce,
+    );
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let external_whitelist = &mut ctx.accounts.external_whitelist;
     let blacklist = &ctx.accounts.blacklist;
 
-    // Check if the account is blacklisted
     if blacklist.is_blacklisted(&user) {
         return Err(ErrorCode::UserBlacklisted.into());
     }
-    // Check if the account is already whitelisted
+
     if external_whitelist.is_whitelisted(&user) {
         return Ok(());
     }
 
-    // Add to external whitelist
     external_whitelist.add(&user)?;
 
-    // Emit event
     emit!(WhitelistedExternalSender {
         mint: ctx.accounts.token_config.mint,
         user: user,
@@ -652,19 +965,21 @@ pub fn whitelist_external_user_handler(
     Ok(())
 }
 
+// ============================================================================
+// Blacklist Internal User (with Multisig)
+// ============================================================================
+
 #[derive(Accounts)]
 pub struct BlacklistInternalUser<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
-     mut,
+        mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
     )]
     pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -681,27 +996,46 @@ pub struct BlacklistInternalUser<'info> {
         bump,
     )]
     pub trusted_contracts: Account<'info, TrustedContracts>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn blacklist_internal_user_handler(
     ctx: Context<BlacklistInternalUser>,
     user: Pubkey,
 ) -> Result<()> {
-    let internal_whitelist = &mut ctx.accounts.internal_whitelist;
+    let multisig = &mut ctx.accounts.multisig;
+
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
-    // Check if the account is not on the whitelist
+
+    let message = build_blacklist_internal_message(
+        &ctx.accounts.internal_whitelist.key(),
+        &user,
+        multisig.nonce,
+    );
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let internal_whitelist = &mut ctx.accounts.internal_whitelist;
+
     if !internal_whitelist.is_whitelisted(&user) {
         return Ok(());
     }
 
-    // Remove from internal whitelist
     internal_whitelist.remove(&user)?;
 
-    // Emit event
     emit!(BlackListedInternalUser {
         mint: ctx.accounts.token_config.mint,
         user: user,
@@ -710,10 +1044,12 @@ pub fn blacklist_internal_user_handler(
     Ok(())
 }
 
+// ============================================================================
+// Blacklist External User (with Multisig)
+// ============================================================================
+
 #[derive(Accounts)]
 pub struct BlacklistExternalUser<'info> {
-    pub authority: Signer<'info>,
-
     #[account(
         mut,
         constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
@@ -722,7 +1058,7 @@ pub struct BlacklistExternalUser<'info> {
 
     #[account(
         mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -733,134 +1069,50 @@ pub struct BlacklistExternalUser<'info> {
         bump,
     )]
     pub external_whitelist: Account<'info, ExternalWhiteList>,
+
+    #[account(
+        seeds = [Multisig::MULTISIG_SEED, mint.key().as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
 }
 
 pub fn blacklist_external_user_handler(
     ctx: Context<BlacklistExternalUser>,
     user: Pubkey,
 ) -> Result<()> {
-    let external_whitelist = &mut ctx.accounts.external_whitelist;
+    let multisig = &mut ctx.accounts.multisig;
+
     require_keys_eq!(
-        ctx.accounts.authority.key(),
+        multisig.key(),
         ctx.accounts.token_config.admin,
         ErrorCode::Unauthorized
     );
-    // Check if the account is not on the whitelist
+
+    let message = build_blacklist_external_message(
+        &ctx.accounts.external_whitelist.key(),
+        &user,
+        multisig.nonce,
+    );
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let external_whitelist = &mut ctx.accounts.external_whitelist;
+
     if !external_whitelist.is_whitelisted(&user) {
         return Ok(());
     }
 
-    // Remove from external whitelist
     external_whitelist.remove(&user)?;
 
-    // Emit event
     emit!(BlackListedExternalSender {
         mint: ctx.accounts.token_config.mint,
         user: user,
     });
-
-    Ok(())
-}
-
-#[derive(Accounts)]
-pub struct AddCanForward<'info> {
-    pub authority: Signer<'info>,
-
-    #[account(
-        mut,
-        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
-    )]
-    pub mint: InterfaceAccount<'info, Mint>,
-
-    #[account(
-        mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
-        bump = token_config.bump,
-    )]
-    pub token_config: Account<'info, TokenConfig>,
-
-    #[account(
-        seeds = [BLACK_LIST_SEED, token_config.mint.as_ref()],
-        bump,
-    )]
-    pub blacklist: Account<'info, BlackList>,
-
-    #[account(
-        mut,
-        seeds = [b"can-forward", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub can_forward: Account<'info, CanForward>,
-}
-
-pub fn add_can_forward_handler(ctx: Context<AddCanForward>, forwarder: Pubkey) -> Result<()> {
-    let blacklist = &ctx.accounts.blacklist;
-    let can_forward = &mut ctx.accounts.can_forward;
-    require_keys_eq!(
-        ctx.accounts.authority.key(),
-        ctx.accounts.token_config.admin,
-        ErrorCode::Unauthorized
-    );
-    // Check if the account is blacklisted
-    if blacklist.is_blacklisted(&forwarder) {
-        return Err(ErrorCode::UserBlacklisted.into());
-    }
-    // Add to can forward list if not already present
-    if !can_forward.is_trusted_forwarder(&forwarder) {
-        can_forward.add(&forwarder)?;
-
-        // Emit can forward added event
-        emit!(WhitelistedForwarder {
-            mint: ctx.accounts.token_config.mint,
-            forwarder,
-        });
-    }
-
-    Ok(())
-}
-
-#[derive(Accounts)]
-pub struct RemoveCanForward<'info> {
-    pub authority: Signer<'info>,
-
-    #[account(
-        mut,
-        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
-    )]
-    pub mint: InterfaceAccount<'info, Mint>,
-
-    #[account(
-        mut,
-       seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
-        bump = token_config.bump,
-    )]
-    pub token_config: Account<'info, TokenConfig>,
-
-    #[account(
-        mut,
-        seeds = [b"can-forward", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub can_forward: Account<'info, CanForward>,
-}
-
-pub fn remove_can_forward_handler(ctx: Context<RemoveCanForward>, forwarder: Pubkey) -> Result<()> {
-    let can_forward = &mut ctx.accounts.can_forward;
-    require_keys_eq!(
-        ctx.accounts.authority.key(),
-        ctx.accounts.token_config.admin,
-        ErrorCode::Unauthorized
-    );
-    // Check if the forwarder is in the can forward list
-    if can_forward.is_trusted_forwarder(&forwarder) {
-        can_forward.remove(&forwarder)?;
-
-        // Emit can forward removed event
-        emit!(BlackListedForwarder {
-            mint: ctx.accounts.token_config.mint,
-            forwarder,
-        });
-    }
 
     Ok(())
 }

@@ -1,7 +1,6 @@
 // state/token_config.rs
 use anchor_lang::prelude::*;
-use crate::errors::ErrorCode;
-use anchor_lang::prelude::sysvar::instructions::*;
+
 pub const META_LIST_ACCOUNT_SEED: &[u8] = b"extra-account-metas";
 pub const TOKEN_CONFIG_SEED: &[u8] = b"token-config";
 pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
@@ -37,41 +36,5 @@ impl TokenConfig {
         1 +  // transfer_paused
         1; // bump
 
-    pub fn validate_caller<'info>(
-        &self,
-        authority: &UncheckedAccount<'info>,
-        instructions_sysvar: &AccountInfo<'info>,
-    ) -> Result<()> {
-        // Admin must match
-        require_keys_eq!(authority.key(), self.admin, ErrorCode::Unauthorized);
-
-        // EOA path - direct signing
-        if authority.is_signer {
-            return Ok(());
-        }
-
-        // CPI path - must be from governance
-        let current_index = load_current_index_checked(instructions_sysvar)?;
-        require!(current_index > 0, ErrorCode::NotCpi);
-
-        // Get parent instruction
-        let parent_ix =
-            load_instruction_at_checked(current_index as usize - 1, instructions_sysvar)?;
-
-        // Must be called by SPL Governance
-        require!(
-            parent_ix.program_id == SPL_GOVERNANCE_PROGRAM_ID,
-            ErrorCode::InvalidGovernanceProgram
-        );
-
-        // Authority must be owned by Governance program
-        // (This ensures it's a real governance PDA, not a fake account)
-        require_keys_eq!(
-            *authority.owner,
-            SPL_GOVERNANCE_PROGRAM_ID,
-            ErrorCode::InvalidGovernanceProgram
-        );
-
-        Ok(())
-    }
+    
 }

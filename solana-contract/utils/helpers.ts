@@ -58,6 +58,7 @@ export interface TokenPDAs {
   internalWhitelist: PublicKey;
   externalWhitelist: PublicKey;
   extraMetasAccount: PublicKey;
+  multisig:PublicKey;
 }
 
 /**
@@ -117,6 +118,11 @@ export function calculatePDAs(mint: PublicKey, programId: PublicKey): TokenPDAs 
     programId
   );
 
+  const [multisig] = PublicKey.findProgramAddressSync(
+    [Buffer.from("multisig"), mint.toBuffer()],
+    programId
+  );
+
   return {
     tokenConfig,
     mintAuthority,
@@ -127,7 +133,8 @@ export function calculatePDAs(mint: PublicKey, programId: PublicKey): TokenPDAs 
     trustedContracts,
     internalWhitelist,
     externalWhitelist,
-    extraMetasAccount
+    extraMetasAccount,
+    multisig
   };
 }
 

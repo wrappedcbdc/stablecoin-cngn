@@ -174,4 +174,18 @@ pub enum ErrorCode {
     #[msg("Invalid governance program")]
     InvalidGovernanceProgram,
 
+        #[msg("Not enough multisig signers")]
+    NotEnoughMultisigSigners,
+
+       #[msg("Too many owners: maximum is 10")]
+    TooManyOwners,
+        #[msg("No owners provided")]
+    NoOwnersProvided,
+    
+    #[msg("Duplicate owners not allowed")]
+    DuplicateOwners,
+
+        #[msg("Invalid threshold: must be > 0 and <= number of owners")]
+    InvalidThreshold,
+
 }

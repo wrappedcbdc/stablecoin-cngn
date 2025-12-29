@@ -11,7 +11,7 @@ import {
   initializeToken,
   setupUserAccounts
 } from '../utils/token_initializer';
-import { transferAuthorityToPDA } from "./tranfer-authority-to-pda";
+import { transferAuthorityToPDA } from "./transfer-authority-to-pda";
 
 describe("cngn transfer tests", () => {
   // Configure the client to use the local cluster
