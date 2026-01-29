@@ -8,3 +8,4 @@ artifacts/
 package-lock.json
 scripts/
 ton
+tron-contract
