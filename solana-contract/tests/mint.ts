@@ -2,12 +2,13 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Cngn } from "../target/types/cngn";
 import { assert, expect } from 'chai';
-import { PublicKey, Keypair, SYSVAR_INSTRUCTIONS_PUBKEY, TransactionInstruction } from '@solana/web3.js';
-import { TOKEN_2022_PROGRAM_ID, createMintToInstruction, getAccount, getAssociatedTokenAddressSync, createMint } from '@solana/spl-token';
-import { calculatePDAs, TokenPDAs } from '../utils/helpers';
+import { PublicKey, Keypair, SYSVAR_INSTRUCTIONS_PUBKEY, TransactionInstruction, Transaction } from '@solana/web3.js';
+import { TOKEN_2022_PROGRAM_ID, createMintToInstruction, getAccount, getAssociatedTokenAddressSync, createMint, freezeAccount, createMultisig, createFreezeAccountInstruction, getMultisig } from '@solana/spl-token';
+import { buildAndSendMultisigTransaction, calculatePDAs, Cngnparams, createMintAccountWithExtensions, TokenPDAs } from '../utils/helpers';
 import { TOKEN_PARAMS, initializeToken, initializeMultisig, setupUserAccounts } from '../utils/token_initializer';
 import * as crypto from 'crypto';
 import nacl from 'tweetnacl';
+import { loadOrCreateKeypair } from "../app/utils/helpers";
 
 describe("cngn mint test with multisig", () => {
   const connection = new anchor.web3.Connection('http://127.0.0.1:8899', 'confirmed');
@@ -31,6 +32,7 @@ describe("cngn mint test with multisig", () => {
   const owner1 = Keypair.generate();
   const owner2 = Keypair.generate();
   const owner3 = Keypair.generate();
+  const splMultisig = Keypair.generate()
   const threshold = 2;
 
   let pdas: TokenPDAs;
@@ -121,8 +123,19 @@ describe("cngn mint test with multisig", () => {
 
     await new Promise(resolve => setTimeout(resolve, 2000));
 
+    await createMultisig(
+      provider.connection, payer, [owner1.publicKey, owner2.publicKey], threshold, splMultisig)
+    console.log("spl multisig", splMultisig.toString())
+    console.log("owners", owner1.publicKey.toString(), owner2.publicKey.toString())
     console.log("Initializing token...");
-    await createMint(provider.connection, payer, pdas.mintAuthority, pdas.mintAuthority, 6, mint, null, TOKEN_2022_PROGRAM_ID);
+    await createMintAccountWithExtensions(
+      provider,
+      mint,
+      Cngnparams,
+      pdas.mintAuthority,
+      splMultisig.publicKey, // permanent delegate
+    );
+
     await initializeToken(program, provider, mint, pdas, payer.publicKey);
 
     console.log("Initializing multisig...");
@@ -235,62 +248,6 @@ describe("cngn mint test with multisig", () => {
       .preInstructions([ed25519Ix1, ed25519Ix2])
       .rpc();
 
-    // Add blacklisted users with multisig
-    multisigAccount = await program.account.multisig.fetch(multisigPda);
-    message = buildMessageHash(
-      "ADD_BLACKLIST",
-      pdas.blacklist,
-      blacklistedUser.publicKey,
-      multisigAccount.nonce.toNumber()
-    );
-    ed25519Ix1 = createEd25519Ix(owner1, message);
-    ed25519Ix2 = createEd25519Ix(owner2, message);
-
-    await program.methods
-      .addBlacklist(blacklistedUser.publicKey)
-      .accounts({
-        mint: mint.publicKey,
-        tokenConfig: pdas.tokenConfig,
-        canMint: pdas.canMint,
-        internalWhitelist: pdas.internalWhitelist,
-        externalWhitelist: pdas.externalWhitelist,
-        trustedContracts: pdas.trustedContracts,
-        canForward: pdas.canForward,
-        blacklist: pdas.blacklist,
-        multisig: multisigPda,
-        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
-      })
-      .preInstructions([ed25519Ix1, ed25519Ix2])
-      .rpc();
-
-    // Add blacklisted receiver
-    multisigAccount = await program.account.multisig.fetch(multisigPda);
-    message = buildMessageHash(
-      "ADD_BLACKLIST",
-      pdas.blacklist,
-      blacklistedReceiver.publicKey,
-      multisigAccount.nonce.toNumber()
-    );
-    ed25519Ix1 = createEd25519Ix(owner1, message);
-    ed25519Ix2 = createEd25519Ix(owner2, message);
-
-    await program.methods
-      .addBlacklist(blacklistedReceiver.publicKey)
-      .accounts({
-        mint: mint.publicKey,
-        tokenConfig: pdas.tokenConfig,
-        canMint: pdas.canMint,
-        internalWhitelist: pdas.internalWhitelist,
-        externalWhitelist: pdas.externalWhitelist,
-        trustedContracts: pdas.trustedContracts,
-        canForward: pdas.canForward,
-        blacklist: pdas.blacklist,
-        multisig: multisigPda,
-        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
-      })
-      .preInstructions([ed25519Ix1, ed25519Ix2])
-      .rpc();
-
     console.log("Test users set up successfully");
   });
 
@@ -347,7 +304,6 @@ describe("cngn mint test with multisig", () => {
         mintAuthority: pdas.mintAuthority,
         tokenAccount: authorizedUserTokenAccount,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
-        blacklist: pdas.blacklist,
         canMint: pdas.canMint,
         trustedContracts: pdas.trustedContracts
       })
@@ -537,6 +493,17 @@ describe("cngn mint test with multisig", () => {
       // Ignore if already added
     }
 
+    await freezeAccount(
+      provider.connection,
+      payer,
+      blacklistedUserTokenAccount,
+      mint.publicKey,
+      splMultisig.publicKey,
+      [],
+      undefined,
+      TOKEN_2022_PROGRAM_ID
+    )
+
     try {
       await program.methods
         .mint(mintAmount)
@@ -557,13 +524,40 @@ describe("cngn mint test with multisig", () => {
       assert.fail("Minting should have failed for blacklisted signer");
     } catch (error) {
       console.log("Caught expected error for blacklisted signer:", error.toString());
-      assert.include(error.toString(), "SignerBlacklisted");
+      assert.include(error.toString(), "Account is frozen");
     }
   });
 
   it('Fails to mint to a blacklisted receiver', async () => {
     console.log("Testing minting to blacklisted receiver...");
 
+
+    // Create the instruction - pass the multisig signers array
+    const freezeIx = createFreezeAccountInstruction(
+      blacklistedReceiverTokenAccount,
+      mint.publicKey,
+      splMultisig.publicKey,
+      [payer,owner1.publicKey, owner2.publicKey], // This tells it to expect these as signers
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    // The instruction should now have the right account setup
+    const tx = new Transaction();
+    tx.add(freezeIx);
+
+    const { blockhash } = await provider.connection.getLatestBlockhash();
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = provider.wallet.publicKey;
+
+    // Sign the transaction with the multisig owners
+    tx.sign(payer,owner1, owner2);
+
+    // Send the transaction
+    const signature = await provider.connection.sendRawTransaction(tx.serialize());
+    await provider.connection.confirmTransaction(signature);
+
+    console.log("Freeze transaction signature:", signature);
+    console.log("Freeze transaction signature:", signature);
     try {
       await program.methods
         .mint(mintAmount)
@@ -574,7 +568,7 @@ describe("cngn mint test with multisig", () => {
           mintAuthority: pdas.mintAuthority,
           tokenAccount: blacklistedReceiverTokenAccount,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
-          blacklist: pdas.blacklist,
+
           canMint: pdas.canMint,
           trustedContracts: pdas.trustedContracts
         })
@@ -583,7 +577,7 @@ describe("cngn mint test with multisig", () => {
       assert.fail("Minting should have failed for blacklisted receiver");
     } catch (error) {
       console.log("Caught expected error for blacklisted receiver:", error.toString());
-      assert.include(error.toString(), "ReceiverBlacklisted");
+      assert.include(error.toString(), "Account is frozen");
     }
   });
 

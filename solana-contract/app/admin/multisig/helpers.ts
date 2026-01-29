@@ -30,17 +30,19 @@ export function buildAddCanMintMessage(
 export function buildSetMintAmountMessage(
     canMintAccount: PublicKey,
     user: PublicKey,
+    amount: number,
     nonce: number
 ): Buffer {
      const hash = createHash("sha256");
     hash.update("SET_MINT_AMOUNT");
     hash.update(canMintAccount.toBuffer());
     hash.update(user.toBuffer());
-
+     const amountBuffer = Buffer.alloc(8);
+    amountBuffer.writeBigUInt64LE(BigInt(amount));
+    hash.update(amountBuffer);
     const nonceBuffer = Buffer.alloc(8);
     nonceBuffer.writeBigUInt64LE(BigInt(nonce));
     hash.update(nonceBuffer);
-
     return hash.digest();
 }
 /**

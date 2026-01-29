@@ -26,12 +26,8 @@ pub struct PauseMint<'info> {
 
 pub fn pause_mint_handler(ctx: Context<PauseMint>, pause_mint: bool) -> Result<()> {
     let multisig = &mut ctx.accounts.multisig;
-    require_keys_eq!(
-        multisig.key(),
-        ctx.accounts.token_config.admin,
-        ErrorCode::Unauthorized
-    );
-    let message = build_pause_mint_message(&ctx.accounts.token_config.key(), multisig.nonce);
+
+    let message = build_pause_mint_message(&ctx.accounts.token_config.key(),pause_mint, multisig.nonce);
 
     validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
     let token_config = &mut ctx.accounts.token_config;

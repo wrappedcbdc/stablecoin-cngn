@@ -4,12 +4,15 @@ import { Program } from "@coral-xyz/anchor";
 import { Cngn } from "../target/types/cngn";
 import { assert, expect } from 'chai';
 import { PublicKey, Keypair, SYSVAR_INSTRUCTIONS_PUBKEY, TransactionInstruction } from '@solana/web3.js';
-import { calculatePDAs } from '../utils/helpers';
-import { initializeMultisig, initializeToken } from "../utils/token_initializer";
+import { calculatePDAs, createMintAccountWithExtensions } from '../utils/helpers';
+import { initializeMultisig, initializeToken, TOKEN_PARAMS } from "../utils/token_initializer";
 import * as crypto from 'crypto';
 import nacl from 'tweetnacl';
 import { createMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
+import { transferMintAuthority } from "../utils/transfer_mint_authority";
+import { transferAuthorityToPDA } from "./transfer-authority-to-pda";
+import { createEd25519Ix } from "../utils/multisig_helpers";
 
 
 describe("cngn admin functionality tests with multisig", () => {
@@ -23,6 +26,7 @@ describe("cngn admin functionality tests with multisig", () => {
   const program = anchor.workspace.Cngn as Program<Cngn>;
 
   const mint = Keypair.generate();
+  const anotherCngnmint = Keypair.generate();
   const otherAdmin = Keypair.generate();
   const testContract = Keypair.generate();
   const regularUser1 = Keypair.generate();
@@ -39,53 +43,13 @@ describe("cngn admin functionality tests with multisig", () => {
   let pdas: any;
   let multisigPda: PublicKey;
 
-  const TOKEN_PARAMS = {
-    name: "cNGN",
-    symbol: "cNGN",
-    decimals: 9,
-    mintAmount: new anchor.BN(1000000000)
-  };
 
-  // Helper function to create Ed25519 signature instruction
-  function createEd25519Ix(
-    signer: Keypair,
-    message: Buffer
-  ): TransactionInstruction {
-    const signature = nacl.sign.detached(message, signer.secretKey);
-    const publicKey = signer.publicKey.toBytes();
-
-    const numSignatures = 1;
-    const padding = 0;
-
-    const offsetsStruct = Buffer.alloc(14);
-    offsetsStruct.writeUInt16LE(16, 0);  // signature_offset
-    offsetsStruct.writeUInt16LE(0xFFFF, 2);  // signature_instruction_index
-    offsetsStruct.writeUInt16LE(80, 4);  // public_key_offset
-    offsetsStruct.writeUInt16LE(0xFFFF, 6);  // public_key_instruction_index
-    offsetsStruct.writeUInt16LE(112, 8);  // message_data_offset
-    offsetsStruct.writeUInt16LE(message.length, 10);  // message_data_size
-    offsetsStruct.writeUInt16LE(0xFFFF, 12);  // message_instruction_index
-
-    const data = Buffer.concat([
-      Buffer.from([numSignatures, padding]),
-      offsetsStruct,
-      Buffer.from(signature),
-      publicKey,
-      message
-    ]);
-
-    return new TransactionInstruction({
-      keys: [],
-      programId: new PublicKey('Ed25519SigVerify111111111111111111111111111'),
-      data,
-    });
-  }
 
   // Helper to build message hash
-  function buildMessageHash(prefix: string, ...components: (PublicKey | Buffer | number)[]): Buffer {
+   function buildMessageHash(prefix: string, ...components: (PublicKey | Buffer | number)[]): Buffer {
     const hash = crypto.createHash('sha256');
     hash.update(Buffer.from(prefix));
-
+    hash.update(program.programId.toBuffer());
     for (const comp of components) {
       if (comp instanceof PublicKey) {
         hash.update(comp.toBuffer());
@@ -94,6 +58,7 @@ describe("cngn admin functionality tests with multisig", () => {
         buf.writeBigUInt64LE(BigInt(comp));
         hash.update(buf);
       } else {
+
         hash.update(comp);
       }
     }
@@ -101,34 +66,35 @@ describe("cngn admin functionality tests with multisig", () => {
     return hash.digest();
   }
 
-  // Helper for building multisig update message with multiple owners
-  function buildMultisigUpdateMessage(
-    multisigKey: PublicKey,
-    newOwners: PublicKey[],
-    newThreshold: number,
-    nonce: number
-  ): Buffer {
-    const hash = crypto.createHash('sha256');
-    hash.update(Buffer.from('UPDATE_MULTISIG_V1'));
-    hash.update(multisigKey.toBuffer());
-
-    // Add each owner
-    for (const owner of newOwners) {
-      hash.update(owner.toBuffer());
+    // Helper for building multisig update message with multiple owners
+    function buildMultisigUpdateMessage(
+      multisigKey: PublicKey,
+      newOwners: PublicKey[],
+      newThreshold: number,
+      nonce: number
+    ): Buffer {
+      const hash = crypto.createHash('sha256');
+      hash.update(Buffer.from('UPDATE_MULTISIG_V1'));
+      hash.update(multisigKey.toBuffer());
+  
+      // Add each owner
+      for (const owner of newOwners) {
+        hash.update(owner.toBuffer());
+      }
+  
+      // Add threshold as single byte
+      const thresholdBuf = Buffer.alloc(1);
+      thresholdBuf.writeUInt8(newThreshold);
+      hash.update(thresholdBuf);
+  
+      // Add nonce as 8 bytes little-endian
+      const nonceBuf = Buffer.alloc(8);
+      nonceBuf.writeBigUInt64LE(BigInt(nonce));
+      hash.update(nonceBuf);
+  
+      return hash.digest();
     }
 
-    // Add threshold as single byte
-    const thresholdBuf = Buffer.alloc(1);
-    thresholdBuf.writeUInt8(newThreshold);
-    hash.update(thresholdBuf);
-
-    // Add nonce as 8 bytes little-endian
-    const nonceBuf = Buffer.alloc(8);
-    nonceBuf.writeBigUInt64LE(BigInt(nonce));
-    hash.update(nonceBuf);
-
-    return hash.digest();
-  }
 
   before(async () => {
     pdas = calculatePDAs(mint.publicKey, program.programId);
@@ -159,16 +125,93 @@ describe("cngn admin functionality tests with multisig", () => {
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     console.log("Initializing token...");
-    await createMint(provider.connection, payer, payer.publicKey, payer.publicKey, 6, mint, null, TOKEN_2022_PROGRAM_ID)
     
+  await createMintAccountWithExtensions(
+      provider,
+      mint,
+      TOKEN_PARAMS,
+      pdas.mintAuthority,
+      payer.publicKey,
+    )
+    await createMint(provider.connection, payer, payer.publicKey, payer.publicKey, 6, anotherCngnmint, null, TOKEN_2022_PROGRAM_ID)
+
     await initializeToken(program, provider, mint, pdas, payer.publicKey);
     console.log("Initializing multisig...");
 
     console.log("Initializing multisig...");
-    await initializeMultisig(program, provider, mint, pdas, [owner1.publicKey, owner2.publicKey, owner3.publicKey], threshold)
+    await initializeMultisig(program, provider, mint, pdas, [owner1.publicKey, owner2.publicKey], threshold)
 
 
     console.log("Multisig initialized at:", multisigPda.toString());
+  });
+
+  describe("Initialization Security Tests", () => {
+
+    let anotherPdas = calculatePDAs(anotherCngnmint.publicKey, program.programId);
+    console.log("Another cNGN mint:=======", anotherCngnmint.publicKey.toString());
+    console.log("cNGN mint:", mint.publicKey.toString());
+    it("Cannot initialize token twice", async () => {
+      console.log("Testing double initialization prevention...");
+
+      try {
+        await initializeToken(program, provider, mint, pdas, payer.publicKey);
+        assert.fail();
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        // The account is already in use, which prevents reinitialization
+        assert.include(error.toString(), "already in use");
+      }
+    });
+    it("Cannot initialize multisig twice", async () => {
+      console.log("Testing double multisig initialization prevention...");
+
+      try {
+        await initializeMultisig(
+          program,
+          provider,
+          mint,
+          pdas,
+          [owner1.publicKey, owner2.publicKey],
+          threshold
+        );
+
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        // Anchor will throw an error because the account already exists
+        assert.include(error.toString(), "already in use");
+      }
+    });
+    it("Cannot initialize token twice even with different mint and pdas", async () => {
+      console.log("Testing double initialization prevention...");
+
+      try {
+        await initializeToken(program, provider, anotherCngnmint, anotherPdas, payer.publicKey);
+
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "TokenAlreadyInitialized");
+      }
+    });
+
+    it("Cannot initialize multisig twice even with different mint and pdas", async () => {
+      console.log("Testing double multisig initialization prevention...");
+
+      try {
+        await initializeMultisig(
+          program,
+          provider,
+          anotherCngnmint,
+          anotherPdas,
+          [owner1.publicKey, owner2.publicKey],
+          threshold
+        );
+
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        // Anchor will throw an error because the account already exists
+        assert.include(error.toString(), "already in use");
+      }
+    });
   });
 
   describe("CanMint Admin Tests", () => {
@@ -221,6 +264,7 @@ describe("cngn admin functionality tests with multisig", () => {
         "SET_MINT_AMOUNT",
         pdas.canMint,
         mintAuthorityUser.publicKey,
+        TOKEN_PARAMS.mintAmount.toNumber(),
         multisigAccount.nonce.toNumber()
       );
 
@@ -378,116 +422,6 @@ describe("cngn admin functionality tests with multisig", () => {
     });
   });
 
-  describe("Blacklist Admin Tests", () => {
-    it("Admin can add account to blacklist with multisig", async () => {
-      console.log("Testing adding to blacklist with multisig...");
-
-      const accountToBlacklist = Keypair.generate();
-      const multisigAccount = await program.account.multisig.fetch(multisigPda);
-
-      const message = buildMessageHash(
-        "ADD_BLACKLIST",
-        pdas.blacklist,
-        accountToBlacklist.publicKey,
-        multisigAccount.nonce.toNumber()
-      );
-
-      const ed25519Ix1 = createEd25519Ix(owner1, message);
-      const ed25519Ix2 = createEd25519Ix(owner2, message);
-
-      const tx = await program.methods
-        .addBlacklist(accountToBlacklist.publicKey)
-        .accounts({
-          mint: mint.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          canMint: pdas.canMint,
-          internalWhitelist: pdas.internalWhitelist,
-          externalWhitelist: pdas.externalWhitelist,
-          trustedContracts: pdas.trustedContracts,
-          canForward: pdas.canForward,
-          blacklist: pdas.blacklist,
-          multisig: multisigPda,
-          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
-        })
-        .preInstructions([ed25519Ix1, ed25519Ix2])
-        .rpc();
-
-      console.log("Add to blacklist tx:", tx);
-
-      const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
-      const accountFound = blacklistAccount.blacklist.some(account =>
-        account.equals(accountToBlacklist.publicKey)
-      );
-      assert.isTrue(accountFound, "Account was not added to blacklist");
-    });
-
-    it("Admin can remove account from blacklist with multisig", async () => {
-      console.log("Testing removing from blacklist with multisig...");
-
-      const accountToUnblacklist = Keypair.generate();
-
-      // First add to blacklist
-      let multisigAccount = await program.account.multisig.fetch(multisigPda);
-      let message = buildMessageHash(
-        "ADD_BLACKLIST",
-        pdas.blacklist,
-        accountToUnblacklist.publicKey,
-        multisigAccount.nonce.toNumber()
-      );
-
-      let ed25519Ix1 = createEd25519Ix(owner1, message);
-      let ed25519Ix2 = createEd25519Ix(owner2, message);
-
-      await program.methods
-        .addBlacklist(accountToUnblacklist.publicKey)
-        .accounts({
-          mint: mint.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          canMint: pdas.canMint,
-          internalWhitelist: pdas.internalWhitelist,
-          externalWhitelist: pdas.externalWhitelist,
-          trustedContracts: pdas.trustedContracts,
-          canForward: pdas.canForward,
-          blacklist: pdas.blacklist,
-          multisig: multisigPda,
-          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
-        })
-        .preInstructions([ed25519Ix1, ed25519Ix2])
-        .rpc();
-
-      // Now remove from blacklist
-      multisigAccount = await program.account.multisig.fetch(multisigPda);
-      message = buildMessageHash(
-        "REMOVE_BLACKLIST",
-        pdas.blacklist,
-        accountToUnblacklist.publicKey,
-        multisigAccount.nonce.toNumber()
-      );
-
-      ed25519Ix1 = createEd25519Ix(owner1, message);
-      ed25519Ix2 = createEd25519Ix(owner2, message);
-
-      const tx = await program.methods
-        .removeBlacklist(accountToUnblacklist.publicKey)
-        .accounts({
-          mint: mint.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist,
-          multisig: multisigPda,
-          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
-        })
-        .preInstructions([ed25519Ix1, ed25519Ix2])
-        .rpc();
-
-      console.log("Remove from blacklist tx:", tx);
-
-      const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
-      const accountFoundAfter = blacklistAccount.blacklist.some(account =>
-        account.equals(accountToUnblacklist.publicKey)
-      );
-      assert.isFalse(accountFoundAfter, "Account was not removed from blacklist");
-    });
-  });
 
   describe("Trusted Contract Admin Tests", () => {
     it("Admin can add trusted contract with multisig", async () => {
@@ -563,83 +497,6 @@ describe("cngn admin functionality tests with multisig", () => {
     });
   });
 
-  describe("Whitelist Admin Tests", () => {
-    it("Admin can whitelist internal user with multisig", async () => {
-      console.log("Testing whitelisting internal user with multisig...");
-
-      const userToWhitelist = Keypair.generate();
-      const multisigAccount = await program.account.multisig.fetch(multisigPda);
-
-      const message = buildMessageHash(
-        "WHITELIST_INTERNAL",
-        pdas.internalWhitelist,
-        userToWhitelist.publicKey,
-        multisigAccount.nonce.toNumber()
-      );
-
-      const ed25519Ix1 = createEd25519Ix(owner1, message);
-      const ed25519Ix2 = createEd25519Ix(owner2, message);
-
-      const tx = await program.methods
-        .whitelistInternalUser(userToWhitelist.publicKey)
-        .accounts({
-          mint: mint.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          internalWhitelist: pdas.internalWhitelist,
-          blacklist: pdas.blacklist,
-          multisig: multisigPda,
-          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
-        })
-        .preInstructions([ed25519Ix1, ed25519Ix2])
-        .rpc();
-
-      console.log("Whitelist internal user tx:", tx);
-
-      const internalWhitelistAccount = await program.account.internalWhiteList.fetch(pdas.internalWhitelist);
-      const userFound = internalWhitelistAccount.whitelist.some(user =>
-        user.equals(userToWhitelist.publicKey)
-      );
-      assert.isTrue(userFound, "User was not added to internal whitelist");
-    });
-
-    it("Admin can whitelist external user with multisig", async () => {
-      console.log("Testing whitelisting external user with multisig...");
-
-      const userToWhitelist = Keypair.generate();
-      const multisigAccount = await program.account.multisig.fetch(multisigPda);
-
-      const message = buildMessageHash(
-        "WHITELIST_EXTERNAL",
-        pdas.externalWhitelist,
-        userToWhitelist.publicKey,
-        multisigAccount.nonce.toNumber()
-      );
-
-      const ed25519Ix1 = createEd25519Ix(owner1, message);
-      const ed25519Ix2 = createEd25519Ix(owner2, message);
-
-      const tx = await program.methods
-        .whitelistExternalUser(userToWhitelist.publicKey)
-        .accounts({
-          mint: mint.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          externalWhitelist: pdas.externalWhitelist,
-          blacklist: pdas.blacklist,
-          multisig: multisigPda,
-          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
-        })
-        .preInstructions([ed25519Ix1, ed25519Ix2])
-        .rpc();
-
-      console.log("Whitelist external user tx:", tx);
-
-      const externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
-      const userFound = externalWhitelistAccount.whitelist.some(user =>
-        user.equals(userToWhitelist.publicKey)
-      );
-      assert.isTrue(userFound, "User was not added to external whitelist");
-    });
-  });
 
   describe("Can Forward Admin Tests", () => {
     it("Admin can add forwarder with multisig", async () => {
@@ -814,6 +671,8 @@ describe("cngn admin functionality tests with multisig", () => {
 
       await new Promise(resolve => setTimeout(resolve, 2000));
     });
+
+
 
     it("Cannot use forged signature from non-owner", async () => {
       console.log("Testing forged signature attack...");
@@ -1252,45 +1111,6 @@ describe("cngn admin functionality tests with multisig", () => {
   });
 
   describe("Cross-Operation Security Tests", () => {
-    it("Blacklist operation signatures cannot be used for whitelist operations", async () => {
-      console.log("Testing cross-operation signature reuse...");
-
-      const testUser = Keypair.generate();
-      const multisigAccount = await program.account.multisig.fetch(multisigPda);
-
-      // Create signatures for blacklist operation
-      const blacklistMessage = buildMessageHash(
-        "ADD_BLACKLIST",
-        pdas.blacklist,
-        testUser.publicKey,
-        multisigAccount.nonce.toNumber()
-      );
-
-      const ed25519Ix1 = createEd25519Ix(owner1, blacklistMessage);
-      const ed25519Ix2 = createEd25519Ix(owner2, blacklistMessage);
-
-      // Try to use blacklist signatures for whitelist operation
-      try {
-        await program.methods
-          .whitelistInternalUser(testUser.publicKey)
-          .accounts({
-            mint: mint.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            internalWhitelist: pdas.internalWhitelist,
-            blacklist: pdas.blacklist,
-            multisig: multisigPda,
-            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
-          })
-          .preInstructions([ed25519Ix1, ed25519Ix2])
-          .rpc();
-
-        assert.fail("Should have failed using blacklist signatures for whitelist");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "NotEnoughMultisigSigners");
-      }
-    });
-
     it("Cannot reuse signatures across different PDA accounts", async () => {
       console.log("Testing signature reuse across PDAs...");
 

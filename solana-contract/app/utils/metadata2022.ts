@@ -24,7 +24,7 @@ interface TokenParams {
   decimals?: number;
 }
 
-// Step 1: Create the mint with ALL extensions matching your Rust code
+
 export async function createMintAccountWithExtensions(
   provider: anchor.AnchorProvider,
   mint: Keypair,

@@ -7,7 +7,8 @@ import {
     TOKEN_PROGRAM_ID,
     getAssociatedTokenAddress,
     createAssociatedTokenAccountInstruction,
-    getAccount
+    getAccount,
+    burnChecked
 } from "@solana/spl-token";
 import { calculatePDAs } from "../utils/helpers";
 import { initializeToken, setupUserAccounts } from "../utils/token_initializer";
@@ -16,62 +17,59 @@ import { transferAuthorityToPDA } from "./transfer_authority_to_pda";
 describe("cngn burn test", () => {
     const provider = anchor.AnchorProvider.env();
     anchor.setProvider(provider);
- const payer = (provider.wallet as anchor.Wallet).payer;
+    const payer = (provider.wallet as anchor.Wallet).payer;
     const program = anchor.workspace.Cngn as Program<Cngn>;
 
     const mint = Keypair.generate();
 
-   
-
     const user1 = Keypair.generate();
     const user2 = Keypair.generate();
 
-  
- // PDAs and token config 
- let pdas;
+    // PDAs and token config 
+    let pdas;
     let adminTokenAccount: PublicKey;
     let user1TokenAccount: PublicKey;
     let user2TokenAccount: PublicKey;
 
     before(async () => {
-     // Calculate all PDAs for the token
+        // Calculate all PDAs for the token
         pdas = calculatePDAs(mint.publicKey, program.programId);
 
-         // Fund test accounts for gas
-            const fundAccounts = [
-               provider.wallet.publicKey,
-              user1.publicKey,
-              user2.publicKey,
-             
-            ];
-        
-            for (const account of fundAccounts) {
-              await provider.connection.requestAirdrop(account, 1 * anchor.web3.LAMPORTS_PER_SOL);
-            }
+        // Fund test accounts for gas
+        const fundAccounts = [
+            provider.wallet.publicKey,
+            user1.publicKey,
+            user2.publicKey,
+
+        ];
+
+        for (const account of fundAccounts) {
+            await provider.connection.requestAirdrop(account, 1 * anchor.web3.LAMPORTS_PER_SOL);
+        }
         console.log("Initializing token...");
 
-      // Initialize the token
-         await initializeToken(program, provider, mint, pdas);
-        let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
-         // Assertions to verify transfer
-         assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
-         assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
-         // Create token accounts for all users
-         const userAccounts = await setupUserAccounts(
-           provider,
-           [provider.wallet.payer,user1, user2],
-           mint.publicKey
-         );
-    
-         [
-            adminTokenAccount,
-           user1TokenAccount, 
-           user2TokenAccount, 
-         
-         ] = userAccounts;
+        // Initialize the token
+        await initializeToken(program, provider, mint, pdas);
+        let afterMintInfo = await transferAuthorityToPDA(pdas, mint, payer, provider)
+        // Assertions to verify transfer
+        assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
+        assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
+        // Create token accounts for all users
+        const userAccounts = await setupUserAccounts(
+            provider,
+            [provider.wallet.payer, user1, user2],
+            mint.publicKey
+        );
 
-        
-            console.log("Token accounts created:");
+        [
+            adminTokenAccount,
+            user1TokenAccount,
+            user2TokenAccount,
+
+        ] = userAccounts;
+
+
+        console.log("Token accounts created:");
     });
 
     it("Burns tokens from admin account", async () => {
@@ -84,7 +82,7 @@ describe("cngn burn test", () => {
             .burn(burnAmount)
             .accounts({
                 owner: provider.wallet.publicKey,
-                tokenConfig:pdas.tokenConfig,
+                tokenConfig: pdas.tokenConfig,
                 mint: mint.publicKey,
                 burnFrom: adminTokenAccount,
                 tokenProgram: TOKEN_PROGRAM_ID,
@@ -105,13 +103,15 @@ describe("cngn burn test", () => {
             .burn(burnAmount)
             .accounts({
                 owner: user1.publicKey,
-                tokenConfig:pdas.tokenConfig,
+                tokenConfig: pdas.tokenConfig,
                 mint: mint.publicKey,
                 burnFrom: user1TokenAccount,
                 tokenProgram: TOKEN_PROGRAM_ID,
             })
             .signers([user1])
             .rpc();
+    
+            
 
         const updatedBalance = (await getAccount(provider.connection, user1TokenAccount)).amount;
         assert.equal(updatedBalance.toString(), new anchor.BN(initialBalance.toString()).sub(burnAmount).toString());
@@ -127,7 +127,7 @@ describe("cngn burn test", () => {
             .burn(remainingBalance)
             .accounts({
                 owner: user1.publicKey,
-                tokenConfig:pdas.tokenConfig,
+                tokenConfig: pdas.tokenConfig,
                 mint: mint.publicKey,
                 burnFrom: user1TokenAccount,
                 tokenProgram: TOKEN_PROGRAM_ID,
@@ -149,7 +149,7 @@ describe("cngn burn test", () => {
             .burn(burnAmount)
             .accounts({
                 owner: user2.publicKey,
-                tokenConfig:pdas.tokenConfig,
+                tokenConfig: pdas.tokenConfig,
                 mint: mint.publicKey,
                 burnFrom: user2TokenAccount,
                 tokenProgram: TOKEN_PROGRAM_ID,
@@ -168,7 +168,7 @@ describe("cngn burn test", () => {
                 .burn(new anchor.BN(1000000))
                 .accounts({
                     owner: user1.publicKey,
-                    tokenConfig:pdas.tokenConfig,
+                    tokenConfig: pdas.tokenConfig,
                     mint: mint.publicKey,
                     burnFrom: user2TokenAccount,
                     tokenProgram: TOKEN_PROGRAM_ID,
@@ -190,7 +190,7 @@ describe("cngn burn test", () => {
                 .burn(new anchor.BN(10000000000))
                 .accounts({
                     owner: user1.publicKey,
-                    tokenConfig:pdas.tokenConfig,
+                    tokenConfig: pdas.tokenConfig,
                     mint: mint.publicKey,
                     burnFrom: user1TokenAccount,
                     tokenProgram: TOKEN_PROGRAM_ID,

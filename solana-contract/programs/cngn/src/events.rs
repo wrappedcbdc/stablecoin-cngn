@@ -145,9 +145,12 @@ pub struct WhitelistedExternalSender {
 }
 
 #[event]
-pub struct BlackListedExternalSender {
-    pub mint: Pubkey,
-    pub user: Pubkey,
+pub struct MultisigUpdatedEvent {
+    pub multisig: Pubkey,
+    pub old_owners: Vec<Pubkey>,
+    pub new_owners: Vec<Pubkey>,
+    pub old_threshold: u8,
+    pub new_threshold: u8,
 }
 
 #[event]
@@ -177,10 +180,8 @@ pub struct ForwardedEvent {
 
 
 #[event]
-pub struct AdminChangedEvent {
-    pub mint: Pubkey,
-    pub old_admin: Pubkey,
-    pub new_admin: Pubkey,
-    pub authority: Pubkey, // The key that signed the transaction (current admin)
-    pub timestamp: i64,
+pub struct MultisigInitializedEvent {
+    pub multisig: Pubkey,
+    pub owners: Vec<Pubkey>,
+    pub threshold: u8,
 }

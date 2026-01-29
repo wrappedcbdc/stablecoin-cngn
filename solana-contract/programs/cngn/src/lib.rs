@@ -7,7 +7,6 @@ mod instructions;
 mod state;
 use instructions::*;
 
-
 declare_id!("25hdB3aDv1sfkMCcXbNkPBPvtU7ZmEPoSdXcC1m1dMZN");
 
 #[program]
@@ -24,9 +23,6 @@ pub mod cngn {
     ) -> Result<()> {
         instructions::initialize::initialize_handler(ctx, name, symbol, uri, decimals)
     }
-    pub fn initialize_secondary(ctx: Context<InitializeSecondary>) -> Result<()> {
-        instructions::initialize::initialize_secondary_handler(ctx)
-    }
 
     pub fn initialize_multisig(
         ctx: Context<InitializeMultisig>,
@@ -36,7 +32,7 @@ pub mod cngn {
         instructions::multisig::initialize_multisig_handler(ctx, owners, threshold)
     }
 
-        pub fn update_multisig(
+    pub fn update_multisig(
         ctx: Context<UpdateMultisig>,
         owners: Vec<Pubkey>,
         threshold: u8,
@@ -44,9 +40,6 @@ pub mod cngn {
         instructions::multisig::update_multisig_handler(ctx, owners, threshold)
     }
 
-    pub fn initialize_third(ctx: Context<InitializeThird>) -> Result<()> {
-        instructions::initialize::initialize_third_handler(ctx)
-    }
     pub fn mint(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         instructions::mint::handler(ctx, amount)
     }
@@ -86,40 +79,6 @@ pub mod cngn {
         instructions::admin::remove_trusted_contract_handler(ctx, contract)
     }
 
-    pub fn add_blacklist(ctx: Context<AddBlackList>, evil_user: Pubkey) -> Result<()> {
-        instructions::admin::add_blacklist_handler(ctx, evil_user)
-    }
-
-    pub fn remove_blacklist(ctx: Context<RemoveBlackList>, clear_user: Pubkey) -> Result<()> {
-        instructions::admin::remove_blacklist_handler(ctx, clear_user)
-    }
-
-    pub fn whitelist_internal_user(
-        ctx: Context<WhitelistInternalUser>,
-        user: Pubkey,
-    ) -> Result<()> {
-        instructions::admin::whitelist_internal_user_handler(ctx, user)
-    }
-    pub fn blacklist_internal_user(
-        ctx: Context<BlacklistInternalUser>,
-        user: Pubkey,
-    ) -> Result<()> {
-        instructions::admin::blacklist_internal_user_handler(ctx, user)
-    }
-
-    pub fn whitelist_external_user(
-        ctx: Context<WhitelistExternalUser>,
-        user: Pubkey,
-    ) -> Result<()> {
-        instructions::admin::whitelist_external_user_handler(ctx, user)
-    }
-    pub fn blacklist_external_user(
-        ctx: Context<BlacklistExternalUser>,
-        user: Pubkey,
-    ) -> Result<()> {
-        instructions::admin::blacklist_external_user_handler(ctx, user)
-    }
-
     // Add to your program entry point in lib.rs
     pub fn add_can_forward(ctx: Context<AddCanForward>, forwarder: Pubkey) -> Result<()> {
         instructions::admin::add_can_forward_handler(ctx, forwarder)
@@ -128,29 +87,4 @@ pub mod cngn {
     pub fn remove_can_forward(ctx: Context<RemoveCanForward>, forwarder: Pubkey) -> Result<()> {
         instructions::admin::remove_can_forward_handler(ctx, forwarder)
     }
-
-    pub fn change_admin(ctx: Context<ChangeAdmin>, new_admin: Pubkey) -> Result<()> {
-        instructions::admin::change_admin_handler(ctx, new_admin)
-    }
-
-    // fallback instruction handler as workaround to anchor instruction discriminator check
-    // pub fn fallback<'info>(
-    //     program_id: &Pubkey,
-    //     accounts: &'info [AccountInfo<'info>],
-    //     data: &[u8],
-    // ) -> Result<()> {
-    //     let instruction = TransferHookInstruction::unpack(data)?;
-
-    //     // match instruction discriminator to transfer hook interface execute instruction
-    //     // token2022 program CPIs this instruction on token transfer
-    //     match instruction {
-    //         TransferHookInstruction::Execute { amount } => {
-    //             let amount_bytes = amount.to_le_bytes();
-
-    //             // invoke custom transfer hook instruction on our program
-    //             __private::__global::transfer_hook(program_id, accounts, &amount_bytes)
-    //         }
-    //         _ => return Err(ProgramError::InvalidInstructionData.into()),
-    //     }
-    // }
 }

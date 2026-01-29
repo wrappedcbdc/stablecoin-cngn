@@ -12,11 +12,11 @@ import { createMintAccountWithExtensions } from '../app/utils/metadata2022';
 export const TOKEN_PARAMS = {
   name: "cNGN",
   symbol: "cNGN",
-  decimals: 6,
+  decimals: 9,
   uri: "helper",
-  mintAmount: new anchor.BN(100_000_000), // 10,000 tokens with 6 decimals
-  transferAmount: new anchor.BN(5_000_000_000), // 5,000 tokens
-  partialAmount: new anchor.BN(2_500_000_000) // 2,500 tokens
+  mintAmount: new anchor.BN(100000_000_000_000), // 10,000 tokens with 6 decimals
+  transferAmount: new anchor.BN(5000_000_000_000), // 5,000 tokens
+  partialAmount: new anchor.BN(2_500_000_000_000) // 2,500 tokens
 };
 
 /**
@@ -47,53 +47,17 @@ export async function initializeToken(
       admin: admin,
       mintAuthority: pdas.mintAuthority,
       mint: mint.publicKey,
-      extraMetasAccount: pdas.extraMetasAccount,
+      //extraMetasAccount: pdas.extraMetasAccount,
       canMint: pdas.canMint,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
+      tokenProgram: new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"), // TOKEN_2022_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
     })
     .rpc();
 
   console.log("Initialization transaction signature", tx);
-  console.log("============= Initializing secondary and third accounts =============");
+  
 
-  try {
-    // Initialize secondary accounts (blacklist, canForward, trustedContracts)
-    const tx2 = await program.methods
-      .initializeSecondary()
-      .accounts({
-        initializer: provider.wallet.publicKey,
-        mint: mint.publicKey,
-        blacklist: pdas.blacklist,
-        canForward: pdas.canForward,
-        trustedContracts: pdas.trustedContracts,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc();
-
-    console.log("Secondary initialization transaction signature", tx2);
-
-    // Initialize third accounts (whitelists and extra metas)
-    const tx3 = await program.methods
-      .initializeThird()
-      .accounts({
-        initializer: provider.wallet.publicKey,
-        mint: mint.publicKey,
-        extraMetasAccount: pdas.extraMetasAccount,
-        tokenConfig: pdas.tokenConfig,
-        internalWhitelist: pdas.internalWhitelist,
-        externalWhitelist: pdas.externalWhitelist,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc();
-
-    console.log("Third initialization transaction signature", tx3);
-    console.log("All accounts initialized successfully");
-  } catch (error) {
-    console.error("Error initializing accounts:", error);
-    throw error;
-  }
 }
 
 export async function initializeMultisig(
@@ -119,7 +83,7 @@ export async function initializeMultisig(
         systemProgram: SystemProgram.programId
       })
       .rpc();
-    console.log("Multisig initialization transaction signature", tx);
+    console.log(" Multisig initialization transaction signature", tx);
 
   } catch (error) {
     console.log("error creating multisig", error)
@@ -149,3 +113,4 @@ export async function setupUserAccounts(
 
   return tokenAccounts;
 }
+

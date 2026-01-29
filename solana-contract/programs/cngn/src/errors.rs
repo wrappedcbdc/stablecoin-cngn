@@ -15,9 +15,6 @@ pub enum ErrorCode {
     #[msg("Invalid admin")]
     InvalidAdmin,
 
-    #[msg("Admin not found")]
-    AdminNotFound,
-
     #[msg("Invalid owner")]
     InvalidOwner,
 
@@ -153,7 +150,7 @@ pub enum ErrorCode {
     #[msg("User is not blacklisted")]
     AddressNotBlacklisted,
 
-    #[msg("Attempting to mint more than allowed")]
+    #[msg("Invalid token account provided")]
     InvalidTokenAccount,
     #[msg("Account is not blacklisted")]
     NotBlacklisted,
@@ -164,28 +161,32 @@ pub enum ErrorCode {
     #[msg("Redemption burn completed successfully")]
     RedemptionBurnCompleted,
 
-
     #[msg("The token is not currently transferring")]
     IsNotCurrentlyTransferring,
 
     #[msg("Not a CPI call")]
     NotCpi,
-    
+
     #[msg("Invalid governance program")]
     InvalidGovernanceProgram,
 
-        #[msg("Not enough multisig signers")]
+    #[msg("Not enough multisig signers")]
     NotEnoughMultisigSigners,
 
-       #[msg("Too many owners: maximum is 10")]
+    #[msg("Too many owners: maximum is 10")]
     TooManyOwners,
-        #[msg("No owners provided")]
+    #[msg("No owners provided")]
     NoOwnersProvided,
-    
+
     #[msg("Duplicate owners not allowed")]
     DuplicateOwners,
 
-        #[msg("Invalid threshold: must be > 0 and <= number of owners")]
+    #[msg("Invalid threshold: must be > 0 and <= number of owners")]
     InvalidThreshold,
 
+    #[msg("Invalid required threshold: must be 2 number of owners")]
+    InvalidRequiredThreshold,
+
+    #[msg("Token Program is already initialized")]
+    TokenAlreadyInitialized
 }

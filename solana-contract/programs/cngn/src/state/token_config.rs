@@ -1,10 +1,9 @@
 // state/token_config.rs
 use anchor_lang::prelude::*;
 
-pub const META_LIST_ACCOUNT_SEED: &[u8] = b"extra-account-metas";
+
 pub const TOKEN_CONFIG_SEED: &[u8] = b"token-config";
-pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
-    solana_program::pubkey!("GovernoR1LQdaQKK7Kpz9QYCwvBtVpXQXbXHX2d5vNpL");
+
 
 #[account]
 pub struct TokenConfig {
