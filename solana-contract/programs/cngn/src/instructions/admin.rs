@@ -70,15 +70,17 @@ pub fn add_can_mint_handler(ctx: Context<AddCanMint>, user: Pubkey) -> Result<()
     let can_mint = &mut ctx.accounts.can_mint;
 
 
+    
+    if can_mint.can_mint(&user) {
+       return Err(ErrorCode::AlreadyMinter.into());
+    }
     // Add to can mint list if not already present
-    if !can_mint.can_mint(&user) {
-        can_mint.add_authority(&user)?;
+     can_mint.add_authority(&user)?;
 
         emit!(WhitelistedMinter {
             mint: ctx.accounts.token_config.mint,
             authority: user,
         });
-    }
 
     Ok(())
 }
@@ -143,154 +145,16 @@ pub fn remove_can_mint_handler(ctx: Context<RemoveCanMint>, user: Pubkey) -> Res
 
     let can_mint = &mut ctx.accounts.can_mint;
 
-    if can_mint.can_mint(&user) {
-        can_mint.remove_authority(&user)?;
+    if !can_mint.can_mint(&user) {
+      return Err(ErrorCode::UserNotFound.into());
+    }
+
+       can_mint.remove_authority(&user)?;
 
         emit!(BlackListedMinter {
             mint: ctx.accounts.token_config.mint,
             authority: user,
         });
-    }
-
-    Ok(())
-}
-
-// ============================================================================
-// Add Can Forward (with Multisig)
-// ============================================================================
-
-#[derive(Accounts)]
-pub struct AddCanForward<'info> {
-    #[account(
-        mut,
-        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
-    )]
-    pub mint: InterfaceAccount<'info, Mint>,
-
-    #[account(
-        mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
-        bump = token_config.bump,
-    )]
-    pub token_config: Account<'info, TokenConfig>,
-
-
-
-    #[account(
-        mut,
-        seeds = [b"can-forward", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub can_forward: Account<'info, CanForward>,
-
-    #[account(
-         mut,
-        seeds = [Multisig::MULTISIG_SEED,  token_config.mint.as_ref()],
-        bump = multisig.bump
-    )]
-    pub multisig: Account<'info, Multisig>,
-
-    /// CHECK: This is the instructions sysvar
-    #[account(address = solana_program::sysvar::instructions::ID)]
-    pub instructions: AccountInfo<'info>,
-}
-
-pub fn add_can_forward_handler(ctx: Context<AddCanForward>, forwarder: Pubkey) -> Result<()> {
-    let multisig = &mut ctx.accounts.multisig;
-
-    require_keys_eq!(
-        multisig.key(),
-        ctx.accounts.token_config.admin,
-        ErrorCode::Unauthorized
-    );
-
-    let message =
-        build_add_can_forward_message(&ctx.accounts.can_forward.key(), &forwarder, multisig.nonce);
-
-    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
-
-  
-    let can_forward = &mut ctx.accounts.can_forward;
-
-  
-
-    if !can_forward.is_trusted_forwarder(&forwarder) {
-        can_forward.add(&forwarder)?;
-
-        emit!(WhitelistedForwarder {
-            mint: ctx.accounts.token_config.mint,
-            forwarder,
-        });
-    }
-
-    Ok(())
-}
-
-// ============================================================================
-// Remove Can Forward (with Multisig)
-// ============================================================================
-
-#[derive(Accounts)]
-pub struct RemoveCanForward<'info> {
-    #[account(
-        mut,
-        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
-    )]
-    pub mint: InterfaceAccount<'info, Mint>,
-
-    #[account(
-        mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
-        bump = token_config.bump,
-    )]
-    pub token_config: Account<'info, TokenConfig>,
-
-    #[account(
-        mut,
-        seeds = [b"can-forward", token_config.mint.as_ref()],
-        bump,
-    )]
-    pub can_forward: Account<'info, CanForward>,
-
-    #[account(
-         mut,
-        seeds = [Multisig::MULTISIG_SEED, token_config.mint.as_ref()],
-        bump = multisig.bump
-    )]
-    pub multisig: Account<'info, Multisig>,
-
-    /// CHECK: This is the instructions sysvar
-    #[account(address = solana_program::sysvar::instructions::ID)]
-    pub instructions: AccountInfo<'info>,
-}
-
-pub fn remove_can_forward_handler(ctx: Context<RemoveCanForward>, forwarder: Pubkey) -> Result<()> {
-    let multisig = &mut ctx.accounts.multisig;
-
-    require_keys_eq!(
-        multisig.key(),
-        ctx.accounts.token_config.admin,
-        ErrorCode::Unauthorized
-    );
-
-    let message = build_remove_can_forward_message(
-        &ctx.accounts.can_forward.key(),
-        &forwarder,
-        multisig.nonce,
-    );
-
-    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
-
-    let can_forward = &mut ctx.accounts.can_forward;
-
-    if can_forward.is_trusted_forwarder(&forwarder) {
-        can_forward.remove(&forwarder)?;
-
-        emit!(BlackListedForwarder {
-            mint: ctx.accounts.token_config.mint,
-            forwarder,
-        });
-    }
 
     Ok(())
 }
@@ -367,6 +231,7 @@ pub fn set_mint_amount_handler(
 #[derive(Accounts)]
 pub struct RemoveMintAmount<'info> {
     #[account(
+        mut,
         seeds = [Multisig::MULTISIG_SEED,  token_config.mint.as_ref()],
         bump = multisig.bump
     )]
@@ -416,6 +281,7 @@ pub fn remove_mint_amount_handler(ctx: Context<RemoveMintAmount>, user: Pubkey) 
     }
 
     can_mint.set_mint_amount(&user, amount)?;
+    
 
     emit!(MintAmountUpdatedEvent {
         mint: ctx.accounts.token_config.mint,
@@ -425,6 +291,155 @@ pub fn remove_mint_amount_handler(ctx: Context<RemoveMintAmount>, user: Pubkey) 
 
     Ok(())
 }
+
+
+// ============================================================================
+// Add Can Forward (with Multisig)
+// ============================================================================
+
+#[derive(Accounts)]
+pub struct AddCanForward<'info> {
+    #[account(
+        mut,
+        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        bump = token_config.bump,
+    )]
+    pub token_config: Account<'info, TokenConfig>,
+
+
+
+    #[account(
+        mut,
+        seeds = [b"can-forward", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_forward: Account<'info, CanForward>,
+
+    #[account(
+         mut,
+        seeds = [Multisig::MULTISIG_SEED,  token_config.mint.as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
+}
+
+pub fn add_can_forward_handler(ctx: Context<AddCanForward>, forwarder: Pubkey) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
+
+    require_keys_eq!(
+        multisig.key(),
+        ctx.accounts.token_config.admin,
+        ErrorCode::Unauthorized
+    );
+
+    let message =
+        build_add_can_forward_message(&ctx.accounts.can_forward.key(), &forwarder, multisig.nonce);
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+  
+    let can_forward = &mut ctx.accounts.can_forward;
+
+  
+
+    if can_forward.is_trusted_forwarder(&forwarder) {
+     return Err(ErrorCode::AlreadyForwarder.into());
+    }
+
+       can_forward.add(&forwarder)?;
+
+        emit!(WhitelistedForwarder {
+            mint: ctx.accounts.token_config.mint,
+            forwarder,
+        });
+
+    Ok(())
+}
+
+// ============================================================================
+// Remove Can Forward (with Multisig)
+// ============================================================================
+
+#[derive(Accounts)]
+pub struct RemoveCanForward<'info> {
+    #[account(
+        mut,
+        constraint = mint.key() == token_config.mint @ ErrorCode::MintMismatch,
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        bump = token_config.bump,
+    )]
+    pub token_config: Account<'info, TokenConfig>,
+
+    #[account(
+        mut,
+        seeds = [b"can-forward", token_config.mint.as_ref()],
+        bump,
+    )]
+    pub can_forward: Account<'info, CanForward>,
+
+    #[account(
+         mut,
+        seeds = [Multisig::MULTISIG_SEED, token_config.mint.as_ref()],
+        bump = multisig.bump
+    )]
+    pub multisig: Account<'info, Multisig>,
+
+    /// CHECK: This is the instructions sysvar
+    #[account(address = solana_program::sysvar::instructions::ID)]
+    pub instructions: AccountInfo<'info>,
+}
+
+pub fn remove_can_forward_handler(ctx: Context<RemoveCanForward>, forwarder: Pubkey) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
+
+    require_keys_eq!(
+        multisig.key(),
+        ctx.accounts.token_config.admin,
+        ErrorCode::Unauthorized
+    );
+
+    let message = build_remove_can_forward_message(
+        &ctx.accounts.can_forward.key(),
+        &forwarder,
+        multisig.nonce,
+    );
+
+    validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
+
+    let can_forward = &mut ctx.accounts.can_forward;
+
+    if !can_forward.is_trusted_forwarder(&forwarder) {
+        return Err(ErrorCode::NotForwarder.into());
+
+    }
+
+            can_forward.remove(&forwarder)?;
+
+        emit!(BlackListedForwarder {
+            mint: ctx.accounts.token_config.mint,
+            forwarder,
+        });
+
+    Ok(())
+}
+
+
+
 
 // ============================================================================
 // Non-Multisig Functions 
