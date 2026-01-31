@@ -14,6 +14,7 @@ export async function addCanForward(target: PublicKey): Promise<string> {
     const message = buildAddCanForwardMessage(
       context.pdas.canForward,
       target,
+       context.program.programId,
       context.multisigAccount.nonce.toNumber()
     );
 
@@ -22,7 +23,7 @@ export async function addCanForward(target: PublicKey): Promise<string> {
       .accounts({
         mint: context.cngnMint,
         tokenConfig: context.pdas.tokenConfig,
-        blacklist: context.pdas.blacklist,
+       
         canForward: context.pdas.canForward,
         multisig: context.pdas.multisig,
         instructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,

@@ -7,7 +7,7 @@ mod instructions;
 mod state;
 use instructions::*;
 
-declare_id!("25hdB3aDv1sfkMCcXbNkPBPvtU7ZmEPoSdXcC1m1dMZN");
+declare_id!("FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65");
 
 #[program]
 pub mod cngn {

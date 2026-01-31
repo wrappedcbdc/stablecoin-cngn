@@ -22,7 +22,7 @@ pub struct InitializeMultisig<'info> {
     #[account(
         mut,
         constraint = token_config.admin == payer.key() @ ErrorCode::Unauthorized,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,

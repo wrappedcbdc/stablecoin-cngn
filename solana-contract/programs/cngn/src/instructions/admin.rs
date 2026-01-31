@@ -19,7 +19,7 @@ pub struct AddCanMint<'info> {
 
     #[account(
         mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+        seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -99,7 +99,7 @@ pub struct RemoveCanMint<'info> {
 
     #[account(
         mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+            seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -178,7 +178,7 @@ pub struct SetMintAmount<'info> {
 
     #[account(
         mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+           seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -245,7 +245,7 @@ pub struct RemoveMintAmount<'info> {
 
     #[account(
         mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+           seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -307,7 +307,7 @@ pub struct AddCanForward<'info> {
 
     #[account(
         mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+            seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -380,7 +380,7 @@ pub struct RemoveCanForward<'info> {
 
     #[account(
         mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+            seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -454,7 +454,7 @@ pub struct GetMintAmount<'info> {
     pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+            seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -490,7 +490,7 @@ pub struct AddTrustedContract<'info> {
 
     #[account(
         mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+           seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -564,7 +564,7 @@ pub struct RemoveTrustedContract<'info> {
 
     #[account(
         mut,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
+            seeds = [TOKEN_CONFIG_SEED],
         bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,

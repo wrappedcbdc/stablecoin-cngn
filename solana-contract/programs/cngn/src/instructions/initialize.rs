@@ -17,8 +17,8 @@ pub struct Initialize<'info> {
         init,
         payer = initializer,
         space = TokenConfig::LEN,
-        seeds = [TOKEN_CONFIG_SEED, mint.key().as_ref()],
-        bump
+        seeds = [TOKEN_CONFIG_SEED], // Use TOKEN_CONFIG_SEED as the seed as singleton
+        bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
 
@@ -85,8 +85,6 @@ pub fn initialize_handler(
         token_config.admin == Pubkey::default(),
         ErrorCode::TokenAlreadyInitialized
     );
-
-
     // Set token config data
     token_config.name = name.clone();
     token_config.symbol = symbol.clone();

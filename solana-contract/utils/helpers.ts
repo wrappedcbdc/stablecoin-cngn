@@ -96,14 +96,9 @@ export async function createTokenAccountIfNeeded(
 export interface TokenPDAs {
   tokenConfig: PublicKey;
   mintAuthority: PublicKey;
-  blacklist: PublicKey;
-  redeemBurnAccount: PublicKey;
   canMint: PublicKey;
   canForward: PublicKey;
   trustedContracts: PublicKey;
-  internalWhitelist: PublicKey;
-  externalWhitelist: PublicKey;
-  extraMetasAccount: PublicKey;
   multisig: PublicKey;
 }
 
@@ -115,17 +110,12 @@ export interface TokenPDAs {
  */
 export function calculatePDAs(mint: PublicKey, programId: PublicKey): TokenPDAs {
   const [tokenConfig] = PublicKey.findProgramAddressSync(
-    [Buffer.from("token-config"), mint.toBuffer()],
+    [Buffer.from("token-config")],
     programId
   );
 
   const [mintAuthority] = PublicKey.findProgramAddressSync(
     [Buffer.from("mint-authority"), mint.toBuffer()],
-    programId
-  );
-
-  const [blacklist] = PublicKey.findProgramAddressSync(
-    [Buffer.from("black-list"), mint.toBuffer()],
     programId
   );
 
@@ -144,25 +134,9 @@ export function calculatePDAs(mint: PublicKey, programId: PublicKey): TokenPDAs 
     programId
   );
 
-  const [internalWhitelist] = PublicKey.findProgramAddressSync(
-    [Buffer.from("internal-whitelist"), mint.toBuffer()],
-    programId
-  );
 
-  const [externalWhitelist] = PublicKey.findProgramAddressSync(
-    [Buffer.from("external-whitelist"), mint.toBuffer()],
-    programId
-  );
 
-  const [extraMetasAccount] = PublicKey.findProgramAddressSync(
-    [Buffer.from("extra-account-metas"), mint.toBuffer()],
-    programId
-  );
 
-  const [redeemBurnAccount] = PublicKey.findProgramAddressSync(
-    [Buffer.from("burn-temp"), mint.toBuffer()],
-    programId
-  );
 
   const [multisig] = PublicKey.findProgramAddressSync(
     [Buffer.from("multisig"), mint.toBuffer()],
@@ -172,14 +146,9 @@ export function calculatePDAs(mint: PublicKey, programId: PublicKey): TokenPDAs 
   return {
     tokenConfig,
     mintAuthority,
-    blacklist,
     canMint,
     canForward,
-    redeemBurnAccount,
     trustedContracts,
-    internalWhitelist,
-    externalWhitelist,
-    extraMetasAccount,
     multisig
   };
 }

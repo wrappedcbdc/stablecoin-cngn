@@ -13,10 +13,12 @@ import nacl from "tweetnacl";
 export function buildAddCanMintMessage(
     canMintAccount: PublicKey,
     user: PublicKey,
+    programId: PublicKey,
     nonce: number
 ): Buffer {
     const hash = createHash("sha256");
     hash.update("ADD_CAN_MINT");
+    hash.update(programId.toBuffer());
     hash.update(canMintAccount.toBuffer());
     hash.update(user.toBuffer());
 
@@ -31,10 +33,12 @@ export function buildSetMintAmountMessage(
     canMintAccount: PublicKey,
     user: PublicKey,
     amount: number,
+     programId: PublicKey,
     nonce: number
 ): Buffer {
      const hash = createHash("sha256");
     hash.update("SET_MINT_AMOUNT");
+     hash.update(programId.toBuffer());
     hash.update(canMintAccount.toBuffer());
     hash.update(user.toBuffer());
      const amountBuffer = Buffer.alloc(8);
@@ -51,10 +55,12 @@ export function buildSetMintAmountMessage(
 export function buildRemoveCanMintMessage(
     canMintAccount: PublicKey,
     user: PublicKey,
+    programId: PublicKey,
     nonce: number
 ): Buffer {
     const hash = createHash("sha256");
     hash.update("REMOVE_CAN_MINT");
+     hash.update(programId.toBuffer());
     hash.update(canMintAccount.toBuffer());
     hash.update(user.toBuffer());
 
@@ -71,10 +77,12 @@ export function buildRemoveCanMintMessage(
 export function buildAddCanForwardMessage(
     canForwardAccount: PublicKey,
     forwarder: PublicKey,
+     programId: PublicKey,
     nonce: number
 ): Buffer {
     const hash = createHash("sha256");
     hash.update("ADD_CAN_FORWARD");
+     hash.update(programId.toBuffer());
     hash.update(canForwardAccount.toBuffer());
     hash.update(forwarder.toBuffer());
 
@@ -177,10 +185,12 @@ export function buildUpdateMultisigMessage(
 export function buildAddTrustedContractMessage(
     trustedContractsAccount: PublicKey,
     contract: PublicKey,
+    programId: PublicKey,
     nonce: number
 ): Buffer {
     const hash = createHash("sha256");
     hash.update("ADD_TRUSTED_CONTRACT");
+     hash.update(programId.toBuffer());
     hash.update(trustedContractsAccount.toBuffer());
     hash.update(contract.toBuffer());
 

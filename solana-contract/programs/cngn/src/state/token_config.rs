@@ -4,7 +4,6 @@ use anchor_lang::prelude::*;
 
 pub const TOKEN_CONFIG_SEED: &[u8] = b"token-config";
 
-
 #[account]
 pub struct TokenConfig {
     pub name: String,          // Token name
@@ -15,6 +14,7 @@ pub struct TokenConfig {
     pub mint_paused: bool,     // Flag to track if minting is paused
     pub transfer_paused: bool, // Flag to track if transfers are paused
     pub bump: u8,              // PDA bump
+   
 }
 
 // state/token_config.rs
@@ -33,7 +33,7 @@ impl TokenConfig {
         32 + // admin
         1 +  // mint_paused
         1 +  // transfer_paused
-        1; // bump
+        1 ; // bump
 
     
 }
