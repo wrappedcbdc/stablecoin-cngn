@@ -2,6 +2,8 @@ import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, Keypair } from '@solana/w
 import { createMint, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import * as anchor from "@coral-xyz/anchor";
 
+import fs from "fs";
+import path from "path";
 import { createTokenAccountIfNeeded, TokenPDAs } from './helpers';
 import { createMintAccountWithExtensions } from '../app/utils/metadata2022';
 
@@ -35,14 +37,28 @@ export async function initializeToken(
 
 ): Promise<void> {
   console.log("=========== Initializing token ========");
-  //await createMintAccountWithExtensions(provider, mint, TOKEN_PARAMS, program.programId);
-  //await createMint(provider.connection,provider.wallet.payer,provider.wallet.payer.publicKey,
-  //provider.wallet.payer.publicKey, TOKEN_PARAMS.decimals,mint,null,TOKEN_2022_PROGRAM_ID);
+ // Use target/deploy folder where Anchor stores program keypairs
+  const filePath = path.join(process.cwd(), "target/deploy/cngn-keypair.json");
+
+  // Load program keypair
+  let programKeyPair: Keypair;
+  
+  if (fs.existsSync(filePath)) {
+    console.log("Loading program keypair from:", filePath);
+    const json = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    programKeyPair = Keypair.fromSecretKey(Uint8Array.from(json));
+  } else {
+    throw new Error(`Program keypair not found at ${filePath}. Please run 'anchor build' first.`);
+  }
+
+  console.log("Program Public Key:", programKeyPair.publicKey.toBase58());
+
   // Execute the initialization transaction
   const tx = await program.methods
     .initialize(TOKEN_PARAMS.name, TOKEN_PARAMS.symbol, TOKEN_PARAMS.uri, TOKEN_PARAMS.decimals)
     .accounts({
       initializer: provider.wallet.publicKey,
+      program: programKeyPair.publicKey,
       tokenConfig: pdas.tokenConfig,
       admin: admin,
       mintAuthority: pdas.mintAuthority,
@@ -53,10 +69,11 @@ export async function initializeToken(
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
     })
+    .signers([programKeyPair])
     .rpc();
 
   console.log("Initialization transaction signature", tx);
-  
+
 
 }
 
