@@ -1,23 +1,20 @@
+
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Cngn } from "../target/types/cngn";
 import { assert, expect } from 'chai';
-import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
-import { AuthorityType, createSetAuthorityInstruction, getMint, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { PublicKey, Keypair, SYSVAR_INSTRUCTIONS_PUBKEY, TransactionInstruction } from '@solana/web3.js';
+import { calculatePDAs } from '../utils/helpers';
+import { initializeMultisig, initializeToken } from "../utils/token_initializer";
+import * as crypto from 'crypto';
+import nacl from 'tweetnacl';
+import { createMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
-import { calculatePDAs, createTokenAccountIfNeeded } from '../utils/helpers';
-import { initializeToken } from "../utils/token_initializer";
-import { transferMintAuthority } from "../utils/transfer_mint_authority";
-import { transferAuthorityToPDA } from "./tranfer-authority-to-pda";
 
-describe("cngn admin functionality tests", () => {
-  // Configure the client to use the local cluster
-  // const provider = anchor.AnchorProvider.env();
-  // anchor.setProvider(provider);
-  // const payer = (provider.wallet as anchor.Wallet).payer;
-  // const program = anchor.workspace.Cngn as Program<Cngn>;
+
+describe("cngn admin functionality tests with multisig", () => {
   const connection = new anchor.web3.Connection('http://127.0.0.1:8899', 'confirmed');
-  const wallet = anchor.Wallet.local(); // Uses ~/.config/solana/id.json
+  const wallet = anchor.Wallet.local();
   const provider = new anchor.AnchorProvider(connection, wallet, {
     commitment: 'confirmed',
   });
@@ -25,11 +22,7 @@ describe("cngn admin functionality tests", () => {
   const payer = (provider.wallet as anchor.Wallet).payer;
   const program = anchor.workspace.Cngn as Program<Cngn>;
 
-
-  // Create the mint keypair - this will be the actual token
   const mint = Keypair.generate();
-
-  // Create keypairs for different test scenarios
   const otherAdmin = Keypair.generate();
   const testContract = Keypair.generate();
   const regularUser1 = Keypair.generate();
@@ -37,86 +30,213 @@ describe("cngn admin functionality tests", () => {
   const blacklistedUser = Keypair.generate();
   const mintAuthorityUser = Keypair.generate();
 
-  // PDAs and token config 
-  let pdas;
+  // Multisig owners
+  const owner1 = Keypair.generate();
+  const owner2 = Keypair.generate();
+  const owner3 = Keypair.generate();
+  const threshold = 2;
 
-  // Token parameters
+  let pdas: any;
+  let multisigPda: PublicKey;
+
   const TOKEN_PARAMS = {
     name: "cNGN",
     symbol: "cNGN",
     decimals: 9,
-    mintAmount: new anchor.BN(1000000000) // 1 token with 9 decimals
+    mintAmount: new anchor.BN(1000000000)
   };
 
+  // Helper function to create Ed25519 signature instruction
+  function createEd25519Ix(
+    signer: Keypair,
+    message: Buffer
+  ): TransactionInstruction {
+    const signature = nacl.sign.detached(message, signer.secretKey);
+    const publicKey = signer.publicKey.toBytes();
+
+    const numSignatures = 1;
+    const padding = 0;
+
+    const offsetsStruct = Buffer.alloc(14);
+    offsetsStruct.writeUInt16LE(16, 0);  // signature_offset
+    offsetsStruct.writeUInt16LE(0xFFFF, 2);  // signature_instruction_index
+    offsetsStruct.writeUInt16LE(80, 4);  // public_key_offset
+    offsetsStruct.writeUInt16LE(0xFFFF, 6);  // public_key_instruction_index
+    offsetsStruct.writeUInt16LE(112, 8);  // message_data_offset
+    offsetsStruct.writeUInt16LE(message.length, 10);  // message_data_size
+    offsetsStruct.writeUInt16LE(0xFFFF, 12);  // message_instruction_index
+
+    const data = Buffer.concat([
+      Buffer.from([numSignatures, padding]),
+      offsetsStruct,
+      Buffer.from(signature),
+      publicKey,
+      message
+    ]);
+
+    return new TransactionInstruction({
+      keys: [],
+      programId: new PublicKey('Ed25519SigVerify111111111111111111111111111'),
+      data,
+    });
+  }
+
+  // Helper to build message hash
+  function buildMessageHash(prefix: string, ...components: (PublicKey | Buffer | number)[]): Buffer {
+    const hash = crypto.createHash('sha256');
+    hash.update(Buffer.from(prefix));
+
+    for (const comp of components) {
+      if (comp instanceof PublicKey) {
+        hash.update(comp.toBuffer());
+      } else if (typeof comp === 'number') {
+        const buf = Buffer.alloc(8);
+        buf.writeBigUInt64LE(BigInt(comp));
+        hash.update(buf);
+      } else {
+        hash.update(comp);
+      }
+    }
+
+    return hash.digest();
+  }
+
+  // Helper for building multisig update message with multiple owners
+  function buildMultisigUpdateMessage(
+    multisigKey: PublicKey,
+    newOwners: PublicKey[],
+    newThreshold: number,
+    nonce: number
+  ): Buffer {
+    const hash = crypto.createHash('sha256');
+    hash.update(Buffer.from('UPDATE_MULTISIG_V1'));
+    hash.update(multisigKey.toBuffer());
+
+    // Add each owner
+    for (const owner of newOwners) {
+      hash.update(owner.toBuffer());
+    }
+
+    // Add threshold as single byte
+    const thresholdBuf = Buffer.alloc(1);
+    thresholdBuf.writeUInt8(newThreshold);
+    hash.update(thresholdBuf);
+
+    // Add nonce as 8 bytes little-endian
+    const nonceBuf = Buffer.alloc(8);
+    nonceBuf.writeBigUInt64LE(BigInt(nonce));
+    hash.update(nonceBuf);
+
+    return hash.digest();
+  }
+
   before(async () => {
-    // Calculate all PDAs for the token
     pdas = calculatePDAs(mint.publicKey, program.programId);
 
-    // Fund test accounts for gas
+    const [multisig] = PublicKey.findProgramAddressSync(
+      [Buffer.from("multisig"), mint.publicKey.toBuffer()],
+      program.programId
+    );
+    multisigPda = multisig;
+
+    // Fund accounts
     const fundAccounts = [
       otherAdmin.publicKey,
       regularUser1.publicKey,
       regularUser2.publicKey,
       blacklistedUser.publicKey,
       mintAuthorityUser.publicKey,
-      testContract.publicKey
+      testContract.publicKey,
+      owner1.publicKey,
+      owner2.publicKey,
+      owner3.publicKey
     ];
 
     for (const account of fundAccounts) {
-      await provider.connection.requestAirdrop(account, 1 * anchor.web3.LAMPORTS_PER_SOL);
+      await provider.connection.requestAirdrop(account, 2 * anchor.web3.LAMPORTS_PER_SOL);
     }
 
-    // Initialize the token
-    console.log("Initializing token and accounts...");
-    // Initialize the token
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    console.log("Initializing token...");
+    await createMint(provider.connection, payer, payer.publicKey, payer.publicKey, 6, mint, null, TOKEN_2022_PROGRAM_ID)
+    
     await initializeToken(program, provider, mint, pdas, payer.publicKey);
+    console.log("Initializing multisig...");
+
+    console.log("Initializing multisig...");
+    await initializeMultisig(program, provider, mint, pdas, [owner1.publicKey, owner2.publicKey, owner3.publicKey], threshold)
 
 
-    //  let afterMintInfo=await transferAuthorityToPDA(pdas, mint, payer, provider)
-    //   // Assertions to verify transfer
-    //   assert(afterMintInfo.mintAuthority?.equals(pdas.mintAuthority), "Mint authority should be the PDA");
-    //   assert(afterMintInfo.freezeAuthority?.equals(payer.publicKey), "Freeze authority should be the PDA");
+    console.log("Multisig initialized at:", multisigPda.toString());
   });
 
   describe("CanMint Admin Tests", () => {
-    it("Admin can add a mint authority", async () => {
-      console.log("Testing adding mint authority...");
+    it("Admin can add a mint authority with multisig", async () => {
+      console.log("Testing adding mint authority with multisig...");
 
-      // Add mint authority to can_mint list
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      // Build message
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        mintAuthorityUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      // Create Ed25519 instructions for threshold number of signers
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
+
       const tx = await program.methods
         .addCanMint(mintAuthorityUser.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
       console.log("Added mint authority tx:", tx);
 
-      // Verify the mint authority was added
       const canMintAccount = await program.account.canMint.fetch(pdas.canMint);
       const authorityFound = canMintAccount.authorities.some(auth =>
         auth.equals(mintAuthorityUser.publicKey)
       );
-
-      assert.isTrue(authorityFound, "Mint authority was not added to the can_mint list");
+      assert.isTrue(authorityFound, "Mint authority was not added");
     });
 
-    it("Admin can set mint amount for authority", async () => {
-      console.log("Testing setting mint amount...");
+    it("Admin can set mint amount with multisig", async () => {
+      console.log("Testing setting mint amount with multisig...");
 
-      // Update mint amount for the authority
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "SET_MINT_AMOUNT",
+        pdas.canMint,
+        mintAuthorityUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
+
       const tx = await program.methods
         .setMintAmount(mintAuthorityUser.publicKey, TOKEN_PARAMS.mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          multisig: multisigPda,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
       console.log("Set mint amount tx:", tx);
@@ -125,6 +245,7 @@ describe("cngn admin functionality tests", () => {
       const fetchedAmount = await program.methods
         .getMintAmount(mintAuthorityUser.publicKey)
         .accounts({
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint
         })
@@ -137,18 +258,31 @@ describe("cngn admin functionality tests", () => {
       );
     });
 
-    it("Admin can remove mint amount", async () => {
-      console.log("Testing removing mint amount...");
+    it("Admin can remove mint amount with multisig", async () => {
+      console.log("Testing removing mint amount with multisig...");
 
-      // Set mint amount to zero (effectively removing it)
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "REMOVE_MINT_AMOUNT",
+        pdas.canMint,
+        mintAuthorityUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
+
       const tx = await program.methods
         .removeMintAmount(mintAuthorityUser.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          multisig: multisigPda,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
       console.log("Remove mint amount tx:", tx);
@@ -157,872 +291,1043 @@ describe("cngn admin functionality tests", () => {
       const fetchedAmount: anchor.BN = await program.methods
         .getMintAmount(mintAuthorityUser.publicKey)
         .accounts({
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint
         })
         .view();
       console.log(fetchedAmount.toString());
       expect(fetchedAmount.toString()).to.be.equal("0", "Mint amount was not removed correctly");
-      //   fetchedAmount.toString(),
-      //   "0",
-      //   "Mint amount was not removed correctly"
-      // );
+
+      expect(fetchedAmount.toString()).to.equal("0");
     });
 
-    it("Admin can remove a mint authority", async () => {
-      console.log("Testing removing mint authority...");
+    it("Admin can remove a mint authority with multisig", async () => {
+      console.log("Testing removing mint authority with multisig...");
 
-      // First, make sure the authority is in the can_mint list
-      const beforeCanMintAccount = await program.account.canMint.fetch(pdas.canMint);
-      const authorityFoundBefore = beforeCanMintAccount.authorities.some(auth =>
-        auth.equals(mintAuthorityUser.publicKey)
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "REMOVE_CAN_MINT",
+        pdas.canMint,
+        mintAuthorityUser.publicKey,
+        multisigAccount.nonce.toNumber()
       );
 
-      assert.isTrue(authorityFoundBefore, "Mint authority not found in can_mint list before removal");
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
 
-      // Remove mint authority from can_mint list
       const tx = await program.methods
         .removeCanMint(mintAuthorityUser.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
       console.log("Removed mint authority tx:", tx);
 
-      // Verify the mint authority was removed
       const afterCanMintAccount = await program.account.canMint.fetch(pdas.canMint);
       const authorityFoundAfter = afterCanMintAccount.authorities.some(auth =>
         auth.equals(mintAuthorityUser.publicKey)
       );
-
-      assert.isFalse(authorityFoundAfter, "Mint authority was not removed from the can_mint list");
+      assert.isFalse(authorityFoundAfter, "Mint authority was not removed");
     });
 
-    it("Cannot add mint authority that is blacklisted", async () => {
-      console.log("Testing adding blacklisted user to mint authorities...");
+    it("Cannot add mint authority with insufficient signatures", async () => {
+      console.log("Testing insufficient signatures...");
 
-      // First, add user to blacklist
-      await program.methods
-        .addBlacklist(blacklistedUser.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist
-        })
-        .rpc();
+      const testUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
 
-      // Verify user is in blacklist
-      const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
-      const userInBlacklist = blacklistAccount.blacklist.some(user =>
-        user.equals(blacklistedUser.publicKey)
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        testUser.publicKey,
+        multisigAccount.nonce.toNumber()
       );
 
-      assert.isTrue(userInBlacklist, "User was not added to blacklist");
+      // Only one signature (threshold is 2)
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
 
-      // Try to add blacklisted user to can_mint list - this should fail
       try {
         await program.methods
-          .addCanMint(blacklistedUser.publicKey)
+          .addCanMint(testUser.publicKey)
           .accounts({
-            authority: provider.wallet.publicKey,
+            mint: mint.publicKey,
             tokenConfig: pdas.tokenConfig,
             blacklist: pdas.blacklist,
             canMint: pdas.canMint,
-            trustedContracts: pdas.trustedContracts
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
           })
+          .preInstructions([ed25519Ix1])
           .rpc();
 
-        assert.fail("Should have failed when adding blacklisted user to mint authorities");
+        assert.fail("Should have failed with insufficient signatures");
       } catch (error) {
         console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "UserBlacklisted");
-      }
-
-      // Verify the blacklisted user was not added to can_mint
-      const canMintAccount = await program.account.canMint.fetch(pdas.canMint);
-      const userInCanMint = canMintAccount.authorities.some(auth =>
-        auth.equals(blacklistedUser.publicKey)
-      );
-
-      assert.isFalse(userInCanMint, "Blacklisted user was incorrectly added to the can_mint list");
-    });
-
-    it("Non-admin cannot add mint authorities", async () => {
-      console.log("Testing non-admin adding mint authority...");
-
-      try {
-        // Regular user tries to add a mint authority
-        await program.methods
-          .addCanMint(regularUser2.publicKey)
-          .accounts({
-            authority: regularUser1.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            blacklist: pdas.blacklist,
-            canMint: pdas.canMint,
-            trustedContracts: pdas.trustedContracts
-          })
-          .signers([regularUser1])
-          .rpc();
-
-        assert.fail("Should have failed with unauthorized error");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "Unauthorized");
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
       }
     });
   });
 
-
-  describe("Trusted Contract Admin Tests", () => {
-    it("Admin can add trusted contract", async () => {
-      console.log("Testing adding trusted contract...");
-
-      const tx = await program.methods
-        .addTrustedContract(testContract.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
-
-      console.log("Add trusted contract tx:", tx);
-
-      // Verify the contract was added
-      const trustedContractsAccount = await program.account.trustedContracts.fetch(pdas.trustedContracts);
-      const contractFound = trustedContractsAccount.contracts.some(contract =>
-        contract.equals(testContract.publicKey)
-      );
-
-      assert.isTrue(contractFound, "Contract was not added to trusted contracts");
-    });
-
-    it("Trusted contract can add mint authority", async () => {
-      console.log("Testing trusted contract adding mint authority...");
-
-      // First verify test contract is in trusted contracts
-      const trustedContractsAccount = await program.account.trustedContracts.fetch(pdas.trustedContracts);
-      const contractFound = trustedContractsAccount.contracts.some(contract =>
-        contract.equals(testContract.publicKey)
-      );
-
-      assert.isTrue(contractFound, "Test contract not found in trusted contracts list");
-
-      // Have the trusted contract add a mint authority
-      const tx = await program.methods
-        .addCanMint(otherAdmin.publicKey)
-        .accounts({
-          authority: testContract.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist,
-          canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
-        })
-        .signers([testContract])
-        .rpc();
-
-      console.log("Added mint authority by trusted contract tx:", tx);
-
-      // Verify the mint authority was added
-      const canMintAccount = await program.account.canMint.fetch(pdas.canMint);
-      const authorityFound = canMintAccount.authorities.some(auth =>
-        auth.equals(otherAdmin.publicKey)
-      );
-
-      assert.isTrue(authorityFound, "Mint authority was not added by trusted contract");
-    });
-
-    it("Admin can remove trusted contract", async () => {
-      console.log("Testing removing trusted contract...");
-
-      // Add a contract specifically for removal test
-      const contractToRemove = Keypair.generate();
-
-      await program.methods
-        .addTrustedContract(contractToRemove.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
-
-      // Verify it was added
-      let trustedContractsAccount = await program.account.trustedContracts.fetch(pdas.trustedContracts);
-      const contractFound = trustedContractsAccount.contracts.some(contract =>
-        contract.equals(contractToRemove.publicKey)
-      );
-
-      assert.isTrue(contractFound, "Contract was not added to trusted contracts before removal test");
-
-      // Now remove the contract
-      const tx = await program.methods
-        .removeTrustedContract(contractToRemove.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
-
-      console.log("Remove trusted contract tx:", tx);
-
-      // Verify the contract was removed
-      trustedContractsAccount = await program.account.trustedContracts.fetch(pdas.trustedContracts);
-      const contractFoundAfter = trustedContractsAccount.contracts.some(contract =>
-        contract.equals(contractToRemove.publicKey)
-      );
-
-      assert.isFalse(contractFoundAfter, "Contract was not removed from trusted contracts");
-    });
-    // Add to the existing "Trusted Contract Admin Tests" describe block
-    it("Non-admin cannot add trusted contracts", async () => {
-      console.log("Testing non-admin adding trusted contract...");
-
-      try {
-        // Regular user tries to add trusted contract
-        await program.methods
-          .addTrustedContract(regularUser2.publicKey)
-          .accounts({
-            authority: regularUser1.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            trustedContracts: pdas.trustedContracts
-          })
-          .signers([regularUser1])
-          .rpc();
-
-        assert.fail("Should have failed with unauthorized error");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "Unauthorized");
-      }
-    });
-  });
-  // Add new test blocks for blacklist & whitelist functionality
   describe("Blacklist Admin Tests", () => {
-    it("Admin can add account to blacklist", async () => {
-      console.log("Testing adding account to blacklist...");
+    it("Admin can add account to blacklist with multisig", async () => {
+      console.log("Testing adding to blacklist with multisig...");
 
       const accountToBlacklist = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "ADD_BLACKLIST",
+        pdas.blacklist,
+        accountToBlacklist.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
 
       const tx = await program.methods
         .addBlacklist(accountToBlacklist.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist,
-          whitelist: pdas.whitelist,
+          canMint: pdas.canMint,
+          internalWhitelist: pdas.internalWhitelist,
           externalWhitelist: pdas.externalWhitelist,
           trustedContracts: pdas.trustedContracts,
-          canMint: pdas.canMint,
+          canForward: pdas.canForward,
+          blacklist: pdas.blacklist,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
       console.log("Add to blacklist tx:", tx);
 
-      // Verify the account was added to blacklist
       const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
       const accountFound = blacklistAccount.blacklist.some(account =>
         account.equals(accountToBlacklist.publicKey)
       );
-
       assert.isTrue(accountFound, "Account was not added to blacklist");
     });
 
-    it("Admin can remove account from blacklist", async () => {
-      console.log("Testing removing account from blacklist...");
+    it("Admin can remove account from blacklist with multisig", async () => {
+      console.log("Testing removing from blacklist with multisig...");
 
-      // First, add an account to blacklist if not already present
       const accountToUnblacklist = Keypair.generate();
+
+      // First add to blacklist
+      let multisigAccount = await program.account.multisig.fetch(multisigPda);
+      let message = buildMessageHash(
+        "ADD_BLACKLIST",
+        pdas.blacklist,
+        accountToUnblacklist.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      let ed25519Ix1 = createEd25519Ix(owner1, message);
+      let ed25519Ix2 = createEd25519Ix(owner2, message);
 
       await program.methods
         .addBlacklist(accountToUnblacklist.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist
+          canMint: pdas.canMint,
+          internalWhitelist: pdas.internalWhitelist,
+          externalWhitelist: pdas.externalWhitelist,
+          trustedContracts: pdas.trustedContracts,
+          canForward: pdas.canForward,
+          blacklist: pdas.blacklist,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
-      // Verify the account was added to blacklist
-      let blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
-      const accountFound = blacklistAccount.blacklist.some(account =>
-        account.equals(accountToUnblacklist.publicKey)
+      // Now remove from blacklist
+      multisigAccount = await program.account.multisig.fetch(multisigPda);
+      message = buildMessageHash(
+        "REMOVE_BLACKLIST",
+        pdas.blacklist,
+        accountToUnblacklist.publicKey,
+        multisigAccount.nonce.toNumber()
       );
 
-      assert.isTrue(accountFound, "Account was not added to blacklist before removal test");
+      ed25519Ix1 = createEd25519Ix(owner1, message);
+      ed25519Ix2 = createEd25519Ix(owner2, message);
 
-      // Now remove the account from blacklist
       const tx = await program.methods
         .removeBlacklist(accountToUnblacklist.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist
+          blacklist: pdas.blacklist,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
       console.log("Remove from blacklist tx:", tx);
 
-      // Verify the account was removed from blacklist
-      blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
+      const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
       const accountFoundAfter = blacklistAccount.blacklist.some(account =>
         account.equals(accountToUnblacklist.publicKey)
       );
-
       assert.isFalse(accountFoundAfter, "Account was not removed from blacklist");
-    });
-
-    it("Non-admin cannot add/remove from blacklist", async () => {
-      console.log("Testing non-admin managing blacklist...");
-
-      try {
-        const accountToBlacklist = Keypair.generate();
-
-        await program.methods
-          .addBlacklist(accountToBlacklist.publicKey)
-          .accounts({
-            authority: regularUser1.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            blacklist: pdas.blacklist
-          })
-          .signers([regularUser1])
-          .rpc();
-
-        assert.fail("Should have failed with unauthorized error");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "Unauthorized");
-      }
     });
   });
 
-  describe("Internal Whitelist Admin Tests", () => {
-    it("Admin can add user to internal whitelist", async () => {
-      console.log("Testing adding user to internal whitelist...");
+  describe("Trusted Contract Admin Tests", () => {
+    it("Admin can add trusted contract with multisig", async () => {
+      console.log("Testing adding trusted contract with multisig...");
+
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "ADD_TRUSTED_CONTRACT",
+        pdas.trustedContracts,
+        testContract.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
+
+      const tx = await program.methods
+        .addTrustedContract(testContract.publicKey)
+        .accounts({
+          mint: mint.publicKey,
+          tokenConfig: pdas.tokenConfig,
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+        })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
+        .rpc();
+
+      console.log("Add trusted contract tx:", tx);
+
+      const trustedContractsAccount = await program.account.trustedContracts.fetch(pdas.trustedContracts);
+      const contractFound = trustedContractsAccount.contracts.some(contract =>
+        contract.equals(testContract.publicKey)
+      );
+      assert.isTrue(contractFound, "Contract was not added");
+    });
+
+    it("Admin can remove trusted contract with multisig", async () => {
+      console.log("Testing removing trusted contract with multisig...");
+
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "REMOVE_TRUSTED_CONTRACT",
+        pdas.trustedContracts,
+        testContract.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
+
+      const tx = await program.methods
+        .removeTrustedContract(testContract.publicKey)
+        .accounts({
+          mint: mint.publicKey,
+          tokenConfig: pdas.tokenConfig,
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+        })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
+        .rpc();
+
+      console.log("Remove trusted contract tx:", tx);
+
+      const trustedContractsAccount = await program.account.trustedContracts.fetch(pdas.trustedContracts);
+      const contractFoundAfter = trustedContractsAccount.contracts.some(contract =>
+        contract.equals(testContract.publicKey)
+      );
+      assert.isFalse(contractFoundAfter, "Contract was not removed");
+    });
+  });
+
+  describe("Whitelist Admin Tests", () => {
+    it("Admin can whitelist internal user with multisig", async () => {
+      console.log("Testing whitelisting internal user with multisig...");
 
       const userToWhitelist = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "WHITELIST_INTERNAL",
+        pdas.internalWhitelist,
+        userToWhitelist.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
 
       const tx = await program.methods
         .whitelistInternalUser(userToWhitelist.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           internalWhitelist: pdas.internalWhitelist,
-          trustedContracts: pdas.trustedContracts
+          blacklist: pdas.blacklist,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
-      console.log("Add to internal whitelist tx:", tx);
+      console.log("Whitelist internal user tx:", tx);
 
-      // Verify the user was added to internal whitelist
       const internalWhitelistAccount = await program.account.internalWhiteList.fetch(pdas.internalWhitelist);
       const userFound = internalWhitelistAccount.whitelist.some(user =>
         user.equals(userToWhitelist.publicKey)
       );
-
       assert.isTrue(userFound, "User was not added to internal whitelist");
     });
 
-    it("Admin can remove user from internal whitelist", async () => {
-      console.log("Testing removing user from internal whitelist...");
-
-      // First, add a user to internal whitelist if not already present
-      const userToBlacklist = Keypair.generate();
-
-      await program.methods
-        .whitelistInternalUser(userToBlacklist.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          internalWhitelist: pdas.internalWhitelist,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
-
-      // Verify the user was added to internal whitelist
-      let internalWhitelistAccount = await program.account.internalWhiteList.fetch(pdas.internalWhitelist);
-      const userFound = internalWhitelistAccount.whitelist.some(user =>
-        user.equals(userToBlacklist.publicKey)
-      );
-
-      assert.isTrue(userFound, "User was not added to internal whitelist before removal test");
-
-      // Now remove the user from internal whitelist
-      const tx = await program.methods
-        .blacklistInternalUser(userToBlacklist.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          internalWhitelist: pdas.internalWhitelist,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
-
-      console.log("Remove from internal whitelist tx:", tx);
-
-      // Verify the user was removed from internal whitelist
-      internalWhitelistAccount = await program.account.internalWhiteList.fetch(pdas.internalWhitelist);
-      const userFoundAfter = internalWhitelistAccount.whitelist.some(user =>
-        user.equals(userToBlacklist.publicKey)
-      );
-
-      assert.isFalse(userFoundAfter, "User was not removed from internal whitelist");
-    });
-
-
-
-    it("Non-admin cannot manage internal whitelist", async () => {
-      console.log("Testing non-admin managing internal whitelist...");
-
-      try {
-        const userToWhitelist = Keypair.generate();
-
-        await program.methods
-          .whitelistInternalUser(userToWhitelist.publicKey)
-          .accounts({
-            authority: regularUser1.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            internalWhitelist: pdas.internalWhitelist,
-            trustedContracts: pdas.trustedContracts
-          })
-          .signers([regularUser1])
-          .rpc();
-
-        assert.fail("Should have failed with unauthorized error");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "Unauthorized");
-      }
-    });
-  });
-
-  describe("External Whitelist Admin Tests", () => {
-    it("Admin can add user to external whitelist", async () => {
-      console.log("Testing adding user to external whitelist...");
+    it("Admin can whitelist external user with multisig", async () => {
+      console.log("Testing whitelisting external user with multisig...");
 
       const userToWhitelist = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "WHITELIST_EXTERNAL",
+        pdas.externalWhitelist,
+        userToWhitelist.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
 
       const tx = await program.methods
         .whitelistExternalUser(userToWhitelist.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           externalWhitelist: pdas.externalWhitelist,
-          blacklist: pdas.blacklist
+          blacklist: pdas.blacklist,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
-      console.log("Add to external whitelist tx:", tx);
+      console.log("Whitelist external user tx:", tx);
 
-      // Verify the user was added to external whitelist
       const externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
       const userFound = externalWhitelistAccount.whitelist.some(user =>
         user.equals(userToWhitelist.publicKey)
       );
-
       assert.isTrue(userFound, "User was not added to external whitelist");
-    });
-
-    it("Admin can remove user from external whitelist", async () => {
-      console.log("Testing removing user from external whitelist...");
-
-      // First, add a user to external whitelist if not already present
-      const userToRemove = Keypair.generate();
-
-      await program.methods
-        .whitelistExternalUser(userToRemove.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          externalWhitelist: pdas.externalWhitelist,
-          blacklist: pdas.blacklist
-        })
-        .rpc();
-
-      // Verify the user was added to external whitelist
-      let externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
-      const userFound = externalWhitelistAccount.whitelist.some(user =>
-        user.equals(userToRemove.publicKey)
-      );
-
-      assert.isTrue(userFound, "User was not added to external whitelist before removal test");
-
-      // Now remove the user from external whitelist
-      const tx = await program.methods
-        .blacklistExternalUser(userToRemove.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          externalWhitelist: pdas.externalWhitelist
-        })
-        .rpc();
-
-      console.log("Remove from external whitelist tx:", tx);
-
-      // Verify the user was removed from external whitelist
-      externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
-      const userFoundAfter = externalWhitelistAccount.whitelist.some(user =>
-        user.equals(userToRemove.publicKey)
-      );
-
-      assert.isFalse(userFoundAfter, "User was not removed from external whitelist");
-    });
-
-    it("Cannot add blacklisted user to external whitelist", async () => {
-      console.log("Testing adding blacklisted user to external whitelist...");
-
-      // Create a user that will be blacklisted
-      const blacklistedExternalUser = Keypair.generate();
-
-      // Fund the account for gas
-      await provider.connection.requestAirdrop(
-        blacklistedExternalUser.publicKey,
-        0.1 * anchor.web3.LAMPORTS_PER_SOL
-      );
-
-      // First, add user to blacklist
-      await program.methods
-        .addBlacklist(blacklistedExternalUser.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist
-        })
-        .rpc();
-
-      // Verify user is in blacklist
-      const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
-      const userInBlacklist = blacklistAccount.blacklist.some(user =>
-        user.equals(blacklistedExternalUser.publicKey)
-      );
-
-      assert.isTrue(userInBlacklist, "User was not added to blacklist");
-
-      // Try to add blacklisted user to external whitelist - this should fail
-      try {
-        await program.methods
-          .whitelistExternalUser(blacklistedExternalUser.publicKey)
-          .accounts({
-            authority: provider.wallet.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            externalWhitelist: pdas.externalWhitelist,
-            blacklist: pdas.blacklist
-          })
-          .rpc();
-
-        assert.fail("Should have failed when adding blacklisted user to external whitelist");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "UserBlacklisted");
-      }
-
-      // Verify the blacklisted user was not added to external whitelist
-      const externalWhitelistAccount = await program.account.externalWhiteList.fetch(pdas.externalWhitelist);
-      const userInWhitelist = externalWhitelistAccount.whitelist.some(user =>
-        user.equals(blacklistedExternalUser.publicKey)
-      );
-
-      assert.isFalse(userInWhitelist, "Blacklisted user was incorrectly added to the external whitelist");
-    });
-
-    it("Non-admin cannot manage external whitelist", async () => {
-      console.log("Testing non-admin managing external whitelist...");
-
-      try {
-        const userToWhitelist = Keypair.generate();
-
-        await program.methods
-          .whitelistExternalUser(userToWhitelist.publicKey)
-          .accounts({
-            authority: regularUser1.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            externalWhitelist: pdas.externalWhitelist,
-            blacklist: pdas.blacklist
-          })
-          .signers([regularUser1])
-          .rpc();
-
-        assert.fail("Should have failed with unauthorized error");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "Unauthorized");
-      }
     });
   });
 
   describe("Can Forward Admin Tests", () => {
-    it("Admin can add forwarder", async () => {
-      console.log("Testing adding forwarder...");
+    it("Admin can add forwarder with multisig", async () => {
+      console.log("Testing adding forwarder with multisig...");
 
       const forwarderToAdd = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "ADD_CAN_FORWARD",
+        pdas.canForward,
+        forwarderToAdd.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
 
       const tx = await program.methods
         .addCanForward(forwarderToAdd.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
-          canForward: pdas.canForward
+          canForward: pdas.canForward,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
       console.log("Add forwarder tx:", tx);
 
-      // Verify the forwarder was added
       const canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
       const forwarderFound = canForwardAccount.forwarders.some(forwarder =>
         forwarder.equals(forwarderToAdd.publicKey)
       );
-
-      assert.isTrue(forwarderFound, "Forwarder was not added to can forward list");
+      assert.isTrue(forwarderFound, "Forwarder was not added");
     });
 
-    it("Admin can remove forwarder", async () => {
-      console.log("Testing removing forwarder...");
+    it("Admin can remove forwarder with multisig", async () => {
+      console.log("Testing removing forwarder with multisig...");
 
-      // First, add a forwarder if not already present
       const forwarderToRemove = Keypair.generate();
+
+      // First add the forwarder
+      let multisigAccount = await program.account.multisig.fetch(multisigPda);
+      let message = buildMessageHash(
+        "ADD_CAN_FORWARD",
+        pdas.canForward,
+        forwarderToRemove.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      let ed25519Ix1 = createEd25519Ix(owner1, message);
+      let ed25519Ix2 = createEd25519Ix(owner2, message);
 
       await program.methods
         .addCanForward(forwarderToRemove.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
-          canForward: pdas.canForward
+          canForward: pdas.canForward,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
-      // Verify the forwarder was added
-      let canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
-      const forwarderFound = canForwardAccount.forwarders.some(forwarder =>
-        forwarder.equals(forwarderToRemove.publicKey)
+      // Now remove the forwarder
+      multisigAccount = await program.account.multisig.fetch(multisigPda);
+      message = buildMessageHash(
+        "REMOVE_CAN_FORWARD",
+        pdas.canForward,
+        forwarderToRemove.publicKey,
+        multisigAccount.nonce.toNumber()
       );
 
-      assert.isTrue(forwarderFound, "Forwarder was not added before removal test");
+      ed25519Ix1 = createEd25519Ix(owner1, message);
+      ed25519Ix2 = createEd25519Ix(owner2, message);
 
-      // Now remove the forwarder
       const tx = await program.methods
         .removeCanForward(forwarderToRemove.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
-          canForward: pdas.canForward
+          canForward: pdas.canForward,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
       console.log("Remove forwarder tx:", tx);
 
-      // Verify the forwarder was removed
-      canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
+      const canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
       const forwarderFoundAfter = canForwardAccount.forwarders.some(forwarder =>
         forwarder.equals(forwarderToRemove.publicKey)
       );
-
-      assert.isFalse(forwarderFoundAfter, "Forwarder was not removed from can forward list");
-    });
-
-    it("Cannot add blacklisted user as forwarder", async () => {
-      console.log("Testing adding blacklisted user as forwarder...");
-
-      // Create a user that will be blacklisted
-      const blacklistedForwarder = Keypair.generate();
-
-      // Fund the account for gas
-      await provider.connection.requestAirdrop(
-        blacklistedForwarder.publicKey,
-        0.1 * anchor.web3.LAMPORTS_PER_SOL
-      );
-
-      // First, add user to blacklist
-      await program.methods
-        .addBlacklist(blacklistedForwarder.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist
-        })
-        .rpc();
-
-      // Verify user is in blacklist
-      const blacklistAccount = await program.account.blackList.fetch(pdas.blacklist);
-      const userInBlacklist = blacklistAccount.blacklist.some(user =>
-        user.equals(blacklistedForwarder.publicKey)
-      );
-
-      assert.isTrue(userInBlacklist, "User was not added to blacklist");
-
-      // Try to add blacklisted user as forwarder - this should fail
-      try {
-        await program.methods
-          .addCanForward(blacklistedForwarder.publicKey)
-          .accounts({
-            authority: provider.wallet.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            blacklist: pdas.blacklist,
-            canForward: pdas.canForward
-          })
-          .rpc();
-
-        assert.fail("Should have failed when adding blacklisted user as forwarder");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "UserBlacklisted");
-      }
-
-      // Verify the blacklisted user was not added as forwarder
-      const canForwardAccount = await program.account.canForward.fetch(pdas.canForward);
-      const userInForwarders = canForwardAccount.forwarders.some(forwarder =>
-        forwarder.equals(blacklistedForwarder.publicKey)
-      );
-
-      assert.isFalse(userInForwarders, "Blacklisted user was incorrectly added as forwarder");
-    });
-
-    it("Non-admin cannot manage forwarders", async () => {
-      console.log("Testing non-admin managing forwarders...");
-
-      try {
-        const forwarderToAdd = Keypair.generate();
-
-        await program.methods
-          .addCanForward(forwarderToAdd.publicKey)
-          .accounts({
-            authority: regularUser1.publicKey,
-            tokenConfig: pdas.tokenConfig,
-            blacklist: pdas.blacklist,
-            canForward: pdas.canForward
-          })
-          .signers([regularUser1])
-          .rpc();
-
-        assert.fail("Should have failed with unauthorized error");
-      } catch (error) {
-        console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "Unauthorized");
-      }
+      assert.isFalse(forwarderFoundAfter, "Forwarder was not removed");
     });
   });
 
+  describe("Multisig Update Tests", () => {
+    it("Can update multisig owners and threshold", async () => {
+      console.log("Testing updating multisig configuration...");
 
-  describe("Admin Change Tests", () => {
-    const newAdmin = Keypair.generate();
-    const newAdmin2 = Keypair.generate();
+      const newOwner1 = Keypair.generate();
+      const newOwner2 = Keypair.generate();
+      const newThreshold = 2;
+
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      // Use the specialized helper for multisig updates
+      const message = buildMultisigUpdateMessage(
+        multisigPda,
+        [newOwner1.publicKey, newOwner2.publicKey],
+        newThreshold,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
+
+      const tx = await program.methods
+        .updateMultisig(
+          [newOwner1.publicKey, newOwner2.publicKey],
+          newThreshold
+        )
+        .accounts({
+          multisig: multisigPda,
+          mint: mint.publicKey,
+          tokenConfig: pdas.tokenConfig,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+        })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
+        .rpc();
+
+      console.log("Update multisig tx:", tx);
+
+      const updatedMultisig = await program.account.multisig.fetch(multisigPda);
+      assert.equal(updatedMultisig.owners.length, 2, "Should have 2 owners");
+      assert.equal(updatedMultisig.threshold, newThreshold, "Threshold should be updated");
+      assert.isTrue(
+        updatedMultisig.owners.some(o => o.equals(newOwner1.publicKey)),
+        "New owner 1 should be in owners"
+      );
+      assert.isTrue(
+        updatedMultisig.owners.some(o => o.equals(newOwner2.publicKey)),
+        "New owner 2 should be in owners"
+      );
+    });
+  });
+
+  describe("Security Tests - Signature Forgery & Replay Attacks", () => {
+    let attackerKeypair: Keypair;
+    let victimUser: Keypair;
 
     before(async () => {
-      // Fund all admin keypairs upfront
-      for (const admin of [newAdmin, newAdmin2]) {
-        await provider.connection.requestAirdrop(
-          admin.publicKey,
-          1 * anchor.web3.LAMPORTS_PER_SOL
-        );
-      }
+      attackerKeypair = Keypair.generate();
+      victimUser = Keypair.generate();
+
+      await provider.connection.requestAirdrop(
+        attackerKeypair.publicKey,
+        2 * anchor.web3.LAMPORTS_PER_SOL
+      );
+      await provider.connection.requestAirdrop(
+        victimUser.publicKey,
+        2 * anchor.web3.LAMPORTS_PER_SOL
+      );
 
       await new Promise(resolve => setTimeout(resolve, 2000));
     });
 
-    it("Owner can change admin", async () => {
-      console.log("Testing changing admin...");
+    it("Cannot use forged signature from non-owner", async () => {
+      console.log("Testing forged signature attack...");
 
-      // Current admin (provider.wallet) changes to newAdmin
-      const tx = await program.methods
-        .changeAdmin(newAdmin.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          trustedContracts: pdas.trustedContracts,
-          blacklist: pdas.blacklist
-        })
-        .rpc();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
 
-      console.log("Change admin tx:", tx);
-
-      const tokenConfigAccount = await program.account.tokenConfig.fetch(pdas.tokenConfig);
-      assert.equal(
-        tokenConfigAccount.admin.toString(),
-        newAdmin.publicKey.toString(),
-        "Admin should be newAdmin"
+      // Attacker creates message
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        attackerKeypair.publicKey,
+        multisigAccount.nonce.toNumber()
       );
-    });
 
-    it("New admin can change admin again", async () => {
-      console.log("Testing new admin changing admin...");
-
-      // newAdmin changes to newAdmin2
-      const tx = await program.methods
-        .changeAdmin(newAdmin2.publicKey)
-        .accounts({
-          authority: newAdmin.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          trustedContracts: pdas.trustedContracts,
-          blacklist: pdas.blacklist
-        })
-        .signers([newAdmin])
-        .rpc();
-
-      console.log("Change admin tx:", tx);
-
-      const tokenConfigAccount = await program.account.tokenConfig.fetch(pdas.tokenConfig);
-      assert.equal(
-        tokenConfigAccount.admin.toString(),
-        newAdmin2.publicKey.toString(),
-        "Admin should be newAdmin2"
-      );
-    });
-
-    it("Non-admin cannot change admin", async () => {
-      console.log("Testing non-admin changing admin...");
+      // Attacker signs with their own key (not an owner)
+      const forgedEd25519Ix1 = createEd25519Ix(attackerKeypair, message);
+      const forgedEd25519Ix2 = createEd25519Ix(attackerKeypair, message);
 
       try {
         await program.methods
-          .changeAdmin(regularUser2.publicKey)
+          .addCanMint(attackerKeypair.publicKey)
           .accounts({
-            authority: regularUser1.publicKey,
+            mint: mint.publicKey,
             tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
             trustedContracts: pdas.trustedContracts,
-            blacklist: pdas.blacklist
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
           })
-          .signers([regularUser1])
+          .preInstructions([forgedEd25519Ix1, forgedEd25519Ix2])
           .rpc();
 
-        assert.fail("Should have failed with unauthorized error");
+        assert.fail("Should have failed with forged signatures");
       } catch (error) {
         console.log("Caught expected error:", error.toString());
-        assert.include(error.toString(), "Unauthorized");
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
       }
+
+      // Verify attacker was NOT added
+      const canMintAccount = await program.account.canMint.fetch(pdas.canMint);
+      const attackerFound = canMintAccount.authorities.some(auth =>
+        auth.equals(attackerKeypair.publicKey)
+      );
+      assert.isFalse(attackerFound, "Attacker should not be added to can_mint");
     });
 
-    it("Current admin (newAdmin2) can add a mint authority", async () => {
-      console.log("Testing current admin adding mint authority...");
+    it("Cannot replay the same signed transaction", async () => {
+      console.log("Testing replay attack prevention...");
 
-      const newMintAuth = Keypair.generate();
+      const testUser = Keypair.generate();
+      let multisigAccount = await program.account.multisig.fetch(multisigPda);
+      const originalNonce = multisigAccount.nonce.toNumber();
 
-      const tx = await program.methods
-        .addCanMint(newMintAuth.publicKey)
+      // Create valid signatures for first transaction
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        testUser.publicKey,
+        originalNonce
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
+
+      // First transaction succeeds
+      await program.methods
+        .addCanMint(testUser.publicKey)
         .accounts({
-          authority: newAdmin2.publicKey, // Current admin
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
-        .signers([newAdmin2]) // Sign with current admin
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
-      console.log("Added mint authority tx:", tx);
+      console.log("First transaction succeeded");
 
-      const canMintAccount = await program.account.canMint.fetch(pdas.canMint);
-      const authorityFound = canMintAccount.authorities.some(auth =>
-        auth.equals(newMintAuth.publicKey)
+      // Wait for state to settle
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verify nonce was incremented
+      multisigAccount = await program.account.multisig.fetch(multisigPda);
+      console.log("Original nonce:", originalNonce, "New nonce:", multisigAccount.nonce.toNumber());
+      assert.equal(
+        multisigAccount.nonce.toNumber(),
+        originalNonce + 1,
+        "Nonce should be incremented"
       );
 
-      assert.isTrue(authorityFound, "Mint authority was not added");
+      // Try to replay the SAME signatures (with old nonce)
+      try {
+        await program.methods
+          .addCanMint(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2]) // Same signatures!
+          .rpc();
+
+        assert.fail("Replay attack should have failed");
+      } catch (error) {
+        console.log("Caught expected replay error:", error.toString());
+        // The error should contain "NotEnoughMultisigSigners" because
+        // the signature verification fails when nonce doesn't match
+        assert.include(
+          error.toString(),
+          "NotEnoughMultisigSigners",
+          "Should fail with NotEnoughMultisigSigners error"
+        );
+      }
+    });
+
+    it("Cannot use valid signature for different operation", async () => {
+      console.log("Testing signature reuse across operations...");
+
+      const targetUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      // Create signatures for ADD_CAN_MINT
+      const addMessage = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        targetUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, addMessage);
+      const ed25519Ix2 = createEd25519Ix(owner2, addMessage);
+
+      // Try to use ADD_CAN_MINT signatures for REMOVE_CAN_MINT
+      try {
+        await program.methods
+          .removeCanMint(targetUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2]) // Wrong operation!
+          .rpc();
+
+        assert.fail("Should have failed with wrong operation signatures");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+    });
+
+    it("Cannot use valid signature for different account", async () => {
+      console.log("Testing signature reuse for different account...");
+
+      const legitimateUser = Keypair.generate();
+      const maliciousUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      // Create signatures for legitimateUser
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        legitimateUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner2, message);
+
+      // Try to use signatures for maliciousUser instead
+      try {
+        await program.methods
+          .addCanMint(maliciousUser.publicKey) // Different user!
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2])
+          .rpc();
+
+        assert.fail("Should have failed with wrong user in instruction");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+
+      // Verify malicious user was NOT added
+      const canMintAccount = await program.account.canMint.fetch(pdas.canMint);
+      const maliciousFound = canMintAccount.authorities.some(auth =>
+        auth.equals(maliciousUser.publicKey)
+      );
+      assert.isFalse(maliciousFound, "Malicious user should not be added");
+    });
+
+    it("Cannot execute with only one signature when threshold is 2", async () => {
+      console.log("Testing insufficient signatures...");
+
+      const testUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        testUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      // Only one signature
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+
+      try {
+        await program.methods
+          .addCanMint(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1]) // Only 1 signature!
+          .rpc();
+
+        assert.fail("Should have failed with insufficient signatures");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+    });
+
+    it("Cannot use duplicate signatures from same owner", async () => {
+      console.log("Testing duplicate signature detection...");
+
+      const testUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        testUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      // Two signatures from the SAME owner
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(owner1, message); // Duplicate!
+
+      try {
+        await program.methods
+          .addCanMint(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2])
+          .rpc();
+
+        assert.fail("Should have failed with duplicate signatures");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        // Should fail because duplicates are filtered out by BTreeSet
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+    });
+
+    it("Cannot use signatures with wrong message format", async () => {
+      console.log("Testing malformed message attack...");
+
+      const testUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      // Create message with WRONG prefix
+      const wrongMessage = buildMessageHash(
+        "WRONG_PREFIX", // Wrong!
+        pdas.canMint,
+        testUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, wrongMessage);
+      const ed25519Ix2 = createEd25519Ix(owner2, wrongMessage);
+
+      try {
+        await program.methods
+          .addCanMint(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2])
+          .rpc();
+
+        assert.fail("Should have failed with wrong message format");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+    });
+
+    it("Cannot bypass multisig by calling without signatures", async () => {
+      console.log("Testing direct call without signatures...");
+
+      const testUser = Keypair.generate();
+
+      try {
+        await program.methods
+          .addCanMint(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          // No preInstructions at all!
+          .rpc();
+
+        assert.fail("Should have failed without any signatures");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+    });
+
+    it("Cannot execute with signatures from non-owners even if threshold met", async () => {
+      console.log("Testing all non-owner signatures...");
+
+      const nonOwner1 = Keypair.generate();
+      const nonOwner2 = Keypair.generate();
+      const testUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        testUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      // Signatures from non-owners
+      const ed25519Ix1 = createEd25519Ix(nonOwner1, message);
+      const ed25519Ix2 = createEd25519Ix(nonOwner2, message);
+
+      try {
+        await program.methods
+          .addCanMint(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2])
+          .rpc();
+
+        assert.fail("Should have failed with non-owner signatures");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+    });
+
+    it("Cannot mix one valid owner signature with one non-owner signature", async () => {
+      console.log("Testing mixed valid/invalid signatures...");
+
+      const nonOwner = Keypair.generate();
+      const testUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      const message = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint,
+        testUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      // One valid, one invalid
+      const ed25519Ix1 = createEd25519Ix(owner1, message);
+      const ed25519Ix2 = createEd25519Ix(nonOwner, message); // Not an owner!
+
+      try {
+        await program.methods
+          .addCanMint(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canMint: pdas.canMint,
+            trustedContracts: pdas.trustedContracts,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2])
+          .rpc();
+
+        assert.fail("Should have failed with mixed signatures");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        // Only 1 valid signature, threshold is 2
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
     });
   });
 
+  describe("Cross-Operation Security Tests", () => {
+    it("Blacklist operation signatures cannot be used for whitelist operations", async () => {
+      console.log("Testing cross-operation signature reuse...");
+
+      const testUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      // Create signatures for blacklist operation
+      const blacklistMessage = buildMessageHash(
+        "ADD_BLACKLIST",
+        pdas.blacklist,
+        testUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, blacklistMessage);
+      const ed25519Ix2 = createEd25519Ix(owner2, blacklistMessage);
+
+      // Try to use blacklist signatures for whitelist operation
+      try {
+        await program.methods
+          .whitelistInternalUser(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            internalWhitelist: pdas.internalWhitelist,
+            blacklist: pdas.blacklist,
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2])
+          .rpc();
+
+        assert.fail("Should have failed using blacklist signatures for whitelist");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+    });
+
+    it("Cannot reuse signatures across different PDA accounts", async () => {
+      console.log("Testing signature reuse across PDAs...");
+
+      const testUser = Keypair.generate();
+      const multisigAccount = await program.account.multisig.fetch(multisigPda);
+
+      // Create signatures for can_mint PDA
+      const canMintMessage = buildMessageHash(
+        "ADD_CAN_MINT",
+        pdas.canMint, // Signed for this PDA
+        testUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+
+      const ed25519Ix1 = createEd25519Ix(owner1, canMintMessage);
+      const ed25519Ix2 = createEd25519Ix(owner2, canMintMessage);
+
+      // Try to use for can_forward operation (different PDA)
+      try {
+        await program.methods
+          .addCanForward(testUser.publicKey)
+          .accounts({
+            mint: mint.publicKey,
+            tokenConfig: pdas.tokenConfig,
+            blacklist: pdas.blacklist,
+            canForward: pdas.canForward, // Different PDA!
+            multisig: multisigPda,
+            instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+          })
+          .preInstructions([ed25519Ix1, ed25519Ix2])
+          .rpc();
+
+        assert.fail("Should have failed using wrong PDA in signature");
+      } catch (error) {
+        console.log("Caught expected error:", error.toString());
+        assert.include(error.toString(), "NotEnoughMultisigSigners");
+      }
+    });
+  });
 });

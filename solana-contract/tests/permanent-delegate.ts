@@ -4,7 +4,7 @@ import { burnChecked, createAccount, getAccount, mintTo, TOKEN_2022_PROGRAM_ID }
 import type { Cngn } from '../target/types/cngn';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import { calculatePDAs, TokenPDAs } from '../utils/helpers';
-import { transferAuthorityToPDA } from './tranfer-authority-to-pda';
+import { transferAuthorityToPDA } from './transfer-authority-to-pda';
 import { initializeToken, setupUserAccounts, TOKEN_PARAMS } from '../utils/token_initializer';
 import { assert, expect } from 'chai';
 describe('permanent-delegate', () => {

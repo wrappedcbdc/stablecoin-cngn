@@ -14,7 +14,7 @@ import {
 } from '@solana/spl-token';
 
 import * as anchor from '@coral-xyz/anchor';
-import { CreateMultiSig } from '../app/multisig';
+
 
 export const transferMintAuthority = async (mintAuthority: PublicKey, mintAddress: PublicKey, payer: anchor.web3.Keypair, connection: Connection) => {
 

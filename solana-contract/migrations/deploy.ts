@@ -3,11 +3,11 @@ import * as anchor from '@coral-xyz/anchor';
 import fs from 'fs';
 import { Keypair, PublicKey, } from '@solana/web3.js';
 import { calculatePDAs, TokenPDAs } from '../utils/helpers';
-import { initializeToken } from '../utils/token_initializer';
+import { initializeMultisig, initializeToken } from '../utils/token_initializer';
 import { transferMintAuthority } from '../utils/transfer_mint_authority';
 import { loadOrCreateKeypair } from '../app/utils/helpers';
 import { transferFreezeAuthority } from '../utils/transfer_freeze_authority';
-import { CreateMultiSig } from '../app/multisig';
+
 import { createMintAccountWithExtensions } from '../app/utils/metadata2022';
 import cngnidl from '../target/idl/cngn.json';
 require('dotenv').config();
@@ -36,6 +36,13 @@ async function main() {
   // Calculate all PDAs for the token
   pdas = calculatePDAs(cngnMintKeypair.publicKey, program.programId);
 
+  //multisg threshold
+  const threshold=2
+  const signer1=new PublicKey(process.env.SIGNER1)
+  const signer2=new PublicKey(process.env.SIGNER2)
+  console.log("signers are",signer1.toString(),signer2.toString())
+  const multisgOwners= [signer1,signer2]
+console.log("multisig",pdas.multisig.toString())
   try {
     console.log('Program ID: ', program.programId.toBase58());
     console.log("Wallet:", provider.wallet.publicKey.toString());
@@ -43,24 +50,21 @@ async function main() {
     // Initialize the token
 
 
-    // Step 2: Create token metadata
-    console.log("\n--- Step 2: Creating token metadata ---");
-
-    // Create metadata
-
-    console.log("creating/updating CNGN mint metadata")
+   // Step 2: Create token metadata
+   console.log("\n--- Step 2: Creating token metadata ---");
     await createMintAccountWithExtensions(
       provider,
       cngnMintKeypair,
       Cngnparams,
-      payer.publicKey,
-      
-      //payer.publicKey
+      payer.publicKey, //permanent delegate
+      payer.publicKey,//hook authority
+      pdas.mintAuthority,//mint authority
+      program.programId
     )
-    await initializeToken(program, provider, cngnMintKeypair, pdas,payer.publicKey);
-    // const multisig = await CreateMultiSig(connection, payer);
-    //await transferMintAuthority(multisig, cngnMintKeypair.publicKey, payer, connection)
-    //await transferFreezeAuthority(multisig, cngnMintKeypair.publicKey, payer, connection)
+   await initializeToken(program, provider, cngnMintKeypair, pdas,payer.publicKey);
+    await initializeMultisig(program,provider,cngnMintKeypair,pdas,multisgOwners,threshold)
+   // await transferMintAuthority(multisig, cngnMintKeypair.publicKey, payer, connection)
+   // await transferFreezeAuthority(multisig, cngnMintKeypair.publicKey, payer, connection)
   } catch (error) {
     console.error("Error during initialization:", error);
     if (error instanceof Error) {

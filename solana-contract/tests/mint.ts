@@ -2,70 +2,135 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Cngn } from "../target/types/cngn";
 import { assert, expect } from 'chai';
-import { PublicKey, Keypair } from '@solana/web3.js';
-import { TOKEN_2022_PROGRAM_ID, createMintToInstruction, getAccount, getAssociatedTokenAddressSync } from '@solana/spl-token';
+import { PublicKey, Keypair, SYSVAR_INSTRUCTIONS_PUBKEY, TransactionInstruction } from '@solana/web3.js';
+import { TOKEN_2022_PROGRAM_ID, createMintToInstruction, getAccount, getAssociatedTokenAddressSync, createMint } from '@solana/spl-token';
+import { calculatePDAs, TokenPDAs } from '../utils/helpers';
+import { TOKEN_PARAMS, initializeToken, initializeMultisig, setupUserAccounts } from '../utils/token_initializer';
+import * as crypto from 'crypto';
+import nacl from 'tweetnacl';
 
-import { calculatePDAs, createTokenAccountIfNeeded, TokenPDAs } from '../utils/helpers';
-import {
-  TOKEN_PARAMS,
-  initializeToken,
-  setupUserAccounts
-} from '../utils/token_initializer';
-
-
-describe("cngn mint test", () => {
-  // Configure the client to use the local cluster.
-  const provider = anchor.AnchorProvider.env();
+describe("cngn mint test with multisig", () => {
+  const connection = new anchor.web3.Connection('http://127.0.0.1:8899', 'confirmed');
+  const wallet = anchor.Wallet.local();
+  const provider = new anchor.AnchorProvider(connection, wallet, {
+    commitment: 'confirmed',
+  });
   anchor.setProvider(provider);
-
-  const program = anchor.workspace.Cngn as Program<Cngn>;
   const payer = (provider.wallet as anchor.Wallet).payer;
-  // Create the mint keypair - this will be the actual token
+  const program = anchor.workspace.Cngn as Program<Cngn>;
+
   const mint = Keypair.generate();
 
-  // Create additional user keypairs for testing different scenarios
+  // Test users
   const unauthorizedUser = Keypair.generate();
   const blacklistedUser = Keypair.generate();
   const authorizedUser = Keypair.generate();
   const blacklistedReceiver = Keypair.generate();
 
-  // PDAs
+  // Multisig owners
+  const owner1 = Keypair.generate();
+  const owner2 = Keypair.generate();
+  const owner3 = Keypair.generate();
+  const threshold = 2;
+
   let pdas: TokenPDAs;
+  let multisigPda: PublicKey;
   let unauthorizedUserTokenAccount: PublicKey;
   let blacklistedUserTokenAccount: PublicKey;
   let authorizedUserTokenAccount: PublicKey;
   let blacklistedReceiverTokenAccount: PublicKey;
 
-  // Token parameters
   const mintAmount = TOKEN_PARAMS.mintAmount;
-  const differentMintAmount = new anchor.BN(500000000); // 500 tokens with 6 decimals
+  const differentMintAmount = new anchor.BN(500000000);
+
+  // Helper function to create Ed25519 signature instruction
+  function createEd25519Ix(signer: Keypair, message: Buffer): TransactionInstruction {
+    const signature = nacl.sign.detached(message, signer.secretKey);
+    const publicKey = signer.publicKey.toBytes();
+
+    const numSignatures = 1;
+    const padding = 0;
+
+    const offsetsStruct = Buffer.alloc(14);
+    offsetsStruct.writeUInt16LE(16, 0);
+    offsetsStruct.writeUInt16LE(0xFFFF, 2);
+    offsetsStruct.writeUInt16LE(80, 4);
+    offsetsStruct.writeUInt16LE(0xFFFF, 6);
+    offsetsStruct.writeUInt16LE(112, 8);
+    offsetsStruct.writeUInt16LE(message.length, 10);
+    offsetsStruct.writeUInt16LE(0xFFFF, 12);
+
+    const data = Buffer.concat([
+      Buffer.from([numSignatures, padding]),
+      offsetsStruct,
+      Buffer.from(signature),
+      publicKey,
+      message
+    ]);
+
+    return new TransactionInstruction({
+      keys: [],
+      programId: new PublicKey('Ed25519SigVerify111111111111111111111111111'),
+      data,
+    });
+  }
+
+  // Helper to build message hash
+  function buildMessageHash(prefix: string, ...components: (PublicKey | Buffer | number)[]): Buffer {
+    const hash = crypto.createHash('sha256');
+    hash.update(Buffer.from(prefix));
+
+    for (const comp of components) {
+      if (comp instanceof PublicKey) {
+        hash.update(comp.toBuffer());
+      } else if (typeof comp === 'number') {
+        const buf = Buffer.alloc(8);
+        buf.writeBigUInt64LE(BigInt(comp));
+        hash.update(buf);
+      } else {
+        hash.update(comp);
+      }
+    }
+
+    return hash.digest();
+  }
 
   before(async () => {
-    // Calculate all PDAs for the token
     pdas = calculatePDAs(mint.publicKey, program.programId);
 
-    // Initialize the token
-    await initializeToken(program, provider, mint, pdas);
-
-    // Fund the test accounts
-    // Airdrop SOL to the test accounts
-    const users = [unauthorizedUser, blacklistedUser, authorizedUser, blacklistedReceiver];
-
-    for (const user of users) {
-      const airdropSignature = await provider.connection.requestAirdrop(
-        user.publicKey,
-        1 * anchor.web3.LAMPORTS_PER_SOL
-      );
-      await provider.connection.confirmTransaction(airdropSignature);
-    }
-    console.log("======Setting up test users...========");
-
-    // Create token accounts for all users
-    const userAccounts = await setupUserAccounts(
-      provider,
-      users,
-      mint.publicKey
+    const [multisig] = PublicKey.findProgramAddressSync(
+      [Buffer.from("multisig"), mint.publicKey.toBuffer()],
+      program.programId
     );
+    multisigPda = multisig;
+
+    // Fund accounts
+    const fundAccounts = [
+      unauthorizedUser.publicKey,
+      blacklistedUser.publicKey,
+      authorizedUser.publicKey,
+      blacklistedReceiver.publicKey,
+      owner1.publicKey,
+      owner2.publicKey,
+      owner3.publicKey
+    ];
+
+    for (const account of fundAccounts) {
+      await provider.connection.requestAirdrop(account, 2 * anchor.web3.LAMPORTS_PER_SOL);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    console.log("Initializing token...");
+    await createMint(provider.connection, payer, pdas.mintAuthority, pdas.mintAuthority, 6, mint, null, TOKEN_2022_PROGRAM_ID);
+    await initializeToken(program, provider, mint, pdas, payer.publicKey);
+
+    console.log("Initializing multisig...");
+    await initializeMultisig(program, provider, mint, pdas, [owner1.publicKey, owner2.publicKey, owner3.publicKey], threshold);
+
+    console.log("Setting up test users...");
+    const users = [unauthorizedUser, blacklistedUser, authorizedUser, blacklistedReceiver];
+    const userAccounts = await setupUserAccounts(provider, users, mint.publicKey);
 
     [
       unauthorizedUserTokenAccount,
@@ -74,83 +139,163 @@ describe("cngn mint test", () => {
       blacklistedReceiverTokenAccount
     ] = userAccounts;
 
-    console.log("======Setting up test users...========");
+    // Setup authorized user with multisig
+    let multisigAccount = await program.account.multisig.fetch(multisigPda);
+    let message = buildMessageHash(
+      "ADD_CAN_MINT",
+      pdas.canMint,
+      authorizedUser.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    let ed25519Ix1 = createEd25519Ix(owner1, message);
+    let ed25519Ix2 = createEd25519Ix(owner2, message);
 
-    try {
-      // Add the authorized user to can_mint with specific amount
-      await program.methods
-        .addCanMint(authorizedUser.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist,
-          canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
+    await program.methods
+      .addCanMint(authorizedUser.publicKey)
+      .accounts({
+        mint: mint.publicKey,
+        tokenConfig: pdas.tokenConfig,
+        blacklist: pdas.blacklist,
+        canMint: pdas.canMint,
+        trustedContracts: pdas.trustedContracts,
+        multisig: multisigPda,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+      })
+      .preInstructions([ed25519Ix1, ed25519Ix2])
+      .rpc();
 
-      // Set the mint amount for the authorized user
-      await program.methods
-        .setMintAmount(authorizedUser.publicKey, mintAmount)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
+    // Set mint amount for authorized user
+    multisigAccount = await program.account.multisig.fetch(multisigPda);
+    message = buildMessageHash(
+      "SET_MINT_AMOUNT",
+      pdas.canMint,
+      authorizedUser.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    ed25519Ix1 = createEd25519Ix(owner1, message);
+    ed25519Ix2 = createEd25519Ix(owner2, message);
 
-      // Add the deployer to can_mint with specific amount for tests
-      await program.methods
-        .addCanMint(provider.wallet.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist,
-          canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
+    await program.methods
+      .setMintAmount(authorizedUser.publicKey, mintAmount)
+      .accounts({
+        multisig: multisigPda,
+        mint: mint.publicKey,
+        tokenConfig: pdas.tokenConfig,
+        canMint: pdas.canMint,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+      })
+      .preInstructions([ed25519Ix1, ed25519Ix2])
+      .rpc();
 
-      // Set the mint amount for the deployer
-      await program.methods
-        .setMintAmount(provider.wallet.publicKey, mintAmount)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
-        })
-        .rpc();
+    // Add payer to can_mint with multisig
+    multisigAccount = await program.account.multisig.fetch(multisigPda);
+    message = buildMessageHash(
+      "ADD_CAN_MINT",
+      pdas.canMint,
+      payer.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    ed25519Ix1 = createEd25519Ix(owner1, message);
+    ed25519Ix2 = createEd25519Ix(owner2, message);
 
-      // Add the blacklisted user to blacklist
-      await program.methods
-        .addBlacklist(blacklistedUser.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist
-        })
-        .rpc();
+    await program.methods
+      .addCanMint(payer.publicKey)
+      .accounts({
+        mint: mint.publicKey,
+        tokenConfig: pdas.tokenConfig,
+        blacklist: pdas.blacklist,
+        canMint: pdas.canMint,
+        trustedContracts: pdas.trustedContracts,
+        multisig: multisigPda,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+      })
+      .preInstructions([ed25519Ix1, ed25519Ix2])
+      .rpc();
 
-      // Add the blacklisted receiver to blacklist
-      await program.methods
-        .addBlacklist(blacklistedReceiver.publicKey)
-        .accounts({
-          authority: provider.wallet.publicKey,
-          tokenConfig: pdas.tokenConfig,
-          blacklist: pdas.blacklist
-        })
-        .rpc();
+    // Set mint amount for payer
+    multisigAccount = await program.account.multisig.fetch(multisigPda);
+    message = buildMessageHash(
+      "SET_MINT_AMOUNT",
+      pdas.canMint,
+      payer.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    ed25519Ix1 = createEd25519Ix(owner1, message);
+    ed25519Ix2 = createEd25519Ix(owner2, message);
 
-      console.log("Test users set up successfully");
-    } catch (error) {
-      console.error("Error setting up test users:", error);
-      throw error;
-    }
+    await program.methods
+      .setMintAmount(payer.publicKey, mintAmount)
+      .accounts({
+        multisig: multisigPda,
+        mint: mint.publicKey,
+        tokenConfig: pdas.tokenConfig,
+        canMint: pdas.canMint,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+      })
+      .preInstructions([ed25519Ix1, ed25519Ix2])
+      .rpc();
+
+    // Add blacklisted users with multisig
+    multisigAccount = await program.account.multisig.fetch(multisigPda);
+    message = buildMessageHash(
+      "ADD_BLACKLIST",
+      pdas.blacklist,
+      blacklistedUser.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    ed25519Ix1 = createEd25519Ix(owner1, message);
+    ed25519Ix2 = createEd25519Ix(owner2, message);
+
+    await program.methods
+      .addBlacklist(blacklistedUser.publicKey)
+      .accounts({
+        mint: mint.publicKey,
+        tokenConfig: pdas.tokenConfig,
+        canMint: pdas.canMint,
+        internalWhitelist: pdas.internalWhitelist,
+        externalWhitelist: pdas.externalWhitelist,
+        trustedContracts: pdas.trustedContracts,
+        canForward: pdas.canForward,
+        blacklist: pdas.blacklist,
+        multisig: multisigPda,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+      })
+      .preInstructions([ed25519Ix1, ed25519Ix2])
+      .rpc();
+
+    // Add blacklisted receiver
+    multisigAccount = await program.account.multisig.fetch(multisigPda);
+    message = buildMessageHash(
+      "ADD_BLACKLIST",
+      pdas.blacklist,
+      blacklistedReceiver.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    ed25519Ix1 = createEd25519Ix(owner1, message);
+    ed25519Ix2 = createEd25519Ix(owner2, message);
+
+    await program.methods
+      .addBlacklist(blacklistedReceiver.publicKey)
+      .accounts({
+        mint: mint.publicKey,
+        tokenConfig: pdas.tokenConfig,
+        canMint: pdas.canMint,
+        internalWhitelist: pdas.internalWhitelist,
+        externalWhitelist: pdas.externalWhitelist,
+        trustedContracts: pdas.trustedContracts,
+        canForward: pdas.canForward,
+        blacklist: pdas.blacklist,
+        multisig: multisigPda,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+      })
+      .preInstructions([ed25519Ix1, ed25519Ix2])
+      .rpc();
+
+    console.log("Test users set up successfully");
   });
+
   it("Fails when trying to mint directly using SPL Token program", async () => {
-    console.log("Testing direct SPL mint attempt…");
+    console.log("Testing direct SPL mint attempt...");
 
     const attacker = Keypair.generate();
     const airdropSig = await provider.connection.requestAirdrop(
@@ -159,7 +304,6 @@ describe("cngn mint test", () => {
     );
     await provider.connection.confirmTransaction(airdropSig);
 
-    // Attacker tries to mint directly using Token2022 program
     const mintIx = await createMintToInstruction(
       mint.publicKey,
       attacker.publicKey,
@@ -167,18 +311,15 @@ describe("cngn mint test", () => {
       1_000_000,
       [mint, attacker],
       TOKEN_2022_PROGRAM_ID
-    )
-
+    );
 
     const tx = new anchor.web3.Transaction().add(mintIx);
 
     try {
       await provider.sendAndConfirm(tx, [attacker]);
-      assert.fail("Direct SPL mint should have failed because PDA mint authority cannot sign");
+      assert.fail("Direct SPL mint should have failed");
     } catch (error) {
       console.log("Caught expected error for direct SPL mint:", error.toString());
-
-      // SPL normally throws one of these
       expect(
         error.toString().includes("Signature verification failed") ||
         error.toString().includes("owner does not match") ||
@@ -190,7 +331,6 @@ describe("cngn mint test", () => {
   it('Successfully mints tokens to an authorized user', async () => {
     console.log("Testing successful minting by an authorized user...");
 
-    // Record the balance before minting
     let tokenAccountInfoBefore;
     try {
       tokenAccountInfoBefore = await getAccount(provider.connection, authorizedUserTokenAccount);
@@ -198,14 +338,13 @@ describe("cngn mint test", () => {
       tokenAccountInfoBefore = { amount: 0 };
     }
 
-    // Create and send the mint transaction
     const mintTx = await program.methods
       .mint(mintAmount)
       .accounts({
         authority: authorizedUser.publicKey,
+        mint: mint.publicKey,
         tokenConfig: pdas.tokenConfig,
         mintAuthority: pdas.mintAuthority,
-        mint: mint.publicKey,
         tokenAccount: authorizedUserTokenAccount,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
         blacklist: pdas.blacklist,
@@ -217,8 +356,6 @@ describe("cngn mint test", () => {
 
     console.log("Mint transaction signature:", mintTx);
 
-    // Verify the tokens were minted correctly
-
     const tokenAccountInfoAfter = await getAccount(provider.connection, authorizedUserTokenAccount, null, TOKEN_2022_PROGRAM_ID);
     const expectedBalance = new anchor.BN(tokenAccountInfoBefore.amount.toString()).add(mintAmount);
 
@@ -228,7 +365,6 @@ describe("cngn mint test", () => {
       "Token balance should increase by the mint amount"
     );
 
-    // Verify the authorized user has been removed from can_mint list after successful minting
     const canMintAccountAfter = await program.account.canMint.fetch(pdas.canMint);
     const authorizedUserIndexAfter = canMintAccountAfter.authorities.findIndex(
       auth => auth.toString() === authorizedUser.publicKey.toString()
@@ -249,9 +385,9 @@ describe("cngn mint test", () => {
         .mint(mintAmount)
         .accounts({
           authority: unauthorizedUser.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           mintAuthority: pdas.mintAuthority,
-          mint: mint.publicKey,
           tokenAccount: unauthorizedUserTokenAccount,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
@@ -271,43 +407,66 @@ describe("cngn mint test", () => {
   it('Fails to mint with incorrect mint amount', async () => {
     console.log("Testing minting with incorrect amount...");
 
-    // Add the deployer back to can_mint with specific amount
+    // Add payer back to can_mint using multisig
+    let multisigAccount = await program.account.multisig.fetch(multisigPda);
+    let message = buildMessageHash(
+      "ADD_CAN_MINT",
+      pdas.canMint,
+      payer.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    let ed25519Ix1 = createEd25519Ix(owner1, message);
+    let ed25519Ix2 = createEd25519Ix(owner2, message);
+
     try {
       await program.methods
-        .addCanMint(provider.wallet.publicKey)
+        .addCanMint(payer.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
-      // Set a specific mint amount
+      // Set mint amount
+      multisigAccount = await program.account.multisig.fetch(multisigPda);
+      message = buildMessageHash(
+        "SET_MINT_AMOUNT",
+        pdas.canMint,
+        payer.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+      ed25519Ix1 = createEd25519Ix(owner1, message);
+      ed25519Ix2 = createEd25519Ix(owner2, message);
+
       await program.methods
-        .setMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(payer.publicKey, mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          multisig: multisigPda,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
     } catch (error) {
       // Ignore if already added
     }
 
-
     try {
-      // Try to mint with a different amount than allowed
       await program.methods
-        .mint(differentMintAmount) // Using a different amount than authorized
+        .mint(differentMintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          authority: payer.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           mintAuthority: pdas.mintAuthority,
-          mint: mint.publicKey,
           tokenAccount: authorizedUserTokenAccount,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
@@ -326,28 +485,53 @@ describe("cngn mint test", () => {
   it('Fails to mint when signer is blacklisted', async () => {
     console.log("Testing minting with blacklisted signer...");
 
-    // First, add the blacklisted user to can_mint
+    // Add blacklisted user to can_mint using multisig
+    let multisigAccount = await program.account.multisig.fetch(multisigPda);
+    let message = buildMessageHash(
+      "ADD_CAN_MINT",
+      pdas.canMint,
+      blacklistedUser.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    let ed25519Ix1 = createEd25519Ix(owner1, message);
+    let ed25519Ix2 = createEd25519Ix(owner2, message);
+
     try {
       await program.methods
         .addCanMint(blacklistedUser.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
-      // Set the mint amount for the blacklisted user
+      // Set mint amount
+      multisigAccount = await program.account.multisig.fetch(multisigPda);
+      message = buildMessageHash(
+        "SET_MINT_AMOUNT",
+        pdas.canMint,
+        blacklistedUser.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+      ed25519Ix1 = createEd25519Ix(owner1, message);
+      ed25519Ix2 = createEd25519Ix(owner2, message);
+
       await program.methods
         .setMintAmount(blacklistedUser.publicKey, mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          multisig: multisigPda,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
     } catch (error) {
       // Ignore if already added
@@ -358,9 +542,9 @@ describe("cngn mint test", () => {
         .mint(mintAmount)
         .accounts({
           authority: blacklistedUser.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           mintAuthority: pdas.mintAuthority,
-          mint: mint.publicKey,
           tokenAccount: blacklistedUserTokenAccount,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
@@ -384,10 +568,10 @@ describe("cngn mint test", () => {
       await program.methods
         .mint(mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          authority: payer.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           mintAuthority: pdas.mintAuthority,
-          mint: mint.publicKey,
           tokenAccount: blacklistedReceiverTokenAccount,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
@@ -406,29 +590,38 @@ describe("cngn mint test", () => {
   it('Fails to mint when minting is paused', async () => {
     console.log("Testing minting when paused...");
 
-    // Pause minting
+    // Pause minting using multisig
+    const multisigAccount = await program.account.multisig.fetch(multisigPda);
+    const message = buildMessageHash(
+      "PAUSE_MINTING",
+      pdas.tokenConfig,
+      multisigAccount.nonce.toNumber()
+    );
+    const ed25519Ix1 = createEd25519Ix(owner1, message);
+    const ed25519Ix2 = createEd25519Ix(owner2, message);
+
     await program.methods
-      .pauseMinting(true) // Pause minting
+      .pauseMinting(true)
       .accounts({
-        authority: provider.wallet.publicKey,
+        multisig: multisigPda,
+        mint: mint.publicKey,
         tokenConfig: pdas.tokenConfig,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
       })
+      .preInstructions([ed25519Ix1, ed25519Ix2])
       .rpc();
 
-    // Verify minting is paused
     const tokenConfigAfterPause = await program.account.tokenConfig.fetch(pdas.tokenConfig);
     assert.equal(tokenConfigAfterPause.mintPaused, true);
-
-
 
     try {
       await program.methods
         .mint(mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          authority: payer.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           mintAuthority: pdas.mintAuthority,
-          mint: mint.publicKey,
           tokenAccount: authorizedUserTokenAccount,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
@@ -442,62 +635,96 @@ describe("cngn mint test", () => {
       console.log("Caught expected error when minting while paused:", error.toString());
       assert.include(error.toString(), "MintingPaused");
     }
-
-    // Unpause minting for subsequent tests
-    await program.methods
-      .pauseMinting(false) // Unpause minting
-      .accounts({
-        authority: provider.wallet.publicKey,
-        tokenConfig: pdas.tokenConfig,
-      })
-      .rpc();
-
-    // Verify minting is unpaused
-    const tokenConfigAfterUnpause = await program.account.tokenConfig.fetch(pdas.tokenConfig);
-    assert.equal(tokenConfigAfterUnpause.mintPaused, false);
   });
 
-
-  it('Successfully mints after unpausing and verifies user removal from can_mint', async () => {
+  it('Successfully mints after unpausing', async () => {
     console.log("Testing successful minting after unpausing...");
 
-    // Make sure the deployer is in can_mint with the correct amount
+    // Unpause minting using multisig
+    let multisigAccount = await program.account.multisig.fetch(multisigPda);
+    let message = buildMessageHash(
+      "PAUSE_MINTING",
+      pdas.tokenConfig,
+      multisigAccount.nonce.toNumber()
+    );
+    let ed25519Ix1 = createEd25519Ix(owner1, message);
+    let ed25519Ix2 = createEd25519Ix(owner2, message);
+
+    await program.methods
+      .pauseMinting(false)
+      .accounts({
+        multisig: multisigPda,
+        mint: mint.publicKey,
+        tokenConfig: pdas.tokenConfig,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY
+      })
+      .preInstructions([ed25519Ix1, ed25519Ix2])
+      .rpc();
+
+    const tokenConfigAfterUnpause = await program.account.tokenConfig.fetch(pdas.tokenConfig);
+    assert.equal(tokenConfigAfterUnpause.mintPaused, false);
+
+    // Add payer back to can_mint
+    multisigAccount = await program.account.multisig.fetch(multisigPda);
+    message = buildMessageHash(
+      "ADD_CAN_MINT",
+      pdas.canMint,
+      payer.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    ed25519Ix1 = createEd25519Ix(owner1, message);
+    ed25519Ix2 = createEd25519Ix(owner2, message);
+
     try {
       await program.methods
-        .addCanMint(provider.wallet.publicKey)
+        .addCanMint(payer.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
+      // Set mint amount
+      multisigAccount = await program.account.multisig.fetch(multisigPda);
+      message = buildMessageHash(
+        "SET_MINT_AMOUNT",
+        pdas.canMint,
+        payer.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+      ed25519Ix1 = createEd25519Ix(owner1, message);
+      ed25519Ix2 = createEd25519Ix(owner2, message);
+
       await program.methods
-        .setMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(payer.publicKey, mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          multisig: multisigPda,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
     } catch (error) {
       // Ignore if already added
     }
 
-    // Record the balance before minting
     const tokenAccountInfoBefore = await getAccount(provider.connection, authorizedUserTokenAccount, null, TOKEN_2022_PROGRAM_ID);
 
-    // Mint tokens
     const mintTx = await program.methods
       .mint(mintAmount)
       .accounts({
-        authority: provider.wallet.publicKey,
+        authority: payer.publicKey,
+        mint: mint.publicKey,
         tokenConfig: pdas.tokenConfig,
         mintAuthority: pdas.mintAuthority,
-        mint: mint.publicKey,
         tokenAccount: authorizedUserTokenAccount,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
         blacklist: pdas.blacklist,
@@ -508,7 +735,6 @@ describe("cngn mint test", () => {
 
     console.log("Mint transaction signature after unpausing:", mintTx);
 
-    // Verify the tokens were minted correctly
     const tokenAccountInfoAfter = await getAccount(provider.connection, authorizedUserTokenAccount, null, TOKEN_2022_PROGRAM_ID);
     const expectedBalance = new anchor.BN(tokenAccountInfoBefore.amount.toString()).add(mintAmount);
 
@@ -518,75 +744,94 @@ describe("cngn mint test", () => {
       "Token balance should increase by the mint amount after unpausing"
     );
 
-    // Verify the deployer has been removed from can_mint list after successful minting
     const canMintAccountAfter = await program.account.canMint.fetch(pdas.canMint);
     const deployerIndexAfter = canMintAccountAfter.authorities.findIndex(
-      auth => auth.toString() === provider.wallet.publicKey.toString()
+      auth => auth.toString() === payer.publicKey.toString()
     );
 
     assert.equal(
       deployerIndexAfter,
       -1,
-      "Deployer should be removed from can_mint list after minting"
+      "Payer should be removed from can_mint list after minting"
     );
   });
 
   it('Fails to mint with mismatched mint account', async () => {
     console.log("Testing minting with mismatched mint account...");
 
-    // Create a different mint
     const differentMint = Keypair.generate();
 
-    // Add the deployer back to can_mint
+    // Add payer back to can_mint
+    let multisigAccount = await program.account.multisig.fetch(multisigPda);
+    let message = buildMessageHash(
+      "ADD_CAN_MINT",
+      pdas.canMint,
+      payer.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    let ed25519Ix1 = createEd25519Ix(owner1, message);
+    let ed25519Ix2 = createEd25519Ix(owner2, message);
+
     try {
       await program.methods
-        .addCanMint(provider.wallet.publicKey)
+        .addCanMint(payer.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
+      multisigAccount = await program.account.multisig.fetch(multisigPda);
+      message = buildMessageHash(
+        "SET_MINT_AMOUNT",
+        pdas.canMint,
+        payer.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+      ed25519Ix1 = createEd25519Ix(owner1, message);
+      ed25519Ix2 = createEd25519Ix(owner2, message);
+
       await program.methods
-        .setMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(payer.publicKey, mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          multisig: multisigPda,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
     } catch (error) {
       // Ignore if already added
     }
 
-
-
     try {
-      // Try to mint with a different mint than in token_config
       await program.methods
         .mint(mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          authority: payer.publicKey,
+          mint: differentMint.publicKey,
           tokenConfig: pdas.tokenConfig,
           mintAuthority: pdas.mintAuthority,
-          mint: differentMint.publicKey, // Using a different mint
           tokenAccount: authorizedUserTokenAccount,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
           trustedContracts: pdas.trustedContracts
         })
-        .signers([mint]) // Need to sign with the different mint
+        .signers([mint])
         .rpc();
 
       assert.fail("Minting should have failed with mismatched mint");
     } catch (error) {
       console.log("Caught expected error for mismatched mint:", error.toString());
-      // This will fail at the account constraint level
       assert.include(error.toString(), "Error: unknown signer");
     }
   });
@@ -594,60 +839,77 @@ describe("cngn mint test", () => {
   it('Fails to mint with token account for wrong mint', async () => {
     console.log("Testing minting with token account for wrong mint...");
 
-    // Make sure the deployer is in can_mint
+    // Make sure payer is in can_mint
+    let multisigAccount = await program.account.multisig.fetch(multisigPda);
+    let message = buildMessageHash(
+      "ADD_CAN_MINT",
+      pdas.canMint,
+      payer.publicKey,
+      multisigAccount.nonce.toNumber()
+    );
+    let ed25519Ix1 = createEd25519Ix(owner1, message);
+    let ed25519Ix2 = createEd25519Ix(owner2, message);
+
     try {
       await program.methods
-        .addCanMint(provider.wallet.publicKey)
+        .addCanMint(payer.publicKey)
         .accounts({
-          authority: provider.wallet.publicKey,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           blacklist: pdas.blacklist,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          trustedContracts: pdas.trustedContracts,
+          multisig: multisigPda,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
 
+      multisigAccount = await program.account.multisig.fetch(multisigPda);
+      message = buildMessageHash(
+        "SET_MINT_AMOUNT",
+        pdas.canMint,
+        payer.publicKey,
+        multisigAccount.nonce.toNumber()
+      );
+      ed25519Ix1 = createEd25519Ix(owner1, message);
+      ed25519Ix2 = createEd25519Ix(owner2, message);
+
       await program.methods
-        .setMintAmount(provider.wallet.publicKey, mintAmount)
+        .setMintAmount(payer.publicKey, mintAmount)
         .accounts({
-          authority: provider.wallet.publicKey,
+          multisig: multisigPda,
+          mint: mint.publicKey,
           tokenConfig: pdas.tokenConfig,
           canMint: pdas.canMint,
-          trustedContracts: pdas.trustedContracts
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY
         })
+        .preInstructions([ed25519Ix1, ed25519Ix2])
         .rpc();
     } catch (error) {
       // Ignore if already added
     }
 
-    // Create a different mint to create a mismatched token account
     const differentMint = Keypair.generate();
 
-    // Initialize the different mint (simplified for testing)
     try {
       const tx = new anchor.web3.Transaction();
-      // Add instructions to create and initialize the token mint
-      // This is simplified - in a real test you would properly initialize the mint
       await provider.sendAndConfirm(tx, [differentMint]);
 
-      // Create a token account for the different mint
       const differentTokenAccount = await getAssociatedTokenAddressSync(
         differentMint.publicKey,
-        provider.wallet.publicKey
+        payer.publicKey
       );
-
-      // Create the token account (this would fail in practice without properly initializing the mint)
-      // This test is more to check the constraint validation
 
       try {
         await program.methods
           .mint(mintAmount)
           .accounts({
-            authority: provider.wallet.publicKey,
+            authority: payer.publicKey,
+            mint: mint.publicKey,
             tokenConfig: pdas.tokenConfig,
             mintAuthority: pdas.mintAuthority,
-            mint: mint.publicKey,
-            tokenAccount: differentTokenAccount, // Token account for different mint
+            tokenAccount: differentTokenAccount,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
             blacklist: pdas.blacklist,
             canMint: pdas.canMint,
@@ -658,7 +920,6 @@ describe("cngn mint test", () => {
         assert.fail("Minting should have failed with token account for wrong mint");
       } catch (error) {
         console.log("Caught expected error for token account with wrong mint:", error.toString());
-        // This will likely fail at the account validation level or when checking token account's mint
       }
     } catch (error) {
       console.log("Setup for different mint test failed - skipping test");

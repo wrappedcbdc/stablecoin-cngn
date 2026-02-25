@@ -14,7 +14,7 @@ export const TOKEN_PARAMS = {
   symbol: "cNGN",
   decimals: 6,
   uri: "helper",
-  mintAmount: new anchor.BN(10_000_000_000), // 10,000 tokens with 6 decimals
+  mintAmount: new anchor.BN(100_000_000), // 10,000 tokens with 6 decimals
   transferAmount: new anchor.BN(5_000_000_000), // 5,000 tokens
   partialAmount: new anchor.BN(2_500_000_000) // 2,500 tokens
 };
@@ -32,11 +32,11 @@ export async function initializeToken(
   mint: Keypair,
   pdas: TokenPDAs,
   admin: PublicKey,
-  
+
 ): Promise<void> {
   console.log("=========== Initializing token ========");
-//await createMintAccountWithExtensions(provider, mint, TOKEN_PARAMS, program.programId);
-//await createMint(provider.connection,provider.wallet.payer,provider.wallet.payer.publicKey,
+  //await createMintAccountWithExtensions(provider, mint, TOKEN_PARAMS, program.programId);
+  //await createMint(provider.connection,provider.wallet.payer,provider.wallet.payer.publicKey,
   //provider.wallet.payer.publicKey, TOKEN_PARAMS.decimals,mint,null,TOKEN_2022_PROGRAM_ID);
   // Execute the initialization transaction
   const tx = await program.methods
@@ -44,7 +44,7 @@ export async function initializeToken(
     .accounts({
       initializer: provider.wallet.publicKey,
       tokenConfig: pdas.tokenConfig,
-      admin:admin,
+      admin: admin,
       mintAuthority: pdas.mintAuthority,
       mint: mint.publicKey,
       extraMetasAccount: pdas.extraMetasAccount,
@@ -53,12 +53,11 @@ export async function initializeToken(
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
     })
-   // .signers([mint]) // The mint keypair must sign since it's being initialized
     .rpc();
-  
+
   console.log("Initialization transaction signature", tx);
-  console.log("============= Initializing secondary and third accounts ============="); 
-  
+  console.log("============= Initializing secondary and third accounts =============");
+
   try {
     // Initialize secondary accounts (blacklist, canForward, trustedContracts)
     const tx2 = await program.methods
@@ -72,7 +71,7 @@ export async function initializeToken(
         systemProgram: SystemProgram.programId,
       })
       .rpc();
-    
+
     console.log("Secondary initialization transaction signature", tx2);
 
     // Initialize third accounts (whitelists and extra metas)
@@ -88,7 +87,7 @@ export async function initializeToken(
         systemProgram: SystemProgram.programId,
       })
       .rpc();
-    
+
     console.log("Third initialization transaction signature", tx3);
     console.log("All accounts initialized successfully");
   } catch (error) {
@@ -97,6 +96,36 @@ export async function initializeToken(
   }
 }
 
+export async function initializeMultisig(
+  program: any,
+  provider: anchor.AnchorProvider,
+  mint: Keypair,
+  pdas: TokenPDAs,
+  owners: any,
+  threshold: Number
+) {
+
+  try {
+    let tx = await program.methods
+      .initializeMultisig(
+        owners,
+        threshold
+      )
+      .accounts({
+        multisig: pdas.multisig,
+        mint: mint.publicKey,
+        tokenConfig: pdas.tokenConfig,
+        payer: provider.wallet.payer.publicKey,
+        systemProgram: SystemProgram.programId
+      })
+      .rpc();
+    console.log("Multisig initialization transaction signature", tx);
+
+  } catch (error) {
+    console.log("error creating multisig", error)
+  }
+
+}
 
 /**
  * Setup token accounts for users
@@ -112,11 +141,11 @@ export async function setupUserAccounts(
   mint: PublicKey
 ): Promise<PublicKey[]> {
   const tokenAccounts: PublicKey[] = [];
-  
+
   for (const user of users) {
     const tokenAccount = await createTokenAccountIfNeeded(provider, user, mint);
     tokenAccounts.push(tokenAccount);
   }
-  
+
   return tokenAccounts;
 }

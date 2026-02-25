@@ -5,9 +5,8 @@ mod errors;
 mod events;
 mod instructions;
 mod state;
-//use anchor_spl::token_interface::*;
 use instructions::*;
-//use spl_transfer_hook_interface::instruction::TransferHookInstruction;
+
 
 declare_id!("25hdB3aDv1sfkMCcXbNkPBPvtU7ZmEPoSdXcC1m1dMZN");
 
@@ -29,23 +28,31 @@ pub mod cngn {
         instructions::initialize::initialize_secondary_handler(ctx)
     }
 
+    pub fn initialize_multisig(
+        ctx: Context<InitializeMultisig>,
+        owners: Vec<Pubkey>,
+        threshold: u8,
+    ) -> Result<()> {
+        instructions::multisig::initialize_multisig_handler(ctx, owners, threshold)
+    }
+
+        pub fn update_multisig(
+        ctx: Context<UpdateMultisig>,
+        owners: Vec<Pubkey>,
+        threshold: u8,
+    ) -> Result<()> {
+        instructions::multisig::update_multisig_handler(ctx, owners, threshold)
+    }
+
     pub fn initialize_third(ctx: Context<InitializeThird>) -> Result<()> {
         instructions::initialize::initialize_third_handler(ctx)
     }
     pub fn mint(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         instructions::mint::handler(ctx, amount)
     }
-    // #[interface(spl_transfer_hook_interface::execute)]
-    pub fn bridge_token(ctx: Context<RedemptionTransfer>, amount: u64) -> Result<()> {
-        instructions::redemption::redemption_handler(ctx, amount)
-    }
 
     pub fn pause_minting(ctx: Context<PauseMint>, pause_mint: bool) -> Result<()> {
         instructions::pause::pause_mint_handler(ctx, pause_mint)
-    }
-
-    pub fn pause_transfers(ctx: Context<PauseTransfer>, pause_transfer: bool) -> Result<()> {
-        instructions::pause::pause_transfer_handler(ctx, pause_transfer)
     }
 
     pub fn add_can_mint(ctx: Context<AddCanMint>, user: Pubkey) -> Result<()> {
@@ -113,9 +120,6 @@ pub mod cngn {
         instructions::admin::blacklist_external_user_handler(ctx, user)
     }
 
-    pub fn destroy_black_funds(ctx: Context<DestroyBlackTokens>, amount: u64) -> Result<()> {
-        instructions::admin::destroy_black_funds_handler(ctx, amount)
-    }
     // Add to your program entry point in lib.rs
     pub fn add_can_forward(ctx: Context<AddCanForward>, forwarder: Pubkey) -> Result<()> {
         instructions::admin::add_can_forward_handler(ctx, forwarder)

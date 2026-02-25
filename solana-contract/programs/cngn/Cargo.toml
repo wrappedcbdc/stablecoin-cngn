@@ -20,12 +20,14 @@ anchor-debug = []  # Add this line
 [dependencies]
 anchor-lang = { version = "0.32.1", features = ["init-if-needed","interface-instructions"]}
 anchor-spl ={ version="0.32.1"}
+solana-program = "2.2.0"
 arrayref = "0.3.7"
 bincode = "1.3.3" 
 hex = "0.4.3"
 
 spl-tlv-account-resolution = "0.10.0"
 spl-transfer-hook-interface = "0.10.0"
+sha2 = "0.10.9"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

@@ -1,115 +1,37 @@
-import * as anchor from '@coral-xyz/anchor';
-
-import fs from 'fs';
-import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { calculatePDAs, TokenPDAs } from '../utils/helpers';
-import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { mintTokens } from './mint';
-
-import idl from '../target/idl/cngn.json';
-import { Cngn } from '../target/types/cngn';
-import { giveUserMintingPriviledge,removeUserMintingPriviledge } from './admin/mint';
-
-
-const { web3 } = anchor;
-
-// Convert string to PublicKey
-const mintPublicKey = new PublicKey("3KRMj39YGU4uPtYA4rRYA93tafGPjB71miWRq1RcV5nQ");
-
-//const programId = new PublicKey("4qgc4qUsecrsXdu1oof3YScMDbH1Ck6NsByLbEARHR4D")
-
-const users = {
-    sender: Keypair.generate(),
-    recipient: Keypair.generate(),
-    authorizedUser: Keypair.generate(),
-    contract: Keypair.generate(),
-    internalAccountToBlacklist: Keypair.generate(),
-    externalAccountToWhitelist: Keypair.generate(),
-    forwarderToAdd: Keypair.generate(),
-};
-
-
-
+import { PublicKey } from "@solana/web3.js";
+import { addCanMint } from "./admin/multisig/add-can-mint";
+import { loadOrCreateKeypair } from "./utils/helpers";
+import { updateMultisig } from "./admin/multisig/update-multisig";
+import { MULTISIG_SIZE } from "@solana/spl-token";
+import { setMintAmount } from "./admin/multisig";
+import { mintTokens } from "./mint";
+import { TOKEN_PARAMS } from "../utils/token_initializer";
 
 async function main() {
-    console.log("Starting main function");
-    try {
-        const connection = new web3.Connection("https://api.devnet.solana.com", "confirmed");
+    let target = loadOrCreateKeypair("NEW_USER");
+    let recipient = loadOrCreateKeypair("NEW_USER3").publicKey;
 
-        // Configure the connection to the cluster
-        const provider = new anchor.AnchorProvider(
-            connection,
-            anchor.Wallet.local(),
-            { commitment: "confirmed" }
-        );
-
-        anchor.setProvider(provider);
-        const payer = (provider.wallet as anchor.Wallet).payer;
-
-        // Load the IDL JSON file
-        const program = new anchor.Program(idl as Cngn, provider);
-
-
-
-        let pdas: TokenPDAs;
-        // Calculate all PDAs for the token
-        pdas = calculatePDAs(mintPublicKey, program.programId);
-        await giveUserMintingPriviledge(pdas, program, provider, users)
-        await removeUserMintingPriviledge(pdas, program, provider, users)
-        await giveUserMintingPriviledge(pdas, program, provider, users)
-        // // 1. Mint 100 tokens to the payer's wallet
-        // await mintTokens(
-        //     pdas,
-        //     program,
-        //     mintPublicKey,
-        //     users,
-        //     payer
-        // );
-
-        // // 2. Create a new recipient
-        // const recipient = Keypair.generate();
-
-        // // Fund the recipient with some SOL for account creation
-        // const airdropSignature = await connection.requestAirdrop(
-        //   recipient.publicKey,
-        //   LAMPORTS_PER_SOL / 10
-        // );
-        // await connection.confirmTransaction(airdropSignature);
-
-        // // 3. Transfer 50 tokens to recipient
-        // await transferTokens(
-        //   program,
-        //   mintPublicKey,
-        //   payer.publicKey,
-        //   recipient.publicKey,
-        //   50,
-        //   payer
-        // );
-
-        // // 4. Burn 20 tokens from payer's wallet
-        // await burnTokens(
-        //   program,
-        //   mintPublicKey,
-        //   payer.publicKey,
-        //   20,
-        //   payer
-        // );
-
-
-    } catch (error) {
-        console.error("Error in main function:", error);
-    }
+    // await addCanMint(target.publicKey);
+    // await setMintAmount(target.publicKey, TOKEN_PARAMS.mintAmount.toNumber());
+    console.log("Minting tokensfrom", target.publicKey.toString(), "to", recipient.toString());
+     await mintTokens(target,new PublicKey("6uibpu3qJLsxqP4He9nnaXcoSmkaWxgrkfK1j5qmtVVp"), TOKEN_PARAMS);
+    //==== multisg threshold ====
+    // const threshold = 2
+    // const signer1 =new PublicKey(process.env.SIGNER_1)// loadOrCreateKeypair("MULTISIG_OWNER_1").publicKey
+    // const signer2 =new PublicKey(process.env.SIGNER_2)// loadOrCreateKeypair("MULTISIG_OWNER_2").publicKey
+    // console.log("signers are", signer1.toString(), signer2.toString())
+    // const multisgOwners = [signer1, signer2]
+     //await updateMultisig(multisgOwners, threshold)
 }
 
-// Execute the main function
-main().then(
-    () => process.exit(0),
-    err => {
-        console.error(err);
-        process.exit(1);
-    }
-);
-
-function removeCanMint(pdas: TokenPDAs, program: anchor.Program<Cngn>, provider: anchor.AnchorProvider, users: { sender: anchor.web3.Keypair; recipient: anchor.web3.Keypair; authorizedUser: anchor.web3.Keypair; contract: anchor.web3.Keypair; internalAccountToBlacklist: anchor.web3.Keypair; externalAccountToWhitelist: anchor.web3.Keypair; forwarderToAdd: anchor.web3.Keypair; }) {
-    throw new Error('Function not implemented.');
+if (require.main === module) {
+    main()
+        .then(() => {
+            console.log("\n✓ Operation completed successfully");
+            process.exit(0);
+        })
+        .catch((err) => {
+            console.error("\n✗ Operation failed:", err);
+            process.exit(1);
+        });
 }

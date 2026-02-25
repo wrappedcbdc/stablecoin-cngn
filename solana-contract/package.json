@@ -17,6 +17,7 @@
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
     "@noble/ed25519": "^2.2.3",
+    "@solana/spl-governance": "^0.3.28",
     "@solana/spl-token": "^0.4.12",
     "@solana/web3.js": "^1.98.0",
     "@sqds/multisig": "^2.1.4",
