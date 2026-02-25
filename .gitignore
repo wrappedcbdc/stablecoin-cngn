@@ -9,3 +9,5 @@ package-lock.json
 scripts/
 ton
 tron-contract
+solana-contract
+solana-contract-old
