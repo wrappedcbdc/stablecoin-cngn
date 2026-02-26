@@ -1,59 +1,75 @@
-# WrapCBDC stablecoin - cNGN
+# WrapCBDC Stablecoin — cNGN
+
 ## Abstract
+
 cNGN stands apart as the first regulated stablecoin in Africa. As a fully compliant digital asset, cNGN offers unparalleled trust and transparency, ensuring security for all users, institutions, and businesses.
 
-cNGN, fosters the expansion of fintechs, liquidity providers, and virtual asset entities in Nigeria's digital economy. This initiative is bolstered by regulatory approval under the SEC's Regulatory Incubation (RI) Program, significantly contributing to the growth of Nigeria's digital asset ecosystem.
+cNGN fosters the expansion of fintechs, liquidity providers, and virtual asset entities in Nigeria's digital economy. This initiative is bolstered by regulatory approval under the SEC's Regulatory Incubation (RI) Program, significantly contributing to the growth of Nigeria's digital asset ecosystem.
+
+---
 
 ## Architecture Overview
 
-The cNGN stablecoin implementation follows a modular architecture with the following key components:
 <img width="1463" height="683" alt="cngn smart contract high-level view" src="https://github.com/wrappedcbdc/stablecoin-cngn/blob/main/cNGN.technical.png" />
 
 ### Core Components
 
-1. **Cngn Token Contract**: ERC-20 compliant token with additional features for regulatory compliance, including:
-   - Pausable functionality for emergency situations
-   - Role-based access control for administrative functions
-   - Blacklisting capabilities for compliance requirements
-   - Meta-transaction support for gasless transactions
+**1. Cngn Token Contract**
+ERC-20 compliant token with additional features for regulatory compliance:
+- Pausable functionality for emergency situations
+- Role-based access control for administrative functions
+- Blacklisting capabilities for compliance requirements
+- Meta-transaction support for gasless transactions
 
-2. **Admin Contract**: Manages role-based access control for the ecosystem:
-   - Assigns and revokes roles (Admin, Minter, Blacklister, Pauser)
-   - Provides a centralized permission management system
-   - Implements multi-step processes for critical role changes
+**2. Admin Contract**
+Manages role-based access control for the ecosystem:
+- Assigns and revokes roles (Admin, Minter, Blacklister, Pauser)
+- Provides a centralized permission management system
+- Implements multi-step processes for critical role changes
 
-3. **Forwarder Contract**: Enables meta-transactions (gasless transactions):
-   - Verifies signatures from users
-   - Forwards transactions to the token contract
-   - Maintains nonce management to prevent replay attacks
+**3. Forwarder Contract**
+Enables meta-transactions (gasless transactions):
+- Verifies signatures from users
+- Forwards transactions to the token contract
+- Maintains nonce management to prevent replay attacks
+- Supports bridge-authorized execution via `executeByBridge`
 
-### Meta-Transaction Flow
+---
 
-The cNGN implementation supports gasless transactions through the ERC-2771 meta-transaction pattern:
+## Meta-Transaction Flow
 
-1. **User Signing**: A user signs a transaction request off-chain with their private key
-2. **Relayer Processing**: A relayer (service provider) submits the signed request to the Forwarder contract
-3. **Signature Verification**: The Forwarder verifies the signature and nonce
-4. **Transaction Execution**: Upon verification, the Forwarder calls the target function on the token contract
-5. **Context Recovery**: The token contract recovers the original sender's address using the trusted forwarder pattern
+cNGN supports gasless transactions through the ERC-2771 meta-transaction pattern:
 
-This approach allows users to interact with the cNGN token without needing to hold native tokens (ETH, MATIC, etc.) for gas fees.
+1. **User Signing** — A user signs a transaction request off-chain with their private key
+2. **Relayer Processing** — A relayer (service provider) submits the signed request to the Forwarder contract
+3. **Signature Verification** — The Forwarder verifies the signature and nonce
+4. **Transaction Execution** — Upon verification, the Forwarder calls the target function on the token contract
+5. **Context Recovery** — The token contract recovers the original sender's address using the trusted forwarder pattern
 
-### Role Management
+This allows users to interact with cNGN without needing to hold native tokens (ETH, MATIC, etc.) for gas fees.
+
+---
+
+## Role Management
 
 The cNGN ecosystem implements a comprehensive role-based access control system:
 
-- **Admin Role**: Can assign other roles and manage system-wide configurations
-- **Minter Role**: Authorized to mint new tokens and manage supply
-- **Blacklister Role**: Can add or remove addresses from the blacklist
-- **Pauser Role**: Can pause and unpause token transfers in emergency situations
+| Role | Permissions |
+|------|-------------|
+| **Admin** | Assigns other roles and manages system-wide configurations |
+| **Minter** | Authorized to mint new tokens and manage supply |
+| **Blacklister** | Can add or remove addresses from the blacklist |
+| **Pauser** | Can pause and unpause token transfers in emergency situations |
 
 Role transitions follow a secure process with appropriate checks and balances to prevent unauthorized access.
 
-## Blockchain
+---
+
+## Blockchain Deployments
+
 cNGN is currently deployed on the following blockchain protocols:
 
-### Main-Nets
+### Mainnets
 
 | Network | cNGN Contract Address |
 | ------- | ---------------------- |
@@ -90,15 +106,19 @@ cNGN is currently deployed on the following blockchain protocols:
    cd stablecoin-cngn
    ```
 
-2. Install dependencies:
+2. Install Foundry (if not already installed):
    ```bash
-   npm install
+   curl -L https://foundry.paradigm.xyz | bash
+   foundryup
    ```
 
-3. Set up environment variables:
-   - Create a `.env` file in the project root
-   - Add the following variables (replace with your values):
+3. Install dependencies:
+   ```bash
+   forge install
    ```
+
+4. Set up environment variables by creating a `.env` file in the project root:
+   ```env
    # Network RPC URLs
    POLYGON_TESTNET=https://rpc-amoy.polygon.technology
    BSC_TESTNET=https://data-seed-prebsc-1-s1.binance.org:8545
@@ -106,17 +126,17 @@ cNGN is currently deployed on the following blockchain protocols:
    ASSETCHAIN_TESTNET=https://testnet-rpc.assetchain.com
    ETH_TESTNET=https://sepolia.infura.io/v3/YOUR_INFURA_KEY
    TRON_TESTNET=https://api.shasta.trongrid.io
-   
+
    POLYGON_MAINNET=https://polygon-rpc.com
    ETH_MAINNET=https://mainnet.infura.io/v3/YOUR_INFURA_KEY
    BSC_MAINNET=https://bsc-dataseed.binance.org
    BASE_MAINNET=https://mainnet.base.org
    ASSETCHAIN_MAINNET=https://rpc.assetchain.com
-   
+
    # Private key (without 0x prefix)
    EVM_PRIVATE_KEY=your_private_key_here
-   
-   # API Keys for verification
+
+   # API Keys for contract verification
    ETH_API_KEY=your_etherscan_api_key
    POLYGON_API_KEY=your_polygonscan_api_key
    BSC_API_KEY=your_bscscan_api_key
@@ -125,51 +145,69 @@ cNGN is currently deployed on the following blockchain protocols:
 
 ### Running Tests
 
-The project uses Hardhat for testing. To run the test suite:
+The project uses [Foundry](https://book.getfoundry.sh/) for testing.
 
 ```bash
 # Run all tests
-npx hardhat test
+forge test
 
-# Run specific test file
-npx hardhat test ./test/Cngn.test.js
+# Run a specific test file
+forge test --match-path test/IntegrationTest.t.sol
+
+# Run a specific test function
+forge test --match-test test_FullMetaTransactionMintFlow
 
 # Run tests with gas reporting
-REPORT_GAS=true npx hardhat test
+forge test --gas-report
 
-# Run tests with coverage report
-npx hardhat coverage
+# Run tests with verbosity (useful for debugging)
+forge test -vvvv
 ```
 
-### Test Structure
+#### Test Coverage
 
-Tests are organized by contract functionality:
+End-to-end integration tests (`IntegrationTest.t.sol`) cover the full lifecycle of the contracts:
 
-- `Cngn.test.js`: Tests for basic ERC-20 functionality
-- `CngnAdmin.test.js`: Tests for role management and administrative functions
-- `CngnBlacklist.test.js`: Tests for blacklisting functionality
-- `CngnForwarder.test.js`: Tests for meta-transaction functionality
-- `CngnPause.test.js`: Tests for pause/unpause functionality
+| Test | Description |
+|---|---|
+| `test_FullMetaTransactionMintFlow` | Full meta-transaction mint via Forwarder |
+| `test_MetaTransactionFailsIfAdminBlocksMinter` | Revoked minter cannot mint via meta-tx |
+| `test_MetaTransactionTransfer` | Gasless token transfer |
+| `test_MetaTransactionBurn` | Gasless token burn |
+| `test_BlacklistBlocksAllOperations` | Blacklist blocks transfers, burns, and meta-txs |
+| `test_RedemptionFlowWithMetaTransaction` | External-to-internal transfer triggers burn |
+| `test_AdminCanDestroyBlacklistedFunds` | Admin can destroy blacklisted user funds |
+| `test_BridgeCanExecuteMetaTransactions` | Bridge-authorized meta-transaction execution |
+| `test_NonceManagementPreventsReplay` | Replay attack prevention via nonce tracking |
+| `test_PauseCascades` | Pause propagates across Admin, Token, and Forwarder |
+| `test_ComplexWorkflow` | Mint, transfer, approve, and transferFrom flow |
+| `test_InternalUserCanOnlyReceiveRedemption` | Internal user transfer behaviour |
+| `test_MultipleMinters` | Multiple independent minters operate correctly |
+| `test_RemoveAndReAddForwarder` | Forwarder role revocation and re-grant |
+| `test_TrustedContractCanManageAdminOperations` | Trusted contract delegates admin operations |
+| `test_WhitelistBlacklistExternalSender` | External sender whitelist management |
+| `test_MintAmountManagement` | Per-minter mint limit lifecycle |
+| `test_EndToEndStressTest` | Multi-user stress test across all operations |
 
 ### Deployment
 
-To deploy contracts to a network:
-
 ```bash
 # Deploy to testnet
-npx hardhat run scripts/deploy.js --network sepolia
+forge script script/Deploy.s.sol --rpc-url $ETH_TESTNET --broadcast
 
 # Deploy to mainnet (use with caution)
-npx hardhat run scripts/deploy.js --network mainnet
+forge script script/Deploy.s.sol --rpc-url $ETH_MAINNET --broadcast
 ```
 
-### Verification
+### Contract Verification
 
-After deployment, verify contract source code:
+After deployment, verify the contract source code on the block explorer:
 
 ```bash
-npx hardhat verify --network sepolia DEPLOYED_CONTRACT_ADDRESS
+forge verify-contract DEPLOYED_CONTRACT_ADDRESS src/Cngn3.sol:Cngn3 --chain sepolia --etherscan-api-key $ETH_API_KEY
 ```
+
+---
 
 ## Security Considerations
 
@@ -177,7 +215,12 @@ npx hardhat verify --network sepolia DEPLOYED_CONTRACT_ADDRESS
 - Use separate development and production keys
 - Follow the principle of least privilege when assigning roles
 - Thoroughly test all functionality before mainnet deployment
-- Consider professional security audits for production deployments
+- Consider a professional security audit before production deployment
+- Blacklisted addresses are blocked at both the token and forwarder level
+- Replay attacks are prevented via per-address nonce tracking in the Forwarder
+
+---
 
 ## License
-Software license can be found [here](https://github.com/wrappedcbdc/stablecoin/blob/main/LICENSE)
+
+Software license can be found [here](https://github.com/wrappedcbdc/stablecoin/blob/main/LICENSE).
