@@ -232,7 +232,7 @@ export async function createMintAccountWithExtensions(
 export const Cngnparams = {
   name: "CNGN",
   symbol: "cNGN",
-  uri: "https://aqua-changing-meadowlark-684.mypinata.cloud/ipfs/bafkreiesa7z3kyazntetn6ce257tax4wipnlx6ss3ahajpn5l7f33rwfsy", // You can update this with a JSON URI later
+  uri: "https://aqua-changing-meadowlark-684.mypinata.cloud/ipfs/bafkreiesa7z3kyazntetn6ce257tax4wipnlx6ss3ahajpn5l7f33rwfsy", 
   sellerFeeBasisPoints: 0,
   creators: null,
   collection: null,
