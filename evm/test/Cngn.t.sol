@@ -177,7 +177,7 @@ contract Cngn3Test is Test {
 
         // Try to transfer
         vm.prank(user1);
-        vm.expectRevert("Recipient is blacklisted");
+        vm.expectRevert("recipient is blacklisted");
         cngn.transfer(user2, 500e6);
     }
 

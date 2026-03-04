@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import "./IOperations.sol";
 
 contract Cngn3 is
     Initializable,
-    ERC20Upgradeable,
     OwnableUpgradeable,
+    IERC20Upgradeable,
+    IERC20MetadataUpgradeable,
     PausableUpgradeable,
-    ReentrancyGuardUpgradeable
+    ReentrancyGuardUpgradeable 
 {
     event DestroyedBlackFunds(address indexed user, uint256 amount);
     event UpdateAdminOperations(
@@ -44,7 +45,25 @@ contract Cngn3 is
         _;
     }
 
-    // constructor() initializer {}
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    // constructor() {
+    //     _disableInitializers();
+    // }
+
+    function __ERC20_init(
+        string memory name_,
+        string memory symbol_
+    ) internal onlyInitializing {
+        __ERC20_init_unchained(name_, symbol_);
+    }
+
+    function __ERC20_init_unchained(
+        string memory name_,
+        string memory symbol_
+    ) internal onlyInitializing {
+        _name = name_;
+        _symbol = symbol_;
+    }
 
     function initialize(
         address _trustedForwarderContract,
@@ -54,7 +73,6 @@ contract Cngn3 is
         __Ownable_init();
         __Pausable_init();
         __ReentrancyGuard_init();
-
         trustedForwarderContract = _trustedForwarderContract;
         adminOperationsContract = _adminOperationsContract;
     }
@@ -90,8 +108,26 @@ contract Cngn3 is
         return true;
     }
 
+    function name() public view virtual override returns (string memory) {
+        return _name;
+    }
+
+    function symbol() public view virtual override returns (string memory) {
+        return _symbol;
+    }
+
     function decimals() public view virtual override returns (uint8) {
         return 6;
+    }
+
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply;
+    }
+
+    function balanceOf(
+        address account
+    ) public view virtual override returns (uint256) {
+        return _balances[account];
     }
 
     /**
@@ -131,6 +167,7 @@ contract Cngn3 is
             _transfer(owner, to, amount);
             _burn(to, amount);
         } else {
+            // Standard transfer
             _transfer(owner, to, amount);
         }
 
@@ -139,6 +176,10 @@ contract Cngn3 is
 
     /**
      * @dev Transfers tokens from one address to another using the allowance mechanism.
+     *
+     * Special case: If the recipient is an internal whitelisted user and the original sender (from)
+     * is an external whitelisted sender, the tokens are transferred and then immediately burned.
+     * This represents a redemption flow.
      *
      * @param from The address to transfer from
      * @param to The address to transfer to
@@ -166,6 +207,8 @@ contract Cngn3 is
             "Recipient is blacklisted"
         );
         _spendAllowance(from, spender, amount);
+        
+        // Special case: Redemption flow
         if (
             IAdmin(adminOperationsContract).isInternalUserWhitelisted(to) &&
             IAdmin(adminOperationsContract).isExternalSenderWhitelisted(from)
@@ -200,7 +243,7 @@ contract Cngn3 is
         );
         require(
             !IAdmin(adminOperationsContract).isBlackListed(_mintTo),
-            "receiver is blacklisted"
+            "Receiver is blacklisted"
         );
         require(
             IAdmin(adminOperationsContract).canMint(sender),
@@ -249,6 +292,107 @@ contract Cngn3 is
         return true;
     }
 
+    function _transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+
+        _beforeTokenTransfer(from, to, amount);
+
+        uint256 fromBalance = _balances[from];
+        require(
+            fromBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
+        unchecked {
+            _balances[from] = fromBalance - amount;
+            _balances[to] += amount;
+        }
+
+        emit Transfer(from, to, amount);
+
+        _afterTokenTransfer(from, to, amount);
+    }
+
+    function _mint(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: mint to the zero address");
+
+        _beforeTokenTransfer(address(0), account, amount);
+
+        _totalSupply += amount;
+        unchecked {
+            _balances[account] += amount;
+        }
+        emit Transfer(address(0), account, amount);
+
+        _afterTokenTransfer(address(0), account, amount);
+    }
+
+    function _burn(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: burn from the zero address");
+
+        _beforeTokenTransfer(account, address(0), amount);
+
+        uint256 accountBalance = _balances[account];
+        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
+        unchecked {
+            _balances[account] = accountBalance - amount;
+            _totalSupply -= amount;
+        }
+
+        emit Transfer(account, address(0), amount);
+
+        _afterTokenTransfer(account, address(0), amount);
+    }
+
+    function allowance(
+        address owner,
+        address spender
+    ) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function approve(
+        address spender,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, amount);
+        return true;
+    }
+
+    function _approve(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            require(
+                currentAllowance >= amount,
+                "ERC20: insufficient allowance"
+            );
+            unchecked {
+                _approve(owner, spender, currentAllowance - amount);
+            }
+        }
+    }
+
     function destroyBlackFunds(
         address _blackListedUser
     ) public virtual onlyOwner nonReentrant returns (bool) {
@@ -293,6 +437,26 @@ contract Cngn3 is
             return msg.data;
         }
     }
+
+    /**
+     * @dev Hook that is called before any token transfer.
+     * The contract must not be paused.
+     */
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual whenNotPaused {}
+
+    /**
+     * @dev Hook that is called after any token transfer.
+     * Can be used to implement additional logic after transfers.
+     */
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
 
     //  Preserved variables from V1 — Do NOT remove or reorder
     mapping(address => uint256) private _balances;
