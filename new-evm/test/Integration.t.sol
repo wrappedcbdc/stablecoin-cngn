@@ -2,13 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import "../src/Cngn3.sol";
-import "../src/Operations2.sol";
+import "../src/Cngn.sol";
+import "../src/Operations.sol";
 import "../src/Forwarder.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 contract IntegrationTest is Test {
-    Cngn3 public cngn;
-    Admin2 public admin;
+    Cngn public cngn;
+    Admin public admin;
     Forwarder public forwarder;
 
     address public owner;
@@ -31,22 +31,22 @@ contract IntegrationTest is Test {
         bridge = makeAddr("bridge");
 
         // Deploy contracts
-       Admin2 adminImpl = new Admin2();
+        Admin adminImpl = new Admin();
         bytes memory adminInitData = abi.encodeWithSelector(
-            Admin2.initialize.selector
+            Admin.initialize.selector
         );
         ERC1967Proxy adminProxy = new ERC1967Proxy(
             address(adminImpl),
             adminInitData
         );
-        admin = Admin2(address(adminProxy));
+        admin = Admin(address(adminProxy));
 
         forwarder = new Forwarder(address(admin));
         forwarder.authorizeBridge(bridge);
 
- Cngn3 cngnImpl = new Cngn3();
+        Cngn cngnImpl = new Cngn();
         bytes memory cngnInitData = abi.encodeWithSelector(
-            Cngn3.initialize.selector,
+            Cngn.initialize.selector,
             address(forwarder),
             address(admin)
         );
@@ -54,7 +54,7 @@ contract IntegrationTest is Test {
             address(cngnImpl),
             cngnInitData
         );
-        cngn = Cngn3(address(cngnProxy));
+        cngn = Cngn(address(cngnProxy));
 
         // Setup roles
         admin.addTrustedContract(address(cngn));
@@ -65,15 +65,18 @@ contract IntegrationTest is Test {
     }
 
     function _getDomainSeparator() internal view returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes("cNGN")),
-                keccak256(bytes("0.0.1")),
-                block.chainid,
-                address(forwarder)
-            )
-        );
+        return
+            keccak256(
+                abi.encode(
+                    keccak256(
+                        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                    ),
+                    keccak256(bytes("cNGN")),
+                    keccak256(bytes("0.0.1")),
+                    block.chainid,
+                    address(forwarder)
+                )
+            );
     }
 
     function _createSignature(
@@ -95,11 +98,7 @@ contract IntegrationTest is Test {
         );
 
         bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                _getDomainSeparator(),
-                structHash
-            )
+            abi.encodePacked("\x19\x01", _getDomainSeparator(), structHash)
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
@@ -110,7 +109,11 @@ contract IntegrationTest is Test {
     function test_FullMetaTransactionMintFlow() public {
         admin.addMintAmount(minter, 1000e6);
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, user1);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            user1
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,
@@ -135,7 +138,11 @@ contract IntegrationTest is Test {
         admin.addMintAmount(minter, 1000e6);
         admin.removeCanMint(minter);
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, user1);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            user1
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,
@@ -162,7 +169,11 @@ contract IntegrationTest is Test {
         cngn.mint(1000e6, minter);
 
         // Now transfer via meta-transaction
-        bytes memory data = abi.encodeWithSelector(cngn.transfer.selector, user1, 500e6);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.transfer.selector,
+            user1,
+            500e6
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,
@@ -190,7 +201,10 @@ contract IntegrationTest is Test {
         cngn.mint(1000e6, minter);
 
         // Now burn via meta-transaction
-        bytes memory data = abi.encodeWithSelector(cngn.burnByUser.selector, 500e6);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.burnByUser.selector,
+            500e6
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,
@@ -231,7 +245,11 @@ contract IntegrationTest is Test {
         cngn.burnByUser(100e6);
 
         // Try meta-transaction - should fail
-        bytes memory data = abi.encodeWithSelector(cngn.transfer.selector, user1, 100e6);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.transfer.selector,
+            user1,
+            100e6
+        );
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,
             to: address(cngn),
@@ -287,7 +305,11 @@ contract IntegrationTest is Test {
     function test_BridgeCanExecuteMetaTransactions() public {
         admin.addMintAmount(minter, 1000e6);
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, user1);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            user1
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,
@@ -312,7 +334,11 @@ contract IntegrationTest is Test {
         admin.addMintAmount(minter, 100e6);
 
         // First transaction
-        bytes memory data1 = abi.encodeWithSelector(cngn.mint.selector, 100e6, user1);
+        bytes memory data1 = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            user1
+        );
         Forwarder.ForwardRequest memory req1 = Forwarder.ForwardRequest({
             from: minter,
             to: address(cngn),
@@ -329,9 +355,13 @@ contract IntegrationTest is Test {
         forwarder.execute(req1, sig1);
 
         // Second transaction with correct nonce
-        admin.addCanMint(minter); 
+        admin.addCanMint(minter);
         admin.addMintAmount(minter, 200e6);
-        bytes memory data2 = abi.encodeWithSelector(cngn.mint.selector, 200e6, user2);
+        bytes memory data2 = abi.encodeWithSelector(
+            cngn.mint.selector,
+            200e6,
+            user2
+        );
         Forwarder.ForwardRequest memory req2 = Forwarder.ForwardRequest({
             from: minter,
             to: address(cngn),
@@ -376,7 +406,11 @@ contract IntegrationTest is Test {
         forwarder.pause();
 
         // Meta-transactions should fail
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, user1);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            user1
+        );
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,
             to: address(cngn),
@@ -390,8 +424,6 @@ contract IntegrationTest is Test {
         vm.expectRevert("Pausable: paused");
         forwarder.execute(req, signature);
     }
-
- 
 
     // Test 12: Complex workflow - mint, transfer, approve, transferFrom
     function test_ComplexWorkflow() public {
@@ -436,7 +468,6 @@ contract IntegrationTest is Test {
     function test_MultipleMinters() public {
         address minter2 = makeAddr("minter2");
 
-
         admin.addMintAmount(minter, 500e6);
 
         admin.addCanMint(minter2);
@@ -462,7 +493,11 @@ contract IntegrationTest is Test {
 
         // Try to execute meta-transaction - should fail
         admin.addMintAmount(minter, 1000e6);
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, user1);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            user1
+        );
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,
             to: address(cngn),
@@ -506,7 +541,11 @@ contract IntegrationTest is Test {
     function test_ForwarderWithEtherValue() public {
         admin.addMintAmount(minter, 1000e6);
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, user1);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            user1
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: minter,

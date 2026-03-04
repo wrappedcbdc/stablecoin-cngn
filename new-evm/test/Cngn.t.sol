@@ -2,14 +2,14 @@
 pragma solidity ^0.8.4;
 
 import "forge-std/Test.sol";
-import "../src/Cngn3.sol";
-import "../src/Operations2.sol";
+import "../src/Cngn.sol";
+import "../src/Operations.sol";
 import "../src/Forwarder.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract Cngn3Test is Test {
-    Cngn3 public cngn;
-    Admin2 public admin;
+contract CngnTest is Test {
+    Cngn public cngn;
+    Admin public admin;
     Forwarder public forwarder;
 
     address public owner;
@@ -39,24 +39,24 @@ contract Cngn3Test is Test {
         internalUser = makeAddr("internalUser");
         externalUser = makeAddr("externalUser");
 
-        // Deploy Admin2 behind a proxy
-        Admin2 adminImpl = new Admin2();
+        // Deploy Admin behind a proxy
+        Admin adminImpl = new Admin();
         bytes memory adminInitData = abi.encodeWithSelector(
-            Admin2.initialize.selector
+            Admin.initialize.selector
         );
         ERC1967Proxy adminProxy = new ERC1967Proxy(
             address(adminImpl),
             adminInitData
         );
-        admin = Admin2(address(adminProxy));
+        admin = Admin(address(adminProxy));
 
         // Deploy Forwarder contract
         forwarder = new Forwarder(address(admin));
 
-        // Deploy Cngn3 behind a proxy
-        Cngn3 cngnImpl = new Cngn3();
+        // Deploy Cngn behind a proxy
+        Cngn cngnImpl = new Cngn();
         bytes memory cngnInitData = abi.encodeWithSelector(
-            Cngn3.initialize.selector,
+            Cngn.initialize.selector,
             address(forwarder),
             address(admin)
         );
@@ -64,7 +64,7 @@ contract Cngn3Test is Test {
             address(cngnImpl),
             cngnInitData
         );
-        cngn = Cngn3(address(cngnProxy));
+        cngn = Cngn(address(cngnProxy));
 
         // Setup roles
         admin.addTrustedContract(address(cngn));
@@ -146,7 +146,7 @@ contract Cngn3Test is Test {
         admin.addBlackList(user1);
 
         vm.prank(minter);
-        vm.expectRevert("Receiver is blacklisted");
+        vm.expectRevert("receiver is blacklisted");
         cngn.mint(1000e6, user1);
     }
 

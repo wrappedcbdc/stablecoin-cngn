@@ -9,7 +9,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "./IOperations.sol";
 
-contract Cngn3 is
+contract Cngn is
     Initializable,
     ERC20Upgradeable,
     OwnableUpgradeable,

@@ -3,15 +3,15 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "../src/Forwarder.sol";
-import "../src/Operations2.sol";
-import "../src/Cngn3.sol";
+import "../src/Operations.sol";
+import "../src/Cngn.sol";
 import "forge-std/Vm.sol";
 import "forge-std/console.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 contract ForwarderTest is Test {
     Forwarder public forwarder;
-    Admin2 public admin;
-    Cngn3 public cngn;
+    Admin public admin;
+    Cngn public cngn;
 
     address public owner;
     address public signer;
@@ -35,23 +35,23 @@ contract ForwarderTest is Test {
         recipient = makeAddr("recipient");
 
         // Deploy Admin
-       Admin2 adminImpl = new Admin2();
+       Admin adminImpl = new Admin();
         bytes memory adminInitData = abi.encodeWithSelector(
-            Admin2.initialize.selector
+            Admin.initialize.selector
         );
         ERC1967Proxy adminProxy = new ERC1967Proxy(
             address(adminImpl),
             adminInitData
         );
-        admin = Admin2(address(adminProxy));
+        admin = Admin(address(adminProxy));
 
         // Deploy Forwarder
         forwarder = new Forwarder(address(admin));
 
-        // Deploy Cngn3
-        Cngn3 cngnImpl = new Cngn3();
+        // Deploy Cngn
+        Cngn cngnImpl = new Cngn();
         bytes memory cngnInitData = abi.encodeWithSelector(
-            Cngn3.initialize.selector,
+            Cngn.initialize.selector,
             address(forwarder),
             address(admin)
         );
@@ -59,7 +59,7 @@ contract ForwarderTest is Test {
             address(cngnImpl),
             cngnInitData
         );
-        cngn = Cngn3(address(cngnProxy));
+        cngn = Cngn(address(cngnProxy));
 
         // Setup roles
         admin.addTrustedContract(address(cngn));

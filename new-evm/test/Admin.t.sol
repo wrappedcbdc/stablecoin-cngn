@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import "../src/Operations2.sol";
+import "../src/Operations.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract Admin2Test is Test {
-    Admin2 public admin;
+contract AdminTest is Test {
+    Admin public admin;
 
     address public owner;
     address public user1;
@@ -34,20 +34,19 @@ contract Admin2Test is Test {
         user2 = makeAddr("user2");
         trustedContract = makeAddr("trustedContract");
 
-       Admin2 adminImpl = new Admin2();
+        Admin adminImpl = new Admin();
         bytes memory adminInitData = abi.encodeWithSelector(
-            Admin2.initialize.selector
+            Admin.initialize.selector
         );
         ERC1967Proxy adminProxy = new ERC1967Proxy(
             address(adminImpl),
             adminInitData
         );
-        admin = Admin2(address(adminProxy));
+        admin = Admin(address(adminProxy));
     }
 
     // Test 1: Initialize contract properly
     function test_Initialize() public {
-       
         assertEq(admin.owner(), address(this));
         assertTrue(admin.canForward(address(this)));
         assertTrue(admin.canMint(address(this)));
