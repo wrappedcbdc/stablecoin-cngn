@@ -5,7 +5,9 @@ import "forge-std/Test.sol";
 import "../src/Forwarder.sol";
 import "../src/Operations2.sol";
 import "../src/Cngn3.sol";
-
+import "forge-std/Vm.sol";
+import "forge-std/console.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 contract ForwarderTest is Test {
     Forwarder public forwarder;
     Admin2 public admin;
@@ -23,7 +25,7 @@ contract ForwarderTest is Test {
     event AdminOperationsAddressUpdated(address indexed newAdminAddress);
     event Executed(address indexed relayer, bool success, bytes returnData);
     event NonceIncremented(address indexed from, uint256 newNonce);
-
+    event Transfer(address indexed from, address indexed to, uint256 value);
     function setUp() public {
         owner = address(this);
         signerPrivateKey = 0xA11CE;
@@ -33,15 +35,31 @@ contract ForwarderTest is Test {
         recipient = makeAddr("recipient");
 
         // Deploy Admin
-        admin = new Admin2();
-        admin.initialize();
+       Admin2 adminImpl = new Admin2();
+        bytes memory adminInitData = abi.encodeWithSelector(
+            Admin2.initialize.selector
+        );
+        ERC1967Proxy adminProxy = new ERC1967Proxy(
+            address(adminImpl),
+            adminInitData
+        );
+        admin = Admin2(address(adminProxy));
 
         // Deploy Forwarder
         forwarder = new Forwarder(address(admin));
 
         // Deploy Cngn3
-        cngn = new Cngn3();
-        cngn.initialize(address(forwarder), address(admin));
+        Cngn3 cngnImpl = new Cngn3();
+        bytes memory cngnInitData = abi.encodeWithSelector(
+            Cngn3.initialize.selector,
+            address(forwarder),
+            address(admin)
+        );
+        ERC1967Proxy cngnProxy = new ERC1967Proxy(
+            address(cngnImpl),
+            cngnInitData
+        );
+        cngn = Cngn3(address(cngnProxy));
 
         // Setup roles
         admin.addTrustedContract(address(cngn));
@@ -54,15 +72,18 @@ contract ForwarderTest is Test {
     }
 
     function _getDomainSeparator() internal view returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes("cNGN")),
-                keccak256(bytes("0.0.1")),
-                block.chainid,
-                address(forwarder)
-            )
-        );
+        return
+            keccak256(
+                abi.encode(
+                    keccak256(
+                        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                    ),
+                    keccak256(bytes("cNGN")),
+                    keccak256(bytes("0.0.1")),
+                    block.chainid,
+                    address(forwarder)
+                )
+            );
     }
 
     function _createSignature(
@@ -84,11 +105,7 @@ contract ForwarderTest is Test {
         );
 
         bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                _getDomainSeparator(),
-                structHash
-            )
+            abi.encodePacked("\x19\x01", _getDomainSeparator(), structHash)
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
@@ -120,11 +137,13 @@ contract ForwarderTest is Test {
         assertFalse(forwarder.authorizedBridges(bridge));
     }
 
- 
-
     // Test 5: Verify valid signature and nonce
     function test_VerifyValidSignature() public view {
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -142,7 +161,11 @@ contract ForwarderTest is Test {
 
     // Test 6: Verify fails with wrong nonce
     function test_VerifyFailsWithWrongNonce() public view {
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -161,9 +184,13 @@ contract ForwarderTest is Test {
     // Test 7: Verify fails with wrong signer
     function test_VerifyFailsWithWrongSigner() public view {
         uint256 wrongPrivateKey = 0xB0B;
-       // address wrongSigner = vm.addr(wrongPrivateKey);
+        // address wrongSigner = vm.addr(wrongPrivateKey);
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer, // Claims to be signer
@@ -181,7 +208,11 @@ contract ForwarderTest is Test {
 
     // Test 8: Execute meta-transaction successfully by owner
     function test_ExecuteByOwner() public {
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -203,7 +234,11 @@ contract ForwarderTest is Test {
 
     // Test 9: Execute meta-transaction successfully by bridge
     function test_ExecuteByBridge() public {
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -227,7 +262,11 @@ contract ForwarderTest is Test {
     // Test 10: Execute fails with unauthorized bridge
     function test_ExecuteFailsWithUnauthorizedBridge() public {
         address unauthorizedBridge = makeAddr("unauthorizedBridge");
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -251,7 +290,11 @@ contract ForwarderTest is Test {
         uint256 notAllowedKey = 0xBAD;
         notAllowed = vm.addr(notAllowedKey);
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: notAllowed,
@@ -272,7 +315,11 @@ contract ForwarderTest is Test {
     function test_ExecuteFailsIfRelayerBlacklisted() public {
         admin.addBlackList(owner);
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -293,7 +340,11 @@ contract ForwarderTest is Test {
     function test_ExecuteFailsIfSignerBlacklisted() public {
         admin.addBlackList(signer);
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -312,7 +363,11 @@ contract ForwarderTest is Test {
 
     // Test 14: Execute fails with invalid signature
     function test_ExecuteFailsWithInvalidSignature() public {
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -323,7 +378,11 @@ contract ForwarderTest is Test {
             data: data
         });
 
-        bytes memory invalidSignature = abi.encodePacked(bytes32(0), bytes32(0), uint8(27));
+        bytes memory invalidSignature = abi.encodePacked(
+            bytes32(0),
+            bytes32(0),
+            uint8(27)
+        );
 
         vm.expectRevert("ECDSA: invalid signature");
         forwarder.execute(req, invalidSignature);
@@ -331,7 +390,11 @@ contract ForwarderTest is Test {
 
     // Test 15: Execute fails with replay attack
     function test_ExecuteFailsWithReplayAttack() public {
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -354,7 +417,11 @@ contract ForwarderTest is Test {
 
     // Test 16: Execute increments nonce correctly
     function test_ExecuteIncrementsNonce() public {
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
@@ -376,8 +443,15 @@ contract ForwarderTest is Test {
 
     // Test 17: Multiple sequential transactions work correctly
     function test_MultipleSequentialTransactions() public {
-        // First transaction
-        bytes memory data1 = abi.encodeWithSelector(cngn.mint.selector, 1000e6, recipient);
+        vm.recordLogs();
+
+        // ── First transaction ────────────────────────────────────────────────
+        bytes memory data1 = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            recipient
+        );
+
         Forwarder.ForwardRequest memory req1 = Forwarder.ForwardRequest({
             from: signer,
             to: address(cngn),
@@ -386,24 +460,57 @@ contract ForwarderTest is Test {
             nonce: 0,
             data: data1
         });
+
         bytes memory sig1 = _createSignature(req1, signerPrivateKey);
         forwarder.execute(req1, sig1);
 
-        // Second transaction
-        admin.addCanMint(signer);  
+        // ── Second transaction ───────────────────────────────────────────────
+        admin.addCanMint(signer);
         admin.addMintAmount(signer, 200e6);
-        bytes memory data2 = abi.encodeWithSelector(cngn.mint.selector, 200e6, recipient);
+
+        bytes memory data2 = abi.encodeWithSelector(
+            cngn.mint.selector,
+            200e6,
+            recipient
+        );
+
         Forwarder.ForwardRequest memory req2 = Forwarder.ForwardRequest({
             from: signer,
             to: address(cngn),
             value: 0,
             gas: 1000000,
-            nonce: 1, // Incremented nonce
+            nonce: 1,
             data: data2
         });
+
         bytes memory sig2 = _createSignature(req2, signerPrivateKey);
+        //vm.expectEmit();
+       // emit Transfer(address(0), recipient, 200e6);
         forwarder.execute(req2, sig2);
 
+        // ── Parse logs ────────────────────────────────────────────────────────
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 transferSig = keccak256("Transfer(address,address,uint256)");
+
+        uint256 totalMinted;
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == transferSig) {
+                address from = address(uint160(uint256(logs[i].topics[1])));
+                address to = address(uint160(uint256(logs[i].topics[2])));
+                uint256 amount = abi.decode(logs[i].data, (uint256));
+
+                // Only count mint events
+                if (from == address(0) && to == recipient) {
+                    totalMinted += amount;
+                }
+
+                console.log("Transfer event from:",from);
+            }
+        }
+
+        assertEq(totalMinted, 1200e6);
         assertEq(cngn.balanceOf(recipient), 1200e6);
         assertEq(forwarder.getNonce(signer), 2);
     }
@@ -413,7 +520,11 @@ contract ForwarderTest is Test {
         // Pause
         forwarder.pause();
 
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 1000e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            1000e6,
+            recipient
+        );
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,
             to: address(cngn),
@@ -449,7 +560,11 @@ contract ForwarderTest is Test {
 
     // Test 20: Execute emits correct event
     function test_ExecuteEmitsEvent() public {
-        bytes memory data = abi.encodeWithSelector(cngn.mint.selector, 100e6, recipient);
+        bytes memory data = abi.encodeWithSelector(
+            cngn.mint.selector,
+            100e6,
+            recipient
+        );
 
         Forwarder.ForwardRequest memory req = Forwarder.ForwardRequest({
             from: signer,

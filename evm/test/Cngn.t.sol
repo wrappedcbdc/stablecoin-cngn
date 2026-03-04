@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/Cngn3.sol";
 import "../src/Operations2.sol";
 import "../src/Forwarder.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract Cngn3Test is Test {
     Cngn3 public cngn;
@@ -29,7 +30,7 @@ contract Cngn3Test is Test {
         address indexed newAddress
     );
 
-    function setUp() public {
+       function setUp() public {
         owner = address(this);
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
@@ -38,16 +39,32 @@ contract Cngn3Test is Test {
         internalUser = makeAddr("internalUser");
         externalUser = makeAddr("externalUser");
 
-        // Deploy Admin contract
-        admin = new Admin2();
-        admin.initialize();
+        // Deploy Admin2 behind a proxy
+        Admin2 adminImpl = new Admin2();
+        bytes memory adminInitData = abi.encodeWithSelector(
+            Admin2.initialize.selector
+        );
+        ERC1967Proxy adminProxy = new ERC1967Proxy(
+            address(adminImpl),
+            adminInitData
+        );
+        admin = Admin2(address(adminProxy));
 
         // Deploy Forwarder contract
         forwarder = new Forwarder(address(admin));
 
-        // Deploy Cngn3 contract
-        cngn = new Cngn3();
-        cngn.initialize(address(forwarder), address(admin));
+        // Deploy Cngn3 behind a proxy
+        Cngn3 cngnImpl = new Cngn3();
+        bytes memory cngnInitData = abi.encodeWithSelector(
+            Cngn3.initialize.selector,
+            address(forwarder),
+            address(admin)
+        );
+        ERC1967Proxy cngnProxy = new ERC1967Proxy(
+            address(cngnImpl),
+            cngnInitData
+        );
+        cngn = Cngn3(address(cngnProxy));
 
         // Setup roles
         admin.addTrustedContract(address(cngn));
@@ -59,17 +76,14 @@ contract Cngn3Test is Test {
 
     // Test 1: Initialize contract properly
     function test_Initialize() public {
-        Cngn3 newCngn = new Cngn3();
-        Admin2 newAdmin = new Admin2();
-        newAdmin.initialize();
-        Forwarder newForwarder = new Forwarder(address(newAdmin));
+     
+       
+        Forwarder newForwarder = new Forwarder(address(admin));
 
-        newCngn.initialize(address(newForwarder), address(newAdmin));
-
-        assertEq(newCngn.name(), "cNGN");
-        assertEq(newCngn.symbol(), "cNGN");
-        assertEq(newCngn.decimals(), 6);
-        assertEq(newCngn.owner(), address(this));
+        assertEq(cngn.name(), "cNGN");
+        assertEq(cngn.symbol(), "cNGN");
+        assertEq(cngn.decimals(), 6);
+        assertEq(cngn.owner(), address(this));
     }
 
     // Test 2: Cannot initialize twice
@@ -132,7 +146,7 @@ contract Cngn3Test is Test {
         admin.addBlackList(user1);
 
         vm.prank(minter);
-        vm.expectRevert("receiver is blacklisted");
+        vm.expectRevert("Receiver is blacklisted");
         cngn.mint(1000e6, user1);
     }
 
@@ -317,9 +331,9 @@ contract Cngn3Test is Test {
 
     // Test 20: Update admin operations and forwarder contracts
     function test_UpdateContracts() public {
-        Admin2 newAdmin = new Admin2();
-        newAdmin.initialize();
-        Forwarder newForwarder = new Forwarder(address(newAdmin));
+     
+
+        Forwarder newForwarder = new Forwarder(address(admin));
 
         // Update forwarder
         vm.expectEmit(true, true, false, false);
