@@ -46,9 +46,9 @@ contract Cngn3 is
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    // constructor() {
-    //     _disableInitializers();
-    // }
+    constructor() {
+        _disableInitializers();
+    }
 
     function __ERC20_init(
         string memory name_,

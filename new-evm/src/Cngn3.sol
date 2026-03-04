@@ -44,7 +44,9 @@ contract Cngn3 is
         _;
     }
 
-    // constructor() initializer {}
+     constructor() {
+        _disableInitializers();
+    }
 
     function initialize(
         address _trustedForwarderContract,

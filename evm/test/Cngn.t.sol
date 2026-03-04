@@ -132,7 +132,7 @@ contract Cngn3Test is Test {
         admin.addBlackList(user1);
 
         vm.prank(minter);
-        vm.expectRevert("receiver is blacklisted");
+        vm.expectRevert("Receiver is blacklisted");
         cngn.mint(1000e6, user1);
     }
 
@@ -177,7 +177,7 @@ contract Cngn3Test is Test {
 
         // Try to transfer
         vm.prank(user1);
-        vm.expectRevert("recipient is blacklisted");
+        vm.expectRevert("Recipient is blacklisted");
         cngn.transfer(user2, 500e6);
     }
 
