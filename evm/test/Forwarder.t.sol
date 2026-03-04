@@ -7,7 +7,7 @@ import "../src/Operations2.sol";
 import "../src/Cngn3.sol";
 import "forge-std/Vm.sol";
 import "forge-std/console.sol";
-
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 contract ForwarderTest is Test {
     Forwarder public forwarder;
     Admin2 public admin;
@@ -35,15 +35,31 @@ contract ForwarderTest is Test {
         recipient = makeAddr("recipient");
 
         // Deploy Admin
-        admin = new Admin2();
-        admin.initialize();
+       Admin2 adminImpl = new Admin2();
+        bytes memory adminInitData = abi.encodeWithSelector(
+            Admin2.initialize.selector
+        );
+        ERC1967Proxy adminProxy = new ERC1967Proxy(
+            address(adminImpl),
+            adminInitData
+        );
+        admin = Admin2(address(adminProxy));
 
         // Deploy Forwarder
         forwarder = new Forwarder(address(admin));
 
         // Deploy Cngn3
-        cngn = new Cngn3();
-        cngn.initialize(address(forwarder), address(admin));
+        Cngn3 cngnImpl = new Cngn3();
+        bytes memory cngnInitData = abi.encodeWithSelector(
+            Cngn3.initialize.selector,
+            address(forwarder),
+            address(admin)
+        );
+        ERC1967Proxy cngnProxy = new ERC1967Proxy(
+            address(cngnImpl),
+            cngnInitData
+        );
+        cngn = Cngn3(address(cngnProxy));
 
         // Setup roles
         admin.addTrustedContract(address(cngn));

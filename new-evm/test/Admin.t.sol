@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "../src/Operations2.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract Admin2Test is Test {
     Admin2 public admin;
@@ -33,18 +34,23 @@ contract Admin2Test is Test {
         user2 = makeAddr("user2");
         trustedContract = makeAddr("trustedContract");
 
-        admin = new Admin2();
-        admin.initialize();
+       Admin2 adminImpl = new Admin2();
+        bytes memory adminInitData = abi.encodeWithSelector(
+            Admin2.initialize.selector
+        );
+        ERC1967Proxy adminProxy = new ERC1967Proxy(
+            address(adminImpl),
+            adminInitData
+        );
+        admin = Admin2(address(adminProxy));
     }
 
     // Test 1: Initialize contract properly
     function test_Initialize() public {
-        Admin2 newAdmin = new Admin2();
-        newAdmin.initialize();
-
-        assertEq(newAdmin.owner(), address(this));
-        assertTrue(newAdmin.canForward(address(this)));
-        assertTrue(newAdmin.canMint(address(this)));
+       
+        assertEq(admin.owner(), address(this));
+        assertTrue(admin.canForward(address(this)));
+        assertTrue(admin.canMint(address(this)));
     }
 
     // Test 2: Cannot initialize twice

@@ -39,11 +39,11 @@ contract Admin2 is
     event WhitelistedInternalUser(address indexed _user);
     event BlackListedInternalUser(address indexed _user);
 
-    /*  /// @custom:oz-upgrades-unsafe-allow constructor
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        // Prevent the implementation contract itself from being initialized
+       // Prevent the implementation contract itself from being initialized
         _disableInitializers();
-    } */
+    } 
 
     // Initializer function for upgradeable contracts
     function initialize() public initializer {
@@ -55,8 +55,6 @@ contract Admin2 is
         canForward[_msgSender()] = true;
         canMint[_msgSender()] = true;
 
-        // Now lock the implementation so nobody can re-init it
-        // _disableInitializers();
     }
 
     // Security Measures
