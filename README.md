@@ -80,6 +80,8 @@ cNGN is currently deployed on the following blockchain protocols:
 | ETHEREUM   | 0x17CDB2a01e7a34CbB3DD4b83260B05d0274C8dab           |
 | POLYGON    | 0x52828daa48C1a9A06F37500882b42daf0bE04C3B          |
 | LISK    | 0xC7aB2C35Ea37236e644C24A4E4a1911c082887c0          |
+| SOLANA    | 3jiqwBQVRC5zRwHyqvnkQurebJ5RNxg3F5fXMwaxgkv8          |
+
 
 
 
@@ -94,7 +96,7 @@ cNGN is currently deployed on the following blockchain protocols:
 | ETHEREUM   | 0x0b2b22cCfd95B1Ff2De52F192749986385B1a6b6           |
 | POLYGON    | 0x995Ba562E513a22122C499622b193C91b32E2A28          |
 | LISK       | 0x9a9c18A371d98200FE910f62c45875f1abb68d20           |
-| MONAD      | 0x82838136c74f20D42493d3401bF92c00cb37bFbC          |
+| MONAD      | 0x82838136c74f20D42493d3401bF92c00cb37bFbC *         |
 | ARC        | 0x3afDf1831D1FFe96093533aF81120A903DAf0bE0         |
 | SOLANA     | HfJWS8vJHvxKn5xW3uLXkTmEy4jny3G45QnS1Eab5sg         |
 
