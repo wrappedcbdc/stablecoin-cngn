@@ -1,0 +1,25 @@
+{
+  "programId": "9GrUiE6YkLTTt7koEQfeyqNgEpoSyvkBmPjfrZd3AS28",
+  "mint": "3jiqwBQVRC5zRwHyqvnkQurebJ5RNxg3F5fXMwaxgkv8",
+  "pdas": {
+    "mintAuthority": "GWM5GkUtdL2vNYbJLKG8wgydQUWtWn24KSsDBB2CdfAM",
+    "multisig": "6aFsUBxtingE1evz79vXkmGXwSY8i2SeLCpLpAgPayJQ"
+  },
+  "multisigs": {
+    "splMultisig": "5FtrPVACw11cGGEMGGiUbXRiaVS7SEd9Q9wpBAajWmfL"
+  },
+  "roles": {
+    "permanentDelegate": "5FtrPVACw11cGGEMGGiUbXRiaVS7SEd9Q9wpBAajWmfL",
+    "mintAuthority": "GWM5GkUtdL2vNYbJLKG8wgydQUWtWn24KSsDBB2CdfAM",
+    "freezeAuthority": "GWM5GkUtdL2vNYbJLKG8wgydQUWtWn24KSsDBB2CdfAM",
+    "metadataUpdateAuthority": "GWM5GkUtdL2vNYbJLKG8wgydQUWtWn24KSsDBB2CdfAM"
+  },
+  "config": {
+    "threshold": 2,
+    "owners": [
+      "8D5AMNdRzemN9neywV8wtgB9nagrChdP1gvHCRiUjrpH",
+      "3eTux7LTD3HiGy7q2Es5hQiJsZo8ybGQgsBfN8zV8GqQ"
+    ]
+  },
+  "timestamp": "2026-03-06T16:16:49.406Z"
+}

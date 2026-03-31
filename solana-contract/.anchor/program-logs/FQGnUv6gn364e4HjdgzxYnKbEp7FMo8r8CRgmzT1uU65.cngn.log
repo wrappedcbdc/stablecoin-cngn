@@ -1,0 +1,59 @@
+Streaming transaction logs mentioning FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65. Confirmed commitment
+Transaction executed in slot 15:
+  Signature: 2gqxbbKoPcfhGJVeBzzHaV85BxN8am8BeHWecCa8NKdLJxpKJKmF7qbuqc4tDuTFYjFF2vGSPn86hj4qeswgWPhk
+  Status: Ok
+  Log Messages:
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 invoke [1]
+    Program log: Instruction: Initialize
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program data: H+1sTLvsa/9+/wGYhgWbP5lhdfg26WPSZpJ5H9/eCc+zSmfF7RUUhDcxNGv5U0Gmeo8hU9/9lkpcSrsV70GAnC181gFx3abuBAAAAGNOR04EAAAAY05HTgYAAABoZWxwZXIJ
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 consumed 41077 of 200000 compute units
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 success
+Transaction executed in slot 16:
+  Signature: 3pExAo1oY1b6XAoSavLnQgG7Tx5HAJcLiUTn6QiZeodaU2atM44gatHQkQREVCkLuf1K4p58d71gdagRnvcWz6Jg
+  Status: Ok
+  Log Messages:
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 invoke [1]
+    Program log: Instruction: InitializeMultisig
+    Program 11111111111111111111111111111111 invoke [2]
+    Program 11111111111111111111111111111111 success
+    Program data: iDjdyNkR6F451liOkJb/avpyq1IlxYtMQC7y1YXgOYJ4fiw3/Be0jQIAAAB4LH42rszMpPrRZZx1wGyF3iBZNYoKhL2eg5FF1cNWxXX1HxhWzGQsxQelbf9/TryiPky37EZPOK222kf83Dv0Ag==
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 consumed 16355 of 200000 compute units
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 success
+Transaction executed in slot 21:
+  Signature: 4ghVGmyXBryPgkk7KUfb1aCN88DoJcGzfmtBFV2RFNqgRQ1MikYa77VbyZ3ZdcTPRtRQweCgWCv6xxdun5nVP5MZ
+  Status: Ok
+  Log Messages:
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 invoke [1]
+    Program log: Instruction: AddCanMint
+    Program data: 8FKxO0QttRp+/wGYhgWbP5lhdfg26WPSZpJ5H9/eCc+zSmfF7RUUhL02MRdqGL3hW1pFfq3RiJE2u1NCJAcBmJY/mVipCVOw
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 consumed 31064 of 412000 compute units
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 success
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 invoke [1]
+    Program log: Instruction: SetMintAmount
+    Program data: C7qZaa2IDSN+/wGYhgWbP5lhdfg26WPSZpJ5H9/eCc+zSmfF7RUUhL02MRdqGL3hW1pFfq3RiJE2u1NCJAcBmJY/mVipCVOwAEB6EPNaAAA=
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 consumed 34851 of 380936 compute units
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 success
+Transaction executed in slot 23:
+  Signature: 3xUoNTzRqKiunbh1UDBPmKtJUvqdjfJKM5FdJgGNC98bwcQKtghMLU3CUeZPmSQUq7cbo38RUtc8vhS3G8rNbvqo
+  Status: Ok
+  Log Messages:
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 invoke [1]
+    Program log: Instruction: Mint
+    Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]
+    Program log: Instruction: MintTo
+    Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1496 of 185127 compute units
+    Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success
+    Program data: A+blSSJ8qXN+/wGYhgWbP5lhdfg26WPSZpJ5H9/eCc+zSmfF7RUUhL02MRdqGL3hW1pFfq3RiJE2u1NCJAcBmJY/mVipCVOw
+    Program data: xVf7fFMtOT5+/wGYhgWbP5lhdfg26WPSZpJ5H9/eCc+zSmfF7RUUhL02MRdqGL3hW1pFfq3RiJE2u1NCJAcBmJY/mVipCVOwAEB6EPNaAAA=
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 consumed 17951 of 200000 compute units
+    Program FQGnUv6gn364e4HjdgzxYnKbEp7FMo8r8CRgmzT1uU65 success
