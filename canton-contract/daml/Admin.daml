@@ -1,0 +1,114 @@
+module Admin where
+
+-- Represents the admin registry state
+template AdminState
+  with
+    owner        : Party
+    blackListed  : [Party]
+    canMint      : [Party]
+    mintAmounts  : [(Party, Int)]
+    canForward   : [Party]
+    trustedContracts : [Party]
+  where
+    signatory owner
+
+    -- Blacklist management
+    choice AddBlackList : ContractId AdminState
+      with user : Party
+      controller owner
+      do
+        assertMsg "User already blacklisted" (user `notElem` blackListed)
+        create this with blackListed = user :: blackListed
+
+    choice RemoveBlackList : ContractId AdminState
+      with user : Party
+      controller owner
+      do
+        assertMsg "User not blacklisted" (user `elem` blackListed)
+        create this with blackListed = filter (/= user) blackListed
+
+    -- Mint authorization
+    choice AddCanMint : ContractId AdminState
+      with user : Party
+      controller owner
+      do
+        assertMsg "User already authorized to mint" (user `notElem` canMint)
+        create this with canMint = user :: canMint
+
+    choice RemoveCanMint : ContractId AdminState
+      with user : Party
+      controller owner
+      do
+        assertMsg "User not authorized to mint" (user `elem` canMint)
+        create this with
+          canMint      = filter (/= user) canMint
+          mintAmounts  = filter (\(p, _) -> p /= user) mintAmounts
+
+    choice AddMintAmount : ContractId AdminState
+      with user : Party; amount : Int
+      controller owner
+      do
+        assertMsg "User must be authorized to mint first" (user `elem` canMint)
+        assertMsg "Amount must be positive" (amount > 0)
+        let updated = filter (\(p, _) -> p /= user) mintAmounts
+        create this with mintAmounts = (user, amount) :: updated
+
+    choice RemoveMintAmount : ContractId AdminState
+      with user : Party
+      controller owner
+      do
+        create this with mintAmounts = filter (\(p, _) -> p /= user) mintAmounts
+
+    -- Forwarder management
+    choice AddCanForward : ContractId AdminState
+      with user : Party
+      controller owner
+      do
+        assertMsg "Forwarder already added" (user `notElem` canForward)
+        create this with canForward = user :: canForward
+
+    choice RemoveCanForward : ContractId AdminState
+      with user : Party
+      controller owner
+      do
+        assertMsg "User not a forwarder" (user `elem` canForward)
+        create this with canForward = filter (/= user) canForward
+
+    -- Trusted contract management
+    choice AddTrustedContract : ContractId AdminState
+      with contract : Party
+      controller owner
+      do
+        assertMsg "Contract already added" (contract `notElem` trustedContracts)
+        create this with trustedContracts = contract :: trustedContracts
+
+    choice RemoveTrustedContract : ContractId AdminState
+      with contract : Party
+      controller owner
+      do
+        assertMsg "Contract does not exist" (contract `elem` trustedContracts)
+        create this with trustedContracts = filter (/= contract) trustedContracts
+
+    -- Helper nonconsuming queries
+    nonconsuming choice IsBlackListed : Bool
+      with user : Party
+      controller owner
+      do return (user `elem` blackListed)
+
+    nonconsuming choice CanMintQuery : Bool
+      with user : Party
+      controller owner
+      do return (user `elem` canMint)
+
+    nonconsuming choice GetMintAmount : Int
+      with user : Party
+      controller owner
+      do
+        case lookup user mintAmounts of
+          Some amt -> return amt
+          None     -> return 0
+
+    nonconsuming choice CanForwardQuery : Bool
+      with user : Party
+      controller owner
+      do return (user `elem` canForward)

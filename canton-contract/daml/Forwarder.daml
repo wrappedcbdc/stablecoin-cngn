@@ -1,0 +1,52 @@
+module Forwarder where
+
+import Admin
+import CNGN
+
+-- A signed forward request, submitted by a relayer on behalf of a minter
+template ForwardRequest
+  with
+    from     : Party   -- The minter (signer of the original intent)
+    relayer  : Party   -- The party executing the forward (onlyOwner equivalent)
+    to       : Party   -- Target (cNGN token issuer / contract)
+    nonce    : Int
+    payload  : ForwardPayload
+    adminCid : ContractId AdminState
+  where
+    signatory from      -- Minter must sign the request
+    observer  relayer
+
+    choice Execute : ContractId CNGNToken
+      controller relayer
+      do
+        admin <- fetch adminCid
+        assertMsg "Minter not allowed to forward"  (from   `elem` admin.canForward)
+        assertMsg "Relayer is blacklisted"         (relayer `notElem` admin.blackListed)
+        assertMsg "Minter not authorized to mint"  (from   `elem` admin.canMint)
+
+        -- Dispatch to MintProposal execution
+        exercise payload.mintProposalCid ExecuteMint with adminCid = adminCid
+
+
+-- Payload carried inside a ForwardRequest
+data ForwardPayload = ForwardPayload
+  with
+    mintProposalCid : ContractId MintProposal
+  deriving (Show, Eq)
+
+
+-- Nonce tracker per party (replay protection)
+template NonceTracker
+  with
+    owner  : Party
+    nonce  : Int
+  where
+    signatory owner
+
+    choice IncrementNonce : ContractId NonceTracker
+      controller owner
+      do create this with nonce = nonce + 1
+
+    nonconsuming choice GetNonce : Int
+      controller owner
+      do return nonce

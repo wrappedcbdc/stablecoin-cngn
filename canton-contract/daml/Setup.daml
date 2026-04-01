@@ -1,0 +1,43 @@
+module Setup where
+
+import Admin
+import CNGN
+import MinimalForwarder
+import Daml.Script
+
+data Parties = Parties
+  with
+    owner   : Party
+    minter  : Party
+    relayer : Party
+
+initialize : Script ()
+initialize = do
+  owner   <- allocatePartyWithHint "Owner"   (PartyIdHint "Owner")
+  minter  <- allocatePartyWithHint "Minter"  (PartyIdHint "Minter")
+  relayer <- allocatePartyWithHint "Relayer" (PartyIdHint "Relayer")
+
+  -- Create AdminState with owner as controller
+  adminCid <- submit owner do
+    createCmd AdminState with
+      owner            = owner
+      blackListed      = []
+      canMint          = [owner]   -- owner can mint initially
+      mintAmounts      = []
+      canForward       = [relayer]
+      trustedContracts = []
+
+  -- Authorize minter
+  adminCid <- submit owner do
+    exerciseCmd adminCid AddCanMint with user = minter
+
+  adminCid <- submit owner do
+    exerciseCmd adminCid AddMintAmount with user = minter; amount = 1_000_000
+
+  -- Nonce tracker for relayer
+  submit relayer do
+    createCmd NonceTracker with
+      owner = relayer
+      nonce = 0
+
+  return ()

@@ -1,0 +1,8 @@
+sdk-version: 2.9.0 # or latest Canton-compatible SDK
+name: cngn
+version: 1.0.0
+source: daml
+scenario: Setup:initialize # entrypoint for daml script
+dependencies:
+  - daml-prim
+  - daml-stdlib

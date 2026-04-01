@@ -1,0 +1,148 @@
+module CNGN where
+
+import Admin
+
+-- Each token holding is a separate contract (UTXO model)
+template CNGNToken
+  with
+    issuer  : Party   -- Token authority / owner
+    owner   : Party   -- Current holder
+    amount  : Int     -- Amount with 6 decimal places (e.g. 1_000_000 = 1 cNGN)
+    paused  : Bool
+  where
+    signatory issuer
+    observer owner
+
+    -- Transfer tokens to another party
+    choice Transfer : ContractId CNGNToken
+      with
+        to        : Party
+        transferAmt : Int
+        adminCid  : ContractId AdminState
+      controller owner
+      do
+        assertMsg "Contract is paused" (not paused)
+        assertMsg "Transfer amount must be positive" (transferAmt > 0)
+        assertMsg "Insufficient balance" (transferAmt <= amount)
+
+        admin <- fetch adminCid
+        assertMsg "Sender is blacklisted"   (owner `notElem` admin.blackListed)
+        assertMsg "Receiver is blacklisted" (to    `notElem` admin.blackListed)
+
+        -- Return change to sender if partial transfer
+        when (transferAmt < amount) do
+          create this with amount = amount - transferAmt
+          return ()
+
+        create this with
+          owner  = to
+          amount = transferAmt
+
+    -- Burn: holder destroys their tokens
+    choice BurnByUser : ()
+      with
+        burnAmt  : Int
+        adminCid : ContractId AdminState
+      controller owner
+      do
+        assertMsg "Burn amount must be positive" (burnAmt > 0)
+        assertMsg "Insufficient balance" (burnAmt <= amount)
+        -- Archive this contract; remainder goes back if partial
+        when (burnAmt < amount) do
+          create this with amount = amount - burnAmt
+          return ()
+        return ()
+
+    -- Pause/unpause by issuer
+    choice Pause : ContractId CNGNToken
+      controller issuer
+      do
+        assertMsg "Already paused" (not paused)
+        create this with paused = True
+
+    choice UnPause : ContractId CNGNToken
+      controller issuer
+      do
+        assertMsg "Not paused" paused
+        create this with paused = False
+
+
+-- Mint proposal: issuer pre-authorizes a mint; minter executes it
+template MintProposal
+  with
+    issuer   : Party
+    minter   : Party
+    mintTo   : Party
+    amount   : Int
+    paused   : Bool
+  where
+    signatory issuer
+    observer minter
+
+    -- Minter executes once authorized in AdminState
+    choice ExecuteMint : ContractId CNGNToken
+      with adminCid : ContractId AdminState
+      controller minter
+      do
+        assertMsg "Contract is paused" (not paused)
+
+        admin <- fetch adminCid
+        assertMsg "Minter is blacklisted"   (minter `notElem` admin.blackListed)
+        assertMsg "Receiver is blacklisted" (mintTo `notElem` admin.blackListed)
+        assertMsg "Minter not authorized"   (minter `elem` admin.canMint)
+
+        let allowedAmt = case lookup minter admin.mintAmounts of
+                           Some a -> a
+                           None   -> 0
+        assertMsg "Amount does not match authorized mint amount"
+          (allowedAmt == amount)
+
+        -- Remove mint authorization from admin
+        exercise adminCid RemoveCanMint with user = minter
+
+        create CNGNToken with
+          issuer = issuer
+          owner  = mintTo
+          amount = amount
+          paused = paused
+
+    choice CancelMint : ()
+      controller issuer
+      do return ()
+
+
+-- Allowance for transferFrom pattern (approve/transferFrom)
+template Allowance
+  with
+    tokenOwner : Party
+    spender    : Party
+    amount     : Int
+  where
+    signatory tokenOwner
+    observer spender
+
+    choice SpendAllowance : ContractId Allowance
+      with spendAmt : Int
+      controller spender
+      do
+        assertMsg "Insufficient allowance" (spendAmt <= amount)
+        if amount - spendAmt == 0
+          then return (error "Allowance exhausted — archive this")  -- caller archives
+          else create this with amount = amount - spendAmt
+
+    choice IncreaseAllowance : ContractId Allowance
+      with addedValue : Int
+      controller tokenOwner
+      do
+        create this with amount = amount + addedValue
+
+    choice DecreaseAllowance : ContractId Allowance
+      with subtractedValue : Int
+      controller tokenOwner
+      do
+        assertMsg "Decreased allowance below zero" (amount >= subtractedValue)
+        create this with amount = amount - subtractedValue
+
+    choice RevokeAllowance : ()
+      controller tokenOwner
+      do return ()
