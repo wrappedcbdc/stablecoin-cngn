@@ -144,6 +144,13 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
         _nonces[req.from] = req.nonce + 1;
         emit NonceIncremented(req.from, _nonces[req.from]);
 
+        // Value forwarded must come from this call's own msg.value, never
+        // from ETH already pooled in the contract (e.g. via receive()).
+        require(
+            msg.value == req.value,
+            "Forwarder: msg.value does not match req.value"
+        );
+
         require(
             gasleft() >= (req.gas * 64) / 63,
             "Insufficient gas for requested execution"
@@ -153,6 +160,12 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
             gas: req.gas,
             value: req.value
         }(abi.encodePacked(req.data, req.from));
+
+        // Revert the whole call, including the nonce bump and replay-hash
+        // recording above, if the target call failed. Without this, a
+        // transient failure (target paused, blacklist changed after signing,
+        // etc.) would permanently burn the signer's nonce with no retry path.
+        require(success, "Forwarder: call to target failed");
 
         emit Executed(_msgSender(), success, returndata);
         return (success, returndata);
@@ -194,6 +207,17 @@ contract Forwarder is EIP712, Ownable, Pausable, ReentrancyGuard {
 
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /** @dev Owner-only sweep for ETH stuck in the contract (e.g. via receive()) */
+    function rescueETH(
+        address payable to,
+        uint256 amount
+    ) external onlyOwner nonReentrant {
+        require(to != address(0), "Forwarder: zero address");
+        require(amount <= address(this).balance, "Forwarder: insufficient balance");
+        (bool success, ) = to.call{value: amount}("");
+        require(success, "Forwarder: ETH transfer failed");
     }
 
     receive() external payable {}

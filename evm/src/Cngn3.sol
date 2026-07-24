@@ -69,6 +69,14 @@ contract Cngn3 is
         address _trustedForwarderContract,
         address _adminOperationsContract
     ) public initializer {
+        require(
+            _trustedForwarderContract != address(0),
+            "Trusted forwarder contract address cannot be zero"
+        );
+        require(
+            _adminOperationsContract != address(0),
+            "Admin operations contract address cannot be zero"
+        );
         __ERC20_init("cNGN", "cNGN");
         __Ownable_init();
         __Pausable_init();
@@ -81,17 +89,24 @@ contract Cngn3 is
         return forwarder == trustedForwarderContract;
     }
 
-    // function updateAdminOperationsAddress(
-    //     address _newAdmin
-    // ) public virtual onlyOwner returns (bool) {
-    //     require(
-    //         _newAdmin != address(0),
-    //         "New admin operations contract address cannot be zero"
-    //     );
-    //     emit UpdateAdminOperations(adminOperationsContract, _newAdmin);
-    //     adminOperationsContract = _newAdmin;
-    //     return true;
-    // }
+    // _newAdmin is a distinct contract with its own, independent storage.
+    // NONE of the old admin contract's state (blacklist, mint permissions/
+    // amounts, whitelists, trusted contracts, forwarder permissions — every
+    // mapping it holds) exists in _newAdmin just because it existed in the
+    // old one. All of it must be migrated into _newAdmin BEFORE calling this,
+    // or every address effectively resets to default/unflagged the moment
+    // Cngn3 starts reading from the new contract.
+    function updateAdminOperationsAddress(
+        address _newAdmin
+    ) public virtual onlyOwner returns (bool) {
+        require(
+            _newAdmin != address(0),
+            "New admin operations contract address cannot be zero"
+        );
+        emit UpdateAdminOperations(adminOperationsContract, _newAdmin);
+        adminOperationsContract = _newAdmin;
+        return true;
+    }
 
     function updateForwarderContract(
         address _newForwarderContract
@@ -440,13 +455,14 @@ contract Cngn3 is
 
     /**
      * @dev Hook that is called before any token transfer.
-     * The contract must not be paused.
+     * Pausing is enforced by whenNotPaused on each public entrypoint instead of here,
+     * so that destroyBlackFunds (intentionally unpaused) can still burn via _burn while paused.
      */
     function _beforeTokenTransfer(
         address from,
         address to,
         uint256 amount
-    ) internal virtual whenNotPaused {}
+    ) internal virtual {}
 
     /**
      * @dev Hook that is called after any token transfer.
