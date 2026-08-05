@@ -85,12 +85,13 @@ contract Admin2 is
         return true;
     }
 
+    // Deliberately not whenNotPaused: revoking a compromised minter must stay
+    // usable while Admin2 is paused during an incident.
     function removeCanMint(
         address _User
-    ) public whenNotPaused onlyOwnerOrTrustedContract returns (bool) {
+    ) public onlyOwnerOrTrustedContract returns (bool) {
         require(canMint[_User], "User is not a minter");
         canMint[_User] = false;
-        mintAmount[_User] = 0;
         mintAmount[_User] = 0;
         emit BlackListedMinter(_User);
         return true;
@@ -100,15 +101,17 @@ contract Admin2 is
         address _User,
         uint256 _Amount
     ) public whenNotPaused onlyOwner returns (bool) {
-        require(canMint[_User] == true);
+        require(canMint[_User], "User is not a minter");
         mintAmount[_User] = _Amount;
         emit MintAmountAdded(_User);
         return true;
     }
 
+    // Deliberately not whenNotPaused: revoking a compromised minter's
+    // allowance must stay usable while Admin2 is paused during an incident.
     function removeMintAmount(
         address _User
-    ) public whenNotPaused onlyOwnerOrTrustedContract returns (bool) {
+    ) public onlyOwnerOrTrustedContract returns (bool) {
         mintAmount[_User] = 0;
         emit MintAmountRemoved(_User);
         return true;
@@ -203,7 +206,9 @@ contract Admin2 is
         return true;
     }
 
-    function addBlackList(address _evilUser) public whenNotPaused onlyOwner {
+    // Deliberately not whenNotPaused: blacklisting an attacker must stay
+    // usable while Admin2 is paused during an incident.
+    function addBlackList(address _evilUser) public onlyOwner {
         require(!isBlackListed[_evilUser], "User already BlackListed");
 
         isBlackListed[_evilUser] = true;
