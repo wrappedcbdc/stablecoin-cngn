@@ -1,0 +1,412 @@
+module Tests.CNGNTests where
+
+import DA.Assert
+import Daml.Script
+import Admin
+import CNGN
+import Tests.Common
+
+-- ── CNGNToken: creation invariant ──────────────────────────────────────
+
+cngnToken_rejectsZeroAmount : Script ()
+cngnToken_rejectsZeroAmount = do
+  (issuer, holder, _, _) <- setupParties
+  submitMustFail issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 0; paused = False
+
+cngnToken_rejectsNegativeAmount : Script ()
+cngnToken_rejectsNegativeAmount = do
+  (issuer, holder, _, _) <- setupParties
+  submitMustFail issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = -1; paused = False
+
+-- ── CNGNToken: Transfer ─────────────────────────────────────────────────
+
+transfer_movesFullBalance : Script ()
+transfer_movesFullBalance = do
+  (issuer, holder, recipient, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  newCid <- submitMulti [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 100
+
+  Some newToken <- queryContractId recipient newCid
+  newToken.owner === recipient
+  newToken.amount === 100
+
+transfer_partialLeavesChangeWithSender : Script ()
+transfer_partialLeavesChangeWithSender = do
+  (issuer, holder, recipient, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  _ <- submitMulti [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 40
+
+  -- The original contract is archived; a fresh one for the unspent
+  -- change (60) is created back to the holder.
+  original <- queryContractId holder tokenCid
+  original === (None : Optional CNGNToken)
+
+  holderTokens <- query @CNGNToken holder
+  let changeAmounts = map (\(_, tok) -> tok.amount) holderTokens
+  changeAmounts === [60]
+
+transfer_rejectsInsufficientBalance : Script ()
+transfer_rejectsInsufficientBalance = do
+  (issuer, holder, recipient, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 50; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 100
+
+transfer_rejectsNonPositiveAmount : Script ()
+transfer_rejectsNonPositiveAmount = do
+  (issuer, holder, recipient, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 50; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 0
+
+transfer_rejectsWhenTokenIndividuallyPaused : Script ()
+transfer_rejectsWhenTokenIndividuallyPaused = do
+  (issuer, holder, recipient, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 50; paused = True
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 10
+
+transfer_rejectsBlacklistedSender : Script ()
+transfer_rejectsBlacklistedSender = do
+  (issuer, holder, recipient, _) <- setupParties
+  _ <- createRegistries issuer [holder] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 50; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 10
+
+transfer_rejectsBlacklistedReceiver : Script ()
+transfer_rejectsBlacklistedReceiver = do
+  (issuer, holder, recipient, _) <- setupParties
+  _ <- createRegistries issuer [recipient] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 50; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 10
+
+transfer_rejectsWhenGloballyPaused : Script ()
+transfer_rejectsWhenGloballyPaused = do
+  (issuer, holder, recipient, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+  _ <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 50; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 10
+
+-- ── CNGNToken: BurnByUser ────────────────────────────────────────────────
+
+burn_destroysFullBalance : Script ()
+burn_destroysFullBalance = do
+  (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMulti [holder, issuer] [] do
+    exerciseCmd tokenCid BurnByUser with burnAmt = 100
+
+burn_rejectsNonPositiveAmount : Script ()
+burn_rejectsNonPositiveAmount = do
+  (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid BurnByUser with burnAmt = 0
+
+burn_rejectsInsufficientBalance : Script ()
+burn_rejectsInsufficientBalance = do
+  (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid BurnByUser with burnAmt = 200
+
+burn_rejectsBlacklistedHolder : Script ()
+burn_rejectsBlacklistedHolder = do
+  (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [holder] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid BurnByUser with burnAmt = 100
+
+burn_rejectsWhenGloballyPaused : Script ()
+burn_rejectsWhenGloballyPaused = do
+  (issuer, holder, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+  _ <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid BurnByUser with burnAmt = 100
+
+-- ── CNGNToken: Pause / UnPause / Merge / RejectToken ────────────────────
+
+pause_unpause_roundTrip : Script ()
+pause_unpause_roundTrip = do
+  (issuer, holder, _, _) <- setupParties
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  pausedCid <- submit issuer do exerciseCmd tokenCid Pause
+  Some paused <- queryContractId issuer pausedCid
+  paused.paused === True
+
+  unpausedCid <- submit issuer do exerciseCmd pausedCid UnPause
+  Some unpaused <- queryContractId issuer unpausedCid
+  unpaused.paused === False
+
+pause_rejectsDoublePause : Script ()
+pause_rejectsDoublePause = do
+  (issuer, holder, _, _) <- setupParties
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+  pausedCid <- submit issuer do exerciseCmd tokenCid Pause
+
+  submitMustFail issuer do exerciseCmd pausedCid Pause
+
+unPause_rejectsWhenNotPaused : Script ()
+unPause_rejectsWhenNotPaused = do
+  (issuer, holder, _, _) <- setupParties
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMustFail issuer do exerciseCmd tokenCid UnPause
+
+merge_combinesAmounts : Script ()
+merge_combinesAmounts = do
+  (issuer, holder, _, _) <- setupParties
+  tokenCid1 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 30; paused = False
+  tokenCid2 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 70; paused = False
+
+  mergedCid <- submit holder do exerciseCmd tokenCid1 Merge with otherCids = [tokenCid2]
+  Some merged <- queryContractId holder mergedCid
+  merged.amount === 100
+
+rejectToken_archivesHolding : Script ()
+rejectToken_archivesHolding = do
+  (issuer, holder, _, _) <- setupParties
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 1; paused = False
+
+  submit holder do exerciseCmd tokenCid RejectToken
+  result <- queryContractId holder tokenCid
+  result === (None : Optional CNGNToken)
+
+-- ── MintProposal ─────────────────────────────────────────────────────────
+
+mintProposal_rejectsZeroAmount : Script ()
+mintProposal_rejectsZeroAmount = do
+  (issuer, _, recipient, minter) <- setupParties
+  submitMustFail issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 0; paused = False
+      proposalId = "cngn-test-zero"
+
+executeMint_createsTokenAndConsumesGrant : Script ()
+executeMint_createsTokenAndConsumesGrant = do
+  (issuer, _, recipient, minter) <- setupParties
+  _ <- createRegistries issuer [] [minter] [(minter, "cngn-test-mint", 100)]
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "cngn-test-mint"
+
+  mintedCid <- submitMulti [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+  Some minted <- queryContractId recipient mintedCid
+  minted.owner === recipient
+  minted.amount === 100
+
+executeMint_rejectsAmountMismatch : Script ()
+executeMint_rejectsAmountMismatch = do
+  (issuer, _, recipient, minter) <- setupParties
+  _ <- createRegistries issuer [] [minter] [(minter, "cngn-test-mismatch", 100)]
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 999; paused = False
+      proposalId = "cngn-test-mismatch"
+
+  -- amount 999 has no matching grant recorded (grant is for 100), so a
+  -- proposal minted at 999 will never find its own id/amount pairing
+  submitMultiMustFail [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+
+executeMint_rejectsWrongProposalId : Script ()
+executeMint_rejectsWrongProposalId = do
+  (issuer, _, recipient, minter) <- setupParties
+  _ <- createRegistries issuer [] [minter] [(minter, "expected-id", 100)]
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "different-id"
+
+  submitMultiMustFail [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+
+executeMint_rejectsNoGrant : Script ()
+executeMint_rejectsNoGrant = do
+  (issuer, _, recipient, minter) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "cngn-test-nogrant"
+
+  submitMultiMustFail [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+
+executeMint_rejectsWhenProposalPaused : Script ()
+executeMint_rejectsWhenProposalPaused = do
+  (issuer, _, recipient, minter) <- setupParties
+  _ <- createRegistries issuer [] [minter] [(minter, "cngn-test-proposal-paused", 100)]
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = True
+      proposalId = "cngn-test-proposal-paused"
+
+  submitMultiMustFail [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+
+cancelMint_archivesProposal : Script ()
+cancelMint_archivesProposal = do
+  (issuer, _, recipient, minter) <- setupParties
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "cngn-test-cancel"
+
+  submit issuer do exerciseCmd proposalCid CancelMint
+  result <- queryContractId issuer proposalCid
+  result === (None : Optional MintProposal)
+
+rejectMint_archivesProposal : Script ()
+rejectMint_archivesProposal = do
+  (issuer, _, recipient, minter) <- setupParties
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "cngn-test-reject"
+
+  submit minter do exerciseCmd proposalCid RejectMint
+
+-- ── Allowance (approve / spend) ──────────────────────────────────────────
+
+allowance_rejectsZeroAmount : Script ()
+allowance_rejectsZeroAmount = do
+  (issuer, holder, _, _) <- setupParties
+  submitMustFail issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 0
+
+increaseAllowance_addsToBalance : Script ()
+increaseAllowance_addsToBalance = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  increasedCid <- submit issuer do
+    exerciseCmd allowanceCid IncreaseAllowance with addedValue = 50
+  Some increased <- queryContractId issuer increasedCid
+  increased.amount === 150
+
+increaseAllowance_rejectsNonPositiveValue : Script ()
+increaseAllowance_rejectsNonPositiveValue = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  submitMustFail issuer do
+    exerciseCmd allowanceCid IncreaseAllowance with addedValue = 0
+
+decreaseAllowance_subtractsFromBalance : Script ()
+decreaseAllowance_subtractsFromBalance = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  decreasedCid <- submit issuer do
+    exerciseCmd allowanceCid DecreaseAllowance with subtractedValue = 40
+  Some decreased <- queryContractId issuer decreasedCid
+  decreased.amount === 60
+
+decreaseAllowance_rejectsDrainingToZero : Script ()
+decreaseAllowance_rejectsDrainingToZero = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  submitMustFail issuer do
+    exerciseCmd allowanceCid DecreaseAllowance with subtractedValue = 100
+
+spendAllowance_partialSpendReturnsRemainder : Script ()
+spendAllowance_partialSpendReturnsRemainder = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  Some remainingCid <- submit holder do
+    exerciseCmd allowanceCid SpendAllowance with spendAmt = 40
+  Some remaining <- queryContractId holder remainingCid
+  remaining.amount === 60
+
+spendAllowance_exactExhaustionArchivesWithoutError : Script ()
+spendAllowance_exactExhaustionArchivesWithoutError = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  result <- submit holder do exerciseCmd allowanceCid SpendAllowance with spendAmt = 100
+  result === None
+
+spendAllowance_rejectsInsufficientAllowance : Script ()
+spendAllowance_rejectsInsufficientAllowance = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  submitMustFail holder do
+    exerciseCmd allowanceCid SpendAllowance with spendAmt = 200
+
+revokeAllowance_archivesAllowance : Script ()
+revokeAllowance_archivesAllowance = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  submit issuer do exerciseCmd allowanceCid RevokeAllowance
+  result <- queryContractId holder allowanceCid
+  result === (None : Optional Allowance)
+
+rejectAllowance_archivesAllowance : Script ()
+rejectAllowance_archivesAllowance = do
+  (issuer, holder, _, _) <- setupParties
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  submit holder do exerciseCmd allowanceCid RejectAllowance

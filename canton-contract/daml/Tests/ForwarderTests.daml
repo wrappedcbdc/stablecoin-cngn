@@ -1,0 +1,199 @@
+module Tests.ForwarderTests where
+
+import DA.Assert
+import Daml.Script
+import Admin
+import CNGN
+import Forwarder
+import Tests.Common
+
+-- Standard fixture: an issuer with a minter authorized to mint and
+-- forward, a relayer authorized to forward, and the minter's nonce
+-- tracker at 0. Returns the pieces each test needs to build its own
+-- ForwardRequest.
+setupForwarderFixture : Text -> Script (Party, Party, Party, Party, ContractId MintProposal)
+setupForwarderFixture proposalId = do
+  (issuer, _, recipient, minter) <- setupParties
+  relayer <- allocateParty ("Relayer-" <> proposalId)
+  registries <- createRegistries issuer [] [minter] [(minter, proposalId, 100)]
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+  _ <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False; proposalId
+
+  return (issuer, minter, relayer, recipient, proposalCid)
+
+execute_mintsToRecipient : Script ()
+execute_mintsToRecipient = do
+  (issuer, minter, relayer, recipient, proposalCid) <- setupForwarderFixture "fwd-test-success"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  mintedCid <- submitMulti [relayer] [issuer, minter] do exerciseCmd requestCid Execute
+  Some minted <- queryContractId recipient mintedCid
+  minted.owner === recipient
+  minted.amount === 100
+
+execute_rejectsUnauthorizedRelayer : Script ()
+execute_rejectsUnauthorizedRelayer = do
+  (issuer, minter, _, recipient, proposalCid) <- setupForwarderFixture "fwd-test-bad-relayer"
+  outsiderRelayer <- allocateParty "OutsiderRelayer"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer = outsiderRelayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submitMultiMustFail [outsiderRelayer] [issuer, minter] do exerciseCmd requestCid Execute
+
+execute_rejectsBlacklistedRelayer : Script ()
+execute_rejectsBlacklistedRelayer = do
+  (issuer, minter, relayer, recipient, proposalCid) <- setupForwarderFixture "fwd-test-blacklisted-relayer"
+  Some (complianceCid, _) <- queryContractKey @AdminState issuer issuer
+  _ <- submit issuer do exerciseCmd complianceCid AddBlackList with user = relayer
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submitMultiMustFail [relayer] [issuer, minter] do exerciseCmd requestCid Execute
+
+execute_rejectsBlacklistedMinter : Script ()
+execute_rejectsBlacklistedMinter = do
+  (issuer, minter, relayer, recipient, proposalCid) <- setupForwarderFixture "fwd-test-blacklisted-minter"
+  Some (complianceCid, _) <- queryContractKey @AdminState issuer issuer
+  _ <- submit issuer do exerciseCmd complianceCid AddBlackList with user = minter
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submitMultiMustFail [relayer] [issuer, minter] do exerciseCmd requestCid Execute
+
+execute_rejectsMinterNotAuthorizedToMint : Script ()
+execute_rejectsMinterNotAuthorizedToMint = do
+  (issuer, _, recipient, minter) <- setupParties
+  relayer <- allocateParty "Relayer-fwd-test-no-canmint"
+  registries <- createRegistries issuer [] [] []   -- minter never authorized to mint
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+  _ <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "fwd-test-no-canmint"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submitMultiMustFail [relayer] [issuer, minter] do exerciseCmd requestCid Execute
+
+execute_rejectsNonceMismatch : Script ()
+execute_rejectsNonceMismatch = do
+  (issuer, minter, relayer, recipient, proposalCid) <- setupForwarderFixture "fwd-test-nonce-mismatch"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 7
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submitMultiMustFail [relayer] [issuer, minter] do exerciseCmd requestCid Execute
+
+execute_cannotReuseAConsumedNonce : Script ()
+execute_cannotReuseAConsumedNonce = do
+  (issuer, minter, relayer, recipient, proposal1) <- setupForwarderFixture "fwd-test-replay-1"
+
+  request1 <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposal1
+
+  _ <- submitMulti [relayer] [issuer, minter] do exerciseCmd request1 Execute
+
+  Some (freshMintCid, _) <- queryContractKey @MintRegistry issuer issuer
+  mintCid2 <- submit issuer do exerciseCmd freshMintCid AddCanMint with user = minter
+  _ <- submit issuer do
+    exerciseCmd mintCid2 AddMintGrant with user = minter; proposalId = "fwd-test-replay-2"; amount = 100
+
+  proposal2 <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "fwd-test-replay-2"
+
+  request2 <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0   -- already consumed
+      payload = ForwardPayload with mintProposalCid = proposal2
+
+  submitMultiMustFail [relayer] [issuer, minter] do exerciseCmd request2 Execute
+
+execute_secondRequestSucceedsWithIncrementedNonce : Script ()
+execute_secondRequestSucceedsWithIncrementedNonce = do
+  (issuer, minter, relayer, recipient, proposal1) <- setupForwarderFixture "fwd-test-sequence-1"
+
+  request1 <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposal1
+
+  _ <- submitMulti [relayer] [issuer, minter] do exerciseCmd request1 Execute
+
+  Some (freshMintCid, _) <- queryContractKey @MintRegistry issuer issuer
+  mintCid2 <- submit issuer do exerciseCmd freshMintCid AddCanMint with user = minter
+  _ <- submit issuer do
+    exerciseCmd mintCid2 AddMintGrant with user = minter; proposalId = "fwd-test-sequence-2"; amount = 100
+
+  proposal2 <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "fwd-test-sequence-2"
+
+  request2 <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 1   -- correctly incremented
+      payload = ForwardPayload with mintProposalCid = proposal2
+
+  mintedCid <- submitMulti [relayer] [issuer, minter] do exerciseCmd request2 Execute
+  Some minted <- queryContractId recipient mintedCid
+  minted.amount === 100
+
+rejectForward_archivesRequest : Script ()
+rejectForward_archivesRequest = do
+  (issuer, minter, relayer, _, proposalCid) <- setupForwarderFixture "fwd-test-reject"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submit relayer do exerciseCmd requestCid RejectForward
+  result <- queryContractId relayer requestCid
+  result === (None : Optional ForwardRequest)
+
+-- ── NonceTracker ─────────────────────────────────────────────────────────
+
+nonceTracker_incrementNonce_advancesByOne : Script ()
+nonceTracker_incrementNonce_advancesByOne = do
+  minter <- allocateParty "NonceTestMinter"
+  trackerCid <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
+
+  advancedCid <- submit minter do exerciseCmd trackerCid IncrementNonce
+  current <- submit minter do exerciseCmd advancedCid GetNonce
+  current === 1
+
+nonceTracker_getNonce_reflectsCurrentValue : Script ()
+nonceTracker_getNonce_reflectsCurrentValue = do
+  minter <- allocateParty "NonceTestMinter2"
+  trackerCid <- submit minter do createCmd NonceTracker with owner = minter; nonce = 5
+
+  current <- submit minter do exerciseCmd trackerCid GetNonce
+  current === 5

@@ -8,24 +8,41 @@ template ForwardRequest
   with
     from     : Party   -- The minter (signer of the original intent)
     relayer  : Party   -- The party executing the forward (onlyOwner equivalent)
-    to       : Party   -- Target (cNGN token issuer / contract)
+    to       : Party   -- Target (cNGN token issuer)
     nonce    : Int
     payload  : ForwardPayload
-    adminCid : ContractId AdminState
   where
-    signatory from      -- Minter must sign the request
+    signatory from, to  -- Minter and issuer must both authorize the forward
     observer  relayer
 
     choice Execute : ContractId CNGNToken
       controller relayer
       do
-        admin <- fetch adminCid
-        assertMsg "Minter not allowed to forward"  (from   `elem` admin.canForward)
-        assertMsg "Relayer is blacklisted"         (relayer `notElem` admin.blackListed)
-        assertMsg "Minter not authorized to mint"  (from   `elem` admin.canMint)
+        (_, admin) <- fetchByKey @AdminState to
+        assertMsg "Relayer is blacklisted" (relayer `notElem` admin.blackListed)
+        assertMsg "Minter is blacklisted"  (from    `notElem` admin.blackListed)
 
-        -- Dispatch to MintProposal execution
-        exercise payload.mintProposalCid ExecuteMint with adminCid = adminCid
+        (_, forwarderRegistry) <- fetchByKey @ForwarderRegistry to
+        assertMsg "Relayer not authorized to forward" (relayer `elem` forwarderRegistry.canForward)
+
+        (_, mintRegistry) <- fetchByKey @MintRegistry to
+        assertMsg "Minter not authorized to mint" (from `elem` mintRegistry.canMint)
+
+        -- Replay protection: the request's nonce must match the minter's
+        -- current tracked nonce, and executing it advances the tracker so
+        -- the same nonce cannot authorize a second forward.
+        (trackerCid, tracker) <- fetchByKey @NonceTracker from
+        assertMsg "Nonce does not match the minter's current nonce" (nonce == tracker.nonce)
+        _ <- exercise trackerCid IncrementNonce
+
+        -- Dispatch to MintProposal execution against the issuer's canonical registry
+        exercise payload.mintProposalCid ExecuteMint
+
+    -- Lets the named relayer walk away from a forward request it never
+    -- solicited, without needing the minter's cooperation.
+    choice RejectForward : ()
+      controller relayer
+      do return ()
 
 
 -- Payload carried inside a ForwardRequest
@@ -35,13 +52,16 @@ data ForwardPayload = ForwardPayload
   deriving (Show, Eq)
 
 
--- Nonce tracker per party (replay protection)
+-- Nonce tracker per minter (replay protection). Keyed so Execute can
+-- resolve the minter's current tracker without a caller-supplied cid.
 template NonceTracker
   with
     owner  : Party
     nonce  : Int
   where
     signatory owner
+    key owner : Party
+    maintainer key
 
     choice IncrementNonce : ContractId NonceTracker
       controller owner

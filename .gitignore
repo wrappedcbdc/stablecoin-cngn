@@ -5,3 +5,19 @@
 cache/
 node_modules/
 artifacts/
+
+# Canton/DAML build output
+canton-contract/.daml/
+*.dar
+
+# Solana/Anchor build output
+solana-contract/target/
+solana-contract/.anchor/
+
+# Tron build output
+tron-contract/build/
+
+evm
+
+# OS cruft
+.DS_Store

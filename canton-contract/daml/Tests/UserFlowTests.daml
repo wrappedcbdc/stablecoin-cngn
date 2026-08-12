@@ -1,0 +1,197 @@
+module Tests.UserFlowTests where
+
+import DA.Assert
+import Daml.Script
+import Admin
+import CNGN
+import Tests.Common
+
+-- ── User flow: hold, transfer, burn ──────────────────────────────────────
+--
+-- A minter mints a holding to a user (the user now holds cNGN); the user
+-- transfers part of it to another user; the user burns what's left of
+-- their own balance.
+userFlow_holdTransferBurn : Script ()
+userFlow_holdTransferBurn = do
+  (issuer, holder, recipient, minter) <- setupParties
+  _ <- createRegistries issuer [] [minter] [(minter, "userflow-mint", 200)]
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = holder; amount = 200; paused = False
+      proposalId = "userflow-mint"
+
+  -- Hold: the mint lands the holder's first cNGN balance.
+  heldCid <- submitMulti [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+  Some held <- queryContractId holder heldCid
+  held.owner === holder
+  held.amount === 200
+
+  -- Transfer: the holder moves part of their balance to another user.
+  transferredCid <- submitMulti [holder, issuer] [] do
+    exerciseCmd heldCid Transfer with to = recipient; transferAmt = 80
+
+  Some transferred <- queryContractId recipient transferredCid
+  transferred.owner === recipient
+  transferred.amount === 80
+
+  holderRemainder <- query @CNGNToken holder
+  map (\(_, tok) -> tok.amount) holderRemainder === [120]
+
+  -- Burn: the holder destroys the rest of their own balance.
+  let [(remainderCid, _)] = holderRemainder
+  submitMulti [holder, issuer] [] do
+    exerciseCmd remainderCid BurnByUser with burnAmt = 120
+
+  finalHolderBalance <- query @CNGNToken holder
+  finalHolderBalance === []
+
+-- A blacklisted user cannot transfer or burn — the freeze holds across
+-- the whole hold/transfer/burn lifecycle, not just at the mint step.
+userFlow_blacklistedUserCannotTransferOrBurn : Script ()
+userFlow_blacklistedUserCannotTransferOrBurn = do
+  (issuer, holder, recipient, minter) <- setupParties
+  registries <- createRegistries issuer [] [minter] [(minter, "userflow-frozen-mint", 100)]
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = holder; amount = 100; paused = False
+      proposalId = "userflow-frozen-mint"
+  heldCid <- submitMulti [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+
+  _ <- submit issuer do exerciseCmd registries.complianceCid AddBlackList with user = holder
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd heldCid Transfer with to = recipient; transferAmt = 50
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd heldCid BurnByUser with burnAmt = 100
+
+-- ── Admin flow: every administrative capability, in one continuous run ──
+--
+-- The issuer, acting as administrator, exercises each registry
+-- capability in sequence and each one takes effect as expected: global
+-- pause, blacklist, mint authorization and grants, forwarder allowlist,
+-- and trusted contracts.
+adminFlow_allAdminFunctionsWorkAsExpected : Script ()
+adminFlow_allAdminFunctionsWorkAsExpected = do
+  (issuer, holder, _, minter) <- setupParties
+  relayer <- allocateParty "AdminFlowRelayer"
+  counterparty <- allocateParty "AdminFlowCounterparty"
+  registries <- createRegistries issuer [] [] []
+
+  -- Global pause toggles.
+  pausedCid <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  Some paused <- queryContractId issuer pausedCid
+  paused.globalPaused === True
+  unpausedCid <- submit issuer do exerciseCmd pausedCid UnpauseAll
+  Some unpaused <- queryContractId issuer unpausedCid
+  unpaused.globalPaused === False
+
+  -- Blacklist a user, confirm it, then lift it.
+  blacklistedCid <- submit issuer do
+    exerciseCmd unpausedCid AddBlackList with user = holder
+  isBlacklisted <- submit issuer do
+    exerciseCmd blacklistedCid IsBlackListed with user = holder
+  isBlacklisted === True
+  cleanCid <- submit issuer do
+    exerciseCmd blacklistedCid RemoveBlackList with user = holder
+  isStillBlacklisted <- submit issuer do
+    exerciseCmd cleanCid IsBlackListed with user = holder
+  isStillBlacklisted === False
+
+  -- The blacklist round-trip above cascaded into every sibling registry
+  -- (even though holder was never in any of them), archiving and
+  -- recreating each one — so the original registries record is stale.
+  -- Re-resolve the current contracts by key before continuing.
+  Some (currentMintCid, _) <- queryContractKey @MintRegistry issuer issuer
+  Some (currentForwarderCid, _) <- queryContractKey @ForwarderRegistry issuer issuer
+  Some (currentTrustCid, _) <- queryContractKey @TrustedContractRegistry issuer issuer
+
+  -- Authorize a minter and grant them a specific proposal amount.
+  canMintCid <- submit issuer do
+    exerciseCmd currentMintCid AddCanMint with user = minter
+  grantedCid <- submit issuer do
+    exerciseCmd canMintCid AddMintGrant with
+      user = minter; proposalId = "adminflow-grant"; amount = 250
+  grantedAmount <- submit issuer do exerciseCmd grantedCid GetMintAmount with user = minter
+  grantedAmount === 250
+
+  -- Authorize and then revoke a relayer.
+  forwarderCid <- submit issuer do
+    exerciseCmd currentForwarderCid AddCanForward with user = relayer
+  canForward <- submit issuer do exerciseCmd forwarderCid CanForwardQuery with user = relayer
+  canForward === True
+  forwarderCid2 <- submit issuer do
+    exerciseCmd forwarderCid RemoveCanForward with user = relayer
+  canForwardAfterRemoval <- submit issuer do
+    exerciseCmd forwarderCid2 CanForwardQuery with user = relayer
+  canForwardAfterRemoval === False
+
+  -- Add and remove a trusted contract.
+  trustCid <- submit issuer do
+    exerciseCmd currentTrustCid AddTrustedContract with contract = counterparty
+  Some trusted <- queryContractId issuer trustCid
+  (counterparty `elem` trusted.trustedContracts) === True
+  trustCid2 <- submit issuer do
+    exerciseCmd trustCid RemoveTrustedContract with contract = counterparty
+  Some untrusted <- queryContractId issuer trustCid2
+  (counterparty `elem` untrusted.trustedContracts) === False
+
+-- A single AddBlackList call is enough to shut off a user's mint,
+-- forward, and trusted-contract standing at once — the administrator
+-- doesn't need to touch three separate registries by hand.
+adminFlow_blacklistIsTheOneStopEmergencyControl : Script ()
+adminFlow_blacklistIsTheOneStopEmergencyControl = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [minter] [(minter, "adminflow-cascade", 100)]
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = minter
+  _ <- submit issuer do exerciseCmd registries.trustCid AddTrustedContract with contract = minter
+
+  _ <- submit issuer do exerciseCmd registries.complianceCid AddBlackList with user = minter
+
+  Some (_, mintRegistry) <- queryContractKey @MintRegistry issuer issuer
+  Some (_, forwarderRegistry) <- queryContractKey @ForwarderRegistry issuer issuer
+  Some (_, trustRegistry) <- queryContractKey @TrustedContractRegistry issuer issuer
+
+  (minter `elem` mintRegistry.canMint) === False
+  (minter `elem` forwarderRegistry.canForward) === False
+  (minter `elem` trustRegistry.trustedContracts) === False
+
+-- ── cNGN flow: mint, approve, burn ───────────────────────────────────────
+--
+-- Mint via the propose/execute pair, stand up an approve/spend record on
+-- the resulting balance's controlling party, spend part of it, then burn
+-- the underlying holding. Allowance is a standalone approval ledger in
+-- this package (there is no TransferFrom choice that debits a CNGNToken
+-- against it yet), so "approve" here exercises Allowance's own lifecycle
+-- rather than an actual token movement.
+cngnFlow_mintApproveBurn : Script ()
+cngnFlow_mintApproveBurn = do
+  (issuer, holder, spender, minter) <- setupParties
+  _ <- createRegistries issuer [] [minter] [(minter, "cngnflow-mint", 300)]
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = holder; amount = 300; paused = False
+      proposalId = "cngnflow-mint"
+
+  -- Mint.
+  mintedCid <- submitMulti [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+  Some minted <- queryContractId holder mintedCid
+  minted.amount === 300
+
+  -- Approve: the holder grants a spender an allowance against their
+  -- account record.
+  allowanceCid <- submit holder do
+    createCmd Allowance with tokenOwner = holder; spender; amount = 100
+
+  -- Spend: the spender draws down part of the approved allowance.
+  Some remainingAllowanceCid <- submit spender do
+    exerciseCmd allowanceCid SpendAllowance with spendAmt = 60
+  Some remainingAllowance <- queryContractId spender remainingAllowanceCid
+  remainingAllowance.amount === 40
+
+  -- Burn: the holder redeems (destroys) their underlying cNGN balance.
+  submitMulti [holder, issuer] [] do
+    exerciseCmd mintedCid BurnByUser with burnAmt = 300
+
+  finalBalance <- query @CNGNToken holder
+  finalBalance === []

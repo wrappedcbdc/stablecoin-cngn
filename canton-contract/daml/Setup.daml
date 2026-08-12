@@ -1,8 +1,8 @@
 module Setup where
 
 import Admin
-import CNGN
-import MinimalForwarder
+import CNGN ()
+import Forwarder
 import Daml.Script
 
 data Parties = Parties
@@ -17,27 +17,43 @@ initialize = do
   minter  <- allocatePartyWithHint "Minter"  (PartyIdHint "Minter")
   relayer <- allocatePartyWithHint "Relayer" (PartyIdHint "Relayer")
 
-  -- Create AdminState with owner as controller
-  adminCid <- submit owner do
+  -- Compliance registry: blacklist and global pause, owned by the issuer.
+  _ <- submit owner do
     createCmd AdminState with
+      owner        = owner
+      blackListed  = []
+      globalPaused = False
+
+  -- Mint registry: who may mint, and their outstanding grants.
+  mintCid <- submit owner do
+    createCmd MintRegistry with
+      owner      = owner
+      canMint    = [owner]   -- owner can mint initially
+      mintGrants = []
+
+  mintCid <- submit owner do
+    exerciseCmd mintCid AddCanMint with user = minter
+
+  _ <- submit owner do
+    exerciseCmd mintCid AddMintGrant with
+      user = minter; proposalId = "setup-demo-proposal"; amount = 1_000_000
+
+  -- Forwarder registry: relayer allowlist.
+  _ <- submit owner do
+    createCmd ForwarderRegistry with
+      owner      = owner
+      canForward = [relayer]
+
+  -- Trusted contract registry.
+  _ <- submit owner do
+    createCmd TrustedContractRegistry with
       owner            = owner
-      blackListed      = []
-      canMint          = [owner]   -- owner can mint initially
-      mintAmounts      = []
-      canForward       = [relayer]
       trustedContracts = []
 
-  -- Authorize minter
-  adminCid <- submit owner do
-    exerciseCmd adminCid AddCanMint with user = minter
-
-  adminCid <- submit owner do
-    exerciseCmd adminCid AddMintAmount with user = minter; amount = 1_000_000
-
-  -- Nonce tracker for relayer
-  submit relayer do
+  -- Nonce tracker for the minter's forward requests (replay protection).
+  submit minter do
     createCmd NonceTracker with
-      owner = relayer
+      owner = minter
       nonce = 0
 
   return ()

@@ -1,0 +1,685 @@
+module PolicyEnforcement where
+
+import DA.Assert
+import Daml.Script
+import Admin
+import CNGN
+import Forwarder
+
+-- Sets up one issuer with a canonical AdminState plus a holder, a recipient
+-- and a minter, and returns everything a test needs to exercise the token
+-- and mint flows.
+setup : Script (Party, Party, Party, Party)
+setup = do
+  issuer    <- allocateParty "Issuer"
+  holder    <- allocateParty "Holder"
+  recipient <- allocateParty "Recipient"
+  minter    <- allocateParty "Minter"
+  return (issuer, holder, recipient, minter)
+
+-- The four registries a compliant issuer stands up together. Split so that
+-- a plain transfer only ever needs to touch complianceCid — it never
+-- discloses mint, forwarder, or trusted-contract configuration.
+data Registries = Registries
+  with
+    complianceCid : ContractId AdminState
+    mintCid        : ContractId MintRegistry
+    forwarderCid   : ContractId ForwarderRegistry
+    trustCid       : ContractId TrustedContractRegistry
+
+createRegistries : Party -> [Party] -> [Party] -> [(Party, Text, Int)] -> Script Registries
+createRegistries owner blackListed canMint mintGrants = do
+  complianceCid <- submit owner do
+    createCmd AdminState with owner; blackListed; globalPaused = False
+  mintCid <- submit owner do
+    createCmd MintRegistry with owner; canMint; mintGrants
+  forwarderCid <- submit owner do
+    createCmd ForwarderRegistry with owner; canForward = []
+  trustCid <- submit owner do
+    createCmd TrustedContractRegistry with owner; trustedContracts = []
+  return (Registries complianceCid mintCid forwarderCid trustCid)
+
+-- A token holding must carry a genuinely positive balance: a zero-amount
+-- instance is inert and can never be spent, so it is rejected at creation
+-- rather than left sitting in a party's active contract set.
+tokenCreationRejectsZeroAmount : Script ()
+tokenCreationRejectsZeroAmount = do
+  (issuer, holder, _, _) <- setup
+
+  submitMustFail issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 0; paused = False
+
+-- A negative-amount instance is rejected for the same reason.
+tokenCreationRejectsNegativeAmount : Script ()
+tokenCreationRejectsNegativeAmount = do
+  (issuer, holder, _, _) <- setup
+
+  submitMustFail issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = -1; paused = False
+
+-- A mint proposal for zero units is inert (it can never satisfy a
+-- matching-amount mint) and is rejected at creation.
+mintProposalCreationRejectsZeroAmount : Script ()
+mintProposalCreationRejectsZeroAmount = do
+  (issuer, _, recipient, minter) <- setup
+
+  submitMustFail issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 0; paused = False
+      proposalId = "zero-amount-proposal"
+
+-- An allowance of zero grants nothing spendable and is rejected at
+-- creation rather than left sitting in the spender's active contract set.
+allowanceCreationRejectsZeroAmount : Script ()
+allowanceCreationRejectsZeroAmount = do
+  (issuer, holder, _, _) <- setup
+
+  submitMustFail issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 0
+
+-- A single global-pause action on the issuer's compliance registry halts
+-- every outstanding holding at once, including holdings the issuer never
+-- individually paused.
+globalPauseHaltsAllHoldingsAtOnce : Script ()
+globalPauseHaltsAllHoldingsAtOnce = do
+  (issuer, holder, recipient, _) <- setup
+  registries <- createRegistries issuer [] [] []
+
+  firstTokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+  secondTokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 50; paused = False
+
+  _ <- submit issuer do
+    exerciseCmd registries.complianceCid PauseAll
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd firstTokenCid Transfer with to = recipient; transferAmt = 100
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd secondTokenCid Transfer with to = recipient; transferAmt = 50
+
+-- Burning is blocked by the same global pause, closing the gap where the
+-- burn path previously ignored pause state entirely.
+globalPauseHaltsBurns : Script ()
+globalPauseHaltsBurns = do
+  (issuer, holder, _, _) <- setup
+  registries <- createRegistries issuer [] [] []
+
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  _ <- submit issuer do
+    exerciseCmd registries.complianceCid PauseAll
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid BurnByUser with burnAmt = 100
+
+-- Lifting the global pause restores normal transfers without requiring
+-- the issuer to touch each holding individually.
+unpauseAllRestoresTransfers : Script ()
+unpauseAllRestoresTransfers = do
+  (issuer, holder, recipient, _) <- setup
+  registries <- createRegistries issuer [] [] []
+
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  pausedCid <- submit issuer do
+    exerciseCmd registries.complianceCid PauseAll
+  _ <- submit issuer do
+    exerciseCmd pausedCid UnpauseAll
+
+  newCid <- submitMulti [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 100
+
+  Some newToken <- queryContractId recipient newCid
+  newToken.amount === 100
+
+-- A holder in good standing can move funds; both the holder and the issuer
+-- jointly authorize the transfer, and the amount lands on the recipient.
+transferSucceedsForCleanHolder : Script ()
+transferSucceedsForCleanHolder = do
+  (issuer, holder, recipient, _) <- setup
+  _ <- createRegistries issuer [] [] []
+
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  newCid <- submitMulti [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 100
+
+  Some newToken <- queryContractId recipient newCid
+  newToken.owner === recipient
+  newToken.amount === 100
+
+-- A transfer only ever needs to fetch the compliance registry — the
+-- holder never becomes a witness of the mint, forwarder, or trusted
+-- contract configuration just by moving their own tokens.
+transferDoesNotDiscloseMintOrForwarderConfig : Script ()
+transferDoesNotDiscloseMintOrForwarderConfig = do
+  (issuer, holder, recipient, minter) <- setup
+  registries <- createRegistries issuer [] [minter] [(minter, "p-privacy", 100)]
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = minter
+
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  newCid <- submitMulti [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 100
+
+  -- The holder is not a stakeholder of MintRegistry or ForwarderRegistry,
+  -- so a plain query on their behalf finds nothing there — those
+  -- registries were never part of the holder's transaction.
+  mintView <- queryContractId holder registries.mintCid
+  forwarderView <- queryContractId holder registries.forwarderCid
+  mintView === (None : Optional MintRegistry)
+  forwarderView === (None : Optional ForwarderRegistry)
+
+  Some newToken <- queryContractId recipient newCid
+  newToken.amount === 100
+
+-- A blacklisted holder cannot move funds by pointing the transfer at a
+-- second, self-created registry that omits the blacklist entry — the
+-- issuer's own registry is always the one consulted.
+blacklistedHolderCannotEscapeViaOwnRegistry : Script ()
+blacklistedHolderCannotEscapeViaOwnRegistry = do
+  (issuer, holder, recipient, _) <- setup
+  _ <- createRegistries issuer [holder] [] []
+  _ <- createRegistries holder [] [] []   -- holder's own, permissive registry
+
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 100
+
+-- A holder cannot move funds unilaterally either — the issuer's
+-- authorization is required on every transfer, clean or not.
+transferRequiresIssuerAuthorization : Script ()
+transferRequiresIssuerAuthorization = do
+  (issuer, holder, recipient, _) <- setup
+  _ <- createRegistries issuer [] [] []
+
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMustFail holder do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 100
+
+-- A holder in good standing can destroy their own holding; the issuer
+-- co-authorizes so the canonical registry can be checked before the
+-- holding is consumed.
+burnSucceedsForCleanHolder : Script ()
+burnSucceedsForCleanHolder = do
+  (issuer, holder, _, _) <- setup
+  _ <- createRegistries issuer [] [] []
+
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMulti [holder, issuer] [] do
+    exerciseCmd tokenCid BurnByUser with burnAmt = 100
+
+-- A blacklisted holder cannot destroy (and thereby redeem) their holding
+-- either — burn is a value-moving action and is checked the same way
+-- transfer and mint are.
+burnFailsForBlacklistedHolder : Script ()
+burnFailsForBlacklistedHolder = do
+  (issuer, holder, _, _) <- setup
+  _ <- createRegistries issuer [holder] [] []
+
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 100; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid BurnByUser with burnAmt = 100
+
+-- A minter who is authorized in the issuer's registry, with a matching
+-- outstanding proposal, receives a token and their one-shot mint grant
+-- is consumed.
+mintSucceedsForAuthorizedMinter : Script ()
+mintSucceedsForAuthorizedMinter = do
+  (issuer, _, recipient, minter) <- setup
+  _ <- createRegistries issuer [] [minter] [(minter, "p-success", 100)]
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-success"
+
+  mintedCid <- submitMulti [minter, issuer] [] do
+    exerciseCmd proposalCid ExecuteMint
+
+  Some minted <- queryContractId recipient mintedCid
+  minted.owner === recipient
+  minted.amount === 100
+
+  Some (_, freshMintRegistry) <- queryContractKey @MintRegistry issuer issuer
+  (minter `elem` freshMintRegistry.canMint) === False
+
+-- A minter cannot execute an otherwise-valid, fully authorized proposal
+-- unilaterally either — the issuer must co-authorize so the canonical
+-- registry is visible and can be checked.
+mintRequiresIssuerAuthorization : Script ()
+mintRequiresIssuerAuthorization = do
+  (issuer, _, recipient, minter) <- setup
+  _ <- createRegistries issuer [] [minter] [(minter, "p-solo", 100)]
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-solo"
+
+  submitMustFail minter do
+    exerciseCmd proposalCid ExecuteMint
+
+-- Revoking a minter in the issuer's canonical registry blocks execution of
+-- an outstanding proposal, even if the minter stands up a second registry
+-- that grants themselves the exact permissions and amount they lost.
+revokedMinterCannotForgeOwnRegistry : Script ()
+revokedMinterCannotForgeOwnRegistry = do
+  (issuer, _, recipient, minter) <- setup
+  _ <- createRegistries issuer [] [] []   -- minter is not (or no longer) authorized
+  _ <- createRegistries minter [] [minter] [(minter, "p-revoked", 100)]  -- minter's own forged registry
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-revoked"
+
+  submitMultiMustFail [minter, issuer] [] do
+    exerciseCmd proposalCid ExecuteMint
+
+-- A blacklisted minter is blocked even while holding an outstanding,
+-- otherwise well-formed proposal.
+blacklistedMinterCannotMint : Script ()
+blacklistedMinterCannotMint = do
+  (issuer, _, recipient, minter) <- setup
+  _ <- createRegistries issuer [minter] [minter] [(minter, "p-blacklisted", 100)]
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-blacklisted"
+
+  submitMultiMustFail [minter, issuer] [] do
+    exerciseCmd proposalCid ExecuteMint
+
+-- The one-grant-per-mint throttle holds across two outstanding proposals
+-- for the same minter: the first mint consumes the canonical grant, and
+-- the second is refused because the canonical registry no longer
+-- authorizes the minter (no forged registry can revive it).
+mintThrottleHoldsAcrossRepeatedProposals : Script ()
+mintThrottleHoldsAcrossRepeatedProposals = do
+  (issuer, _, recipient, minter) <- setup
+  _ <- createRegistries issuer [] [minter] [(minter, "p-throttle-1", 100)]
+
+  proposal1 <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-throttle-1"
+  proposal2 <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-throttle-2"
+
+  _ <- submitMulti [minter, issuer] [] do
+    exerciseCmd proposal1 ExecuteMint
+
+  submitMultiMustFail [minter, issuer] [] do
+    exerciseCmd proposal2 ExecuteMint
+
+-- A mint grant authorizes exactly one proposal id: a stale, same-amount
+-- proposal for the same minter cannot consume a grant that was issued for
+-- a different, later proposal, and the intended proposal still executes.
+mintGrantCannotBeDivertedToStaleProposal : Script ()
+mintGrantCannotBeDivertedToStaleProposal = do
+  (issuer, _, recipient, minter) <- setup
+  staleRecipient <- allocateParty "StaleRecipient"
+
+  staleProposal <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = staleRecipient; amount = 100; paused = False
+      proposalId = "stale-proposal"
+
+  intendedProposal <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "intended-proposal"
+
+  _ <- createRegistries issuer [] [minter] [(minter, "intended-proposal", 100)]
+
+  submitMultiMustFail [minter, issuer] [] do
+    exerciseCmd staleProposal ExecuteMint
+
+  mintedCid <- submitMulti [minter, issuer] [] do
+    exerciseCmd intendedProposal ExecuteMint
+
+  Some minted <- queryContractId recipient mintedCid
+  minted.owner === recipient
+  minted.amount === 100
+
+-- A relayer forwarding a minter's signed request can only execute against
+-- the issuer's canonical registries: the forward succeeds when the relayer
+-- is itself authorized to forward and the minter is authorized to mint.
+forwarderMintSucceedsForAuthorizedMinter : Script ()
+forwarderMintSucceedsForAuthorizedMinter = do
+  (issuer, _, recipient, minter) <- setup
+  relayer <- allocateParty "Relayer"
+  registries <- createRegistries issuer [] [minter] [(minter, "p-forwarder-ok", 100)]
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+  _ <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-forwarder-ok"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter
+      relayer
+      to = issuer
+      nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  -- The relaying service is granted read access to the issuer and the
+  -- minter (a normal hosting arrangement) so it can resolve the
+  -- canonical registries and the minter's nonce tracker by key; it
+  -- gains no authority beyond the relayer role itself.
+  mintedCid <- submitMulti [relayer] [issuer, minter] do
+    exerciseCmd requestCid Execute
+
+  Some minted <- queryContractId recipient mintedCid
+  minted.owner === recipient
+  minted.amount === 100
+
+-- A relayer that was never added to the issuer's forwarder allowlist
+-- cannot execute a forward, even with a valid, unexecuted mint proposal
+-- and a genuinely authorized minter sitting behind it.
+forwarderMintFailsWithoutForwardingRight : Script ()
+forwarderMintFailsWithoutForwardingRight = do
+  (issuer, _, recipient, minter) <- setup
+  relayer <- allocateParty "Relayer"
+  _ <- createRegistries issuer [] [minter] [(minter, "p-forwarder-fail", 100)]  -- minter can mint, relayer is not on the forwarder allowlist
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-forwarder-fail"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter
+      relayer
+      to = issuer
+      nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submitMultiMustFail [relayer] [issuer] do
+    exerciseCmd requestCid Execute
+
+-- A relayer with genuine forwarding rights still cannot execute a forward
+-- for a minter who is blacklisted in the issuer's canonical registry.
+forwarderMintFailsForBlacklistedMinter : Script ()
+forwarderMintFailsForBlacklistedMinter = do
+  (issuer, _, recipient, minter) <- setup
+  relayer <- allocateParty "Relayer"
+  registries <- createRegistries issuer [] [minter] [(minter, "p-forwarder-blacklisted", 100)]
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-forwarder-blacklisted"
+
+  -- The minter is blacklisted after the forward request and proposal already exist.
+  _ <- submit issuer do
+    exerciseCmd registries.complianceCid AddBlackList with user = minter
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter
+      relayer
+      to = issuer
+      nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submitMultiMustFail [relayer] [issuer] do
+    exerciseCmd requestCid Execute
+
+-- Blacklisting a party immediately strips their mint, forward, and
+-- trusted-contract standing in the same transaction, rather than leaving
+-- those grants in place until something else notices the conflict.
+blacklistingCascadesToMintForwardAndTrust : Script ()
+blacklistingCascadesToMintForwardAndTrust = do
+  (issuer, _, _, minter) <- setup
+  registries <- createRegistries issuer [] [minter] [(minter, "p-cascade", 100)]
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = minter
+  _ <- submit issuer do exerciseCmd registries.trustCid AddTrustedContract with contract = minter
+
+  _ <- submit issuer do
+    exerciseCmd registries.complianceCid AddBlackList with user = minter
+
+  Some (_, mintRegistry) <- queryContractKey @MintRegistry issuer issuer
+  Some (_, forwarderRegistry) <- queryContractKey @ForwarderRegistry issuer issuer
+  Some (_, trustRegistry) <- queryContractKey @TrustedContractRegistry issuer issuer
+
+  (minter `elem` mintRegistry.canMint) === False
+  (minter `elem` forwarderRegistry.canForward) === False
+  (minter `elem` trustRegistry.trustedContracts) === False
+  findMintGrant minter mintRegistry.mintGrants === None
+
+-- The registry refuses to grant mint, forward, or trusted-contract
+-- standing to a party that is already blacklisted, instead of creating
+-- silently contradictory state.
+grantChoicesRejectAlreadyBlacklistedUser : Script ()
+grantChoicesRejectAlreadyBlacklistedUser = do
+  (issuer, _, _, minter) <- setup
+  registries <- createRegistries issuer [minter] [] []
+
+  submitMustFail issuer do exerciseCmd registries.mintCid AddCanMint with user = minter
+  submitMustFail issuer do exerciseCmd registries.forwarderCid AddCanForward with user = minter
+  submitMustFail issuer do exerciseCmd registries.trustCid AddTrustedContract with contract = minter
+
+-- Merging combines two matching holdings into one, and the combined
+-- amount is exactly the sum of the originals.
+mergeConsolidatesMatchingHoldings : Script ()
+mergeConsolidatesMatchingHoldings = do
+  (issuer, holder, _, _) <- setup
+  tokenCid1 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 40; paused = False
+  tokenCid2 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 60; paused = False
+
+  mergedCid <- submit holder do
+    exerciseCmd tokenCid1 Merge with otherCids = [tokenCid2]
+
+  Some merged <- queryContractId holder mergedCid
+  merged.amount === 100
+
+-- Holdings from different issuers cannot be merged together.
+mergeRejectsIssuerMismatch : Script ()
+mergeRejectsIssuerMismatch = do
+  (issuer, holder, _, _) <- setup
+  otherIssuer <- allocateParty "OtherIssuer"
+  tokenCid1 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 40; paused = False
+  otherIssuerCid <- submit otherIssuer do
+    createCmd CNGNToken with issuer = otherIssuer; owner = holder; amount = 60; paused = False
+
+  submitMustFail holder do
+    exerciseCmd tokenCid1 Merge with otherCids = [otherIssuerCid]
+
+-- A paused holding cannot be merged with an unpaused one.
+mergeRejectsPauseMismatch : Script ()
+mergeRejectsPauseMismatch = do
+  (issuer, holder, _, _) <- setup
+  tokenCid1 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 40; paused = False
+  pausedCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 60; paused = True
+
+  submitMustFail holder do
+    exerciseCmd tokenCid1 Merge with otherCids = [pausedCid]
+
+-- A holder can dispose of a holding they never solicited without the
+-- issuer's cooperation.
+tokenRejectLetsHolderDisposeOfUnwantedHolding : Script ()
+tokenRejectLetsHolderDisposeOfUnwantedHolding = do
+  (issuer, holder, _, _) <- setup
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 1; paused = False
+
+  submit holder do exerciseCmd tokenCid RejectToken
+
+  archived <- queryContractId holder tokenCid
+  archived === (None : Optional CNGNToken)
+
+-- A named minter can dispose of a mint proposal they never solicited
+-- without the issuer's cooperation.
+mintProposalRejectLetsMinterDisposeOfUnwantedProposal : Script ()
+mintProposalRejectLetsMinterDisposeOfUnwantedProposal = do
+  (issuer, _, recipient, minter) <- setup
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 1; paused = False
+      proposalId = "reject-mint"
+
+  submit minter do exerciseCmd proposalCid RejectMint
+
+-- A named spender can dispose of an allowance they never solicited
+-- without the token owner's cooperation.
+allowanceRejectLetsSpenderDisposeOfUnwantedAllowance : Script ()
+allowanceRejectLetsSpenderDisposeOfUnwantedAllowance = do
+  (issuer, holder, _, _) <- setup
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 1
+
+  submit holder do exerciseCmd allowanceCid RejectAllowance
+
+-- A named relayer can dispose of a forward request it never solicited
+-- without the minter's cooperation.
+forwardRequestRejectLetsRelayerDisposeOfUnwantedRequest : Script ()
+forwardRequestRejectLetsRelayerDisposeOfUnwantedRequest = do
+  (issuer, _, recipient, minter) <- setup
+  relayer <- allocateParty "RelayerReject"
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 1; paused = False
+      proposalId = "reject-forward"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submit relayer do exerciseCmd requestCid RejectForward
+
+-- Spending an allowance down to exactly zero archives it outright,
+-- instead of aborting the transaction on exact exhaustion.
+spendAllowanceArchivesOnExactExhaustion : Script ()
+spendAllowanceArchivesOnExactExhaustion = do
+  (issuer, holder, _, _) <- setup
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  result <- submit holder do exerciseCmd allowanceCid SpendAllowance with spendAmt = 100
+  result === None
+
+  archived <- queryContractId holder allowanceCid
+  archived === (None : Optional Allowance)
+
+-- A partial spend leaves the correct remainder in a fresh contract.
+spendAllowancePartialSpendReturnsRemainder : Script ()
+spendAllowancePartialSpendReturnsRemainder = do
+  (issuer, holder, _, _) <- setup
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  Some remainingCid <- submit holder do
+    exerciseCmd allowanceCid SpendAllowance with spendAmt = 40
+
+  Some remaining <- queryContractId holder remainingCid
+  remaining.amount === 60
+
+-- None of the allowance choices accept a zero, negative, or
+-- fully-draining-without-exhaustion-semantics argument.
+allowanceChoicesRejectNonPositiveArguments : Script ()
+allowanceChoicesRejectNonPositiveArguments = do
+  (issuer, holder, _, _) <- setup
+  allowanceCid <- submit issuer do
+    createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 100
+
+  submitMustFail holder do exerciseCmd allowanceCid SpendAllowance with spendAmt = 0
+  submitMustFail issuer do exerciseCmd allowanceCid IncreaseAllowance with addedValue = 0
+  submitMustFail issuer do exerciseCmd allowanceCid DecreaseAllowance with subtractedValue = 0
+  submitMustFail issuer do exerciseCmd allowanceCid DecreaseAllowance with subtractedValue = 100
+
+-- A forward request whose nonce does not match the minter's current
+-- tracked nonce is refused.
+forwarderExecuteFailsOnNonceMismatch : Script ()
+forwarderExecuteFailsOnNonceMismatch = do
+  (issuer, _, recipient, minter) <- setup
+  relayer <- allocateParty "RelayerNonceMismatch"
+  registries <- createRegistries issuer [] [minter] [(minter, "p-nonce-mismatch", 100)]
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+  _ <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-nonce-mismatch"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 5
+      payload = ForwardPayload with mintProposalCid = proposalCid
+
+  submitMultiMustFail [relayer] [issuer, minter] do
+    exerciseCmd requestCid Execute
+
+-- A forward request cannot be executed twice: the nonce it consumed is
+-- gone, so a second request re-using that same nonce is refused even
+-- though it carries a fresh, otherwise-valid mint proposal and grant.
+forwarderExecuteCannotReuseAConsumedNonce : Script ()
+forwarderExecuteCannotReuseAConsumedNonce = do
+  (issuer, _, recipient, minter) <- setup
+  relayer <- allocateParty "RelayerReplay"
+  registries <- createRegistries issuer [] [minter] [(minter, "p-replay-1", 100)]
+  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+  _ <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
+
+  proposal1 <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-replay-1"
+
+  request1 <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposal1
+
+  _ <- submitMulti [relayer] [issuer, minter] do
+    exerciseCmd request1 Execute
+
+  Some (freshMintCid, _) <- queryContractKey @MintRegistry issuer issuer
+  mintCid2 <- submit issuer do exerciseCmd freshMintCid AddCanMint with user = minter
+  _ <- submit issuer do
+    exerciseCmd mintCid2 AddMintGrant with user = minter; proposalId = "p-replay-2"; amount = 100
+
+  proposal2 <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100; paused = False
+      proposalId = "p-replay-2"
+
+  -- Same nonce (0) as the already-executed request1 — the minter's
+  -- tracker has already advanced to 1.
+  request2 <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposal2
+
+  submitMultiMustFail [relayer] [issuer, minter] do
+    exerciseCmd request2 Execute

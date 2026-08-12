@@ -1,23 +1,61 @@
 module Admin where
 
--- Represents the admin registry state
+-- Looks up the mint grant recorded for a minter: the specific proposal id
+-- and amount the issuer authorized, rather than a bare amount that any
+-- same-amount proposal could consume.
+findMintGrant : Party -> [(Party, Text, Int)] -> Optional (Text, Int)
+findMintGrant user grants =
+  case filter (\(p, _, _) -> p == user) grants of
+    (_, proposalId, amount) :: _ -> Some (proposalId, amount)
+    []                            -> None
+
+-- Compliance status: blacklist and the global emergency stop. This is the
+-- registry a holder or minter's own transaction must consult, and the
+-- only one they need to see — it carries no mint, forwarder, or trusted
+-- contract configuration, so a transfer no longer discloses that data.
 template AdminState
   with
     owner        : Party
     blackListed  : [Party]
-    canMint      : [Party]
-    mintAmounts  : [(Party, Int)]
-    canForward   : [Party]
-    trustedContracts : [Party]
+    globalPaused : Bool
   where
     signatory owner
+    key owner : Party
+    maintainer key
 
-    -- Blacklist management
+    -- Global emergency stop: halts transfers, mints, and burns across
+    -- every holding in one atomic action, instead of requiring the
+    -- issuer to pause each outstanding CNGNToken individually.
+    choice PauseAll : ContractId AdminState
+      controller owner
+      do
+        assertMsg "Already globally paused" (not globalPaused)
+        create this with globalPaused = True
+
+    choice UnpauseAll : ContractId AdminState
+      controller owner
+      do
+        assertMsg "Not globally paused" globalPaused
+        create this with globalPaused = False
+
+    -- Blacklisting cascades into the mint, forwarder, and trusted-contract
+    -- registries in the same transaction, so a blacklisted party never
+    -- retains a grant those registries forgot to check.
     choice AddBlackList : ContractId AdminState
       with user : Party
       controller owner
       do
         assertMsg "User already blacklisted" (user `notElem` blackListed)
+
+        (mintCid, _) <- fetchByKey @MintRegistry owner
+        _ <- exercise mintCid ClearMinter with user
+
+        (forwarderCid, _) <- fetchByKey @ForwarderRegistry owner
+        _ <- exercise forwarderCid ClearForwarder with user
+
+        (trustCid, _) <- fetchByKey @TrustedContractRegistry owner
+        _ <- exercise trustCid ClearTrustedContract with contract = user
+
         create this with blackListed = user :: blackListed
 
     choice RemoveBlackList : ContractId AdminState
@@ -27,73 +65,71 @@ template AdminState
         assertMsg "User not blacklisted" (user `elem` blackListed)
         create this with blackListed = filter (/= user) blackListed
 
-    -- Mint authorization
-    choice AddCanMint : ContractId AdminState
+    nonconsuming choice IsBlackListed : Bool
+      with user : Party
+      controller owner
+      do return (user `elem` blackListed)
+
+-- Mint authorization: who may mint, and the specific proposal id and
+-- amount each minter is currently granted. Fetched only by choices that
+-- actually need mint state (ExecuteMint, the forwarder dispatch) — never
+-- by a plain token transfer.
+template MintRegistry
+  with
+    owner      : Party
+    canMint    : [Party]
+    mintGrants : [(Party, Text, Int)]   -- (minter, authorized proposal id, authorized amount)
+  where
+    signatory owner
+    key owner : Party
+    maintainer key
+
+    choice AddCanMint : ContractId MintRegistry
       with user : Party
       controller owner
       do
+        (_, admin) <- fetchByKey @AdminState owner
+        assertMsg "User is blacklisted" (user `notElem` admin.blackListed)
         assertMsg "User already authorized to mint" (user `notElem` canMint)
         create this with canMint = user :: canMint
 
-    choice RemoveCanMint : ContractId AdminState
+    choice RemoveCanMint : ContractId MintRegistry
       with user : Party
       controller owner
       do
         assertMsg "User not authorized to mint" (user `elem` canMint)
         create this with
-          canMint      = filter (/= user) canMint
-          mintAmounts  = filter (\(p, _) -> p /= user) mintAmounts
+          canMint    = filter (/= user) canMint
+          mintGrants = filter (\(p, _, _) -> p /= user) mintGrants
 
-    choice AddMintAmount : ContractId AdminState
-      with user : Party; amount : Int
+    -- Idempotent strip used by AdminState.AddBlackList's cascade: unlike
+    -- RemoveCanMint, this must not fail when the user was never a minter.
+    choice ClearMinter : ContractId MintRegistry
+      with user : Party
+      controller owner
+      do
+        create this with
+          canMint    = filter (/= user) canMint
+          mintGrants = filter (\(p, _, _) -> p /= user) mintGrants
+
+    -- Authorizes one minter for exactly one proposal id and amount, so a
+    -- grant can only be consumed by the specific proposal it was issued
+    -- for, not diverted to any other outstanding same-amount proposal.
+    choice AddMintGrant : ContractId MintRegistry
+      with user : Party; proposalId : Text; amount : Int
       controller owner
       do
         assertMsg "User must be authorized to mint first" (user `elem` canMint)
         assertMsg "Amount must be positive" (amount > 0)
-        let updated = filter (\(p, _) -> p /= user) mintAmounts
-        create this with mintAmounts = (user, amount) :: updated
+        assertMsg "Proposal id must not be empty" (proposalId /= "")
+        let updated = filter (\(p, _, _) -> p /= user) mintGrants
+        create this with mintGrants = (user, proposalId, amount) :: updated
 
-    choice RemoveMintAmount : ContractId AdminState
+    choice RemoveMintGrant : ContractId MintRegistry
       with user : Party
       controller owner
       do
-        create this with mintAmounts = filter (\(p, _) -> p /= user) mintAmounts
-
-    -- Forwarder management
-    choice AddCanForward : ContractId AdminState
-      with user : Party
-      controller owner
-      do
-        assertMsg "Forwarder already added" (user `notElem` canForward)
-        create this with canForward = user :: canForward
-
-    choice RemoveCanForward : ContractId AdminState
-      with user : Party
-      controller owner
-      do
-        assertMsg "User not a forwarder" (user `elem` canForward)
-        create this with canForward = filter (/= user) canForward
-
-    -- Trusted contract management
-    choice AddTrustedContract : ContractId AdminState
-      with contract : Party
-      controller owner
-      do
-        assertMsg "Contract already added" (contract `notElem` trustedContracts)
-        create this with trustedContracts = contract :: trustedContracts
-
-    choice RemoveTrustedContract : ContractId AdminState
-      with contract : Party
-      controller owner
-      do
-        assertMsg "Contract does not exist" (contract `elem` trustedContracts)
-        create this with trustedContracts = filter (/= contract) trustedContracts
-
-    -- Helper nonconsuming queries
-    nonconsuming choice IsBlackListed : Bool
-      with user : Party
-      controller owner
-      do return (user `elem` blackListed)
+        create this with mintGrants = filter (\(p, _, _) -> p /= user) mintGrants
 
     nonconsuming choice CanMintQuery : Bool
       with user : Party
@@ -104,11 +140,82 @@ template AdminState
       with user : Party
       controller owner
       do
-        case lookup user mintAmounts of
-          Some amt -> return amt
-          None     -> return 0
+        case findMintGrant user mintGrants of
+          Some (_, amt) -> return amt
+          None          -> return 0
+
+-- Forwarder (relayer) allowlist. Fetched only by the forwarder dispatch
+-- path — a plain transfer or a direct mint never touches it.
+template ForwarderRegistry
+  with
+    owner      : Party
+    canForward : [Party]
+  where
+    signatory owner
+    key owner : Party
+    maintainer key
+
+    choice AddCanForward : ContractId ForwarderRegistry
+      with user : Party
+      controller owner
+      do
+        (_, admin) <- fetchByKey @AdminState owner
+        assertMsg "User is blacklisted" (user `notElem` admin.blackListed)
+        assertMsg "Forwarder already added" (user `notElem` canForward)
+        create this with canForward = user :: canForward
+
+    choice RemoveCanForward : ContractId ForwarderRegistry
+      with user : Party
+      controller owner
+      do
+        assertMsg "User not a forwarder" (user `elem` canForward)
+        create this with canForward = filter (/= user) canForward
+
+    -- Idempotent strip used by AdminState.AddBlackList's cascade.
+    choice ClearForwarder : ContractId ForwarderRegistry
+      with user : Party
+      controller owner
+      do create this with canForward = filter (/= user) canForward
 
     nonconsuming choice CanForwardQuery : Bool
       with user : Party
       controller owner
       do return (user `elem` canForward)
+
+-- Trusted counterparty list. This is a reserved placeholder: no choice in
+-- this package reads trustedContracts to gate anything today. Adding or
+-- removing an entry has no enforcement effect anywhere in the system —
+-- do not build workflows that assume it does. It is kept separate (rather
+-- than removed) so that if a future feature consumes it, doing so will
+-- not disclose it to a holder, minter, or relayer as a side effect of an
+-- unrelated transaction.
+template TrustedContractRegistry
+  with
+    owner            : Party
+    trustedContracts : [Party]
+  where
+    signatory owner
+    key owner : Party
+    maintainer key
+
+    choice AddTrustedContract : ContractId TrustedContractRegistry
+      with contract : Party
+      controller owner
+      do
+        (_, admin) <- fetchByKey @AdminState owner
+        assertMsg "Contract is blacklisted" (contract `notElem` admin.blackListed)
+        assertMsg "Contract already added" (contract `notElem` trustedContracts)
+        create this with trustedContracts = contract :: trustedContracts
+
+    choice RemoveTrustedContract : ContractId TrustedContractRegistry
+      with contract : Party
+      controller owner
+      do
+        assertMsg "Contract does not exist" (contract `elem` trustedContracts)
+        create this with trustedContracts = filter (/= contract) trustedContracts
+
+    -- Idempotent strip used by AdminState.AddBlackList's cascade.
+    choice ClearTrustedContract : ContractId TrustedContractRegistry
+      with contract : Party
+      controller owner
+      do create this with trustedContracts = filter (/= contract) trustedContracts

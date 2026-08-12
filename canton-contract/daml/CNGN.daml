@@ -1,6 +1,8 @@
 module CNGN where
 
 import Admin
+import DA.Action (when)
+import DA.Foldable (mapA_)
 
 -- Each token holding is a separate contract (UTXO model)
 template CNGNToken
@@ -12,20 +14,21 @@ template CNGNToken
   where
     signatory issuer
     observer owner
+    ensure amount > 0
 
     -- Transfer tokens to another party
     choice Transfer : ContractId CNGNToken
       with
         to        : Party
         transferAmt : Int
-        adminCid  : ContractId AdminState
-      controller owner
+      controller owner, issuer
       do
         assertMsg "Contract is paused" (not paused)
         assertMsg "Transfer amount must be positive" (transferAmt > 0)
         assertMsg "Insufficient balance" (transferAmt <= amount)
 
-        admin <- fetch adminCid
+        (_, admin) <- fetchByKey @AdminState issuer
+        assertMsg "Token is globally paused" (not admin.globalPaused)
         assertMsg "Sender is blacklisted"   (owner `notElem` admin.blackListed)
         assertMsg "Receiver is blacklisted" (to    `notElem` admin.blackListed)
 
@@ -41,12 +44,16 @@ template CNGNToken
     -- Burn: holder destroys their tokens
     choice BurnByUser : ()
       with
-        burnAmt  : Int
-        adminCid : ContractId AdminState
-      controller owner
+        burnAmt : Int
+      controller owner, issuer
       do
         assertMsg "Burn amount must be positive" (burnAmt > 0)
         assertMsg "Insufficient balance" (burnAmt <= amount)
+
+        (_, admin) <- fetchByKey @AdminState issuer
+        assertMsg "Token is globally paused" (not admin.globalPaused)
+        assertMsg "Holder is blacklisted" (owner `notElem` admin.blackListed)
+
         -- Archive this contract; remainder goes back if partial
         when (burnAmt < amount) do
           create this with amount = amount - burnAmt
@@ -66,39 +73,67 @@ template CNGNToken
         assertMsg "Not paused" paused
         create this with paused = False
 
+    -- Consolidates other holdings of the same owner, issuer, and pause
+    -- state into this one, so repeated partial transfers don't leave a
+    -- holder's balance permanently fragmented across many contracts.
+    choice Merge : ContractId CNGNToken
+      with otherCids : [ContractId CNGNToken]
+      controller owner
+      do
+        others <- mapA fetch otherCids
+        assertMsg "Issuer mismatch" (all (\o -> o.issuer == issuer) others)
+        assertMsg "Owner mismatch"  (all (\o -> o.owner  == owner)  others)
+        assertMsg "Pause mismatch"  (all (\o -> o.paused == paused) others)
+        mapA_ (\cid -> exercise cid Archive) otherCids
+        create this with amount = amount + sum (map (.amount) others)
+
+    -- Lets the holder walk away from a holding they never solicited,
+    -- without needing the issuer's cooperation.
+    choice RejectToken : ()
+      controller owner
+      do return ()
+
 
 -- Mint proposal: issuer pre-authorizes a mint; minter executes it
 template MintProposal
   with
-    issuer   : Party
-    minter   : Party
-    mintTo   : Party
-    amount   : Int
-    paused   : Bool
+    issuer     : Party
+    minter     : Party
+    mintTo     : Party
+    amount     : Int
+    paused     : Bool
+    proposalId : Text   -- Issuer-chosen identifier this proposal's mint grant must match
   where
     signatory issuer
     observer minter
+    ensure amount > 0
+    key (issuer, proposalId) : (Party, Text)
+    maintainer key._1
 
     -- Minter executes once authorized in AdminState
     choice ExecuteMint : ContractId CNGNToken
-      with adminCid : ContractId AdminState
-      controller minter
+      controller minter, issuer
       do
         assertMsg "Contract is paused" (not paused)
 
-        admin <- fetch adminCid
+        (_, admin) <- fetchByKey @AdminState issuer
+        assertMsg "Token is globally paused" (not admin.globalPaused)
         assertMsg "Minter is blacklisted"   (minter `notElem` admin.blackListed)
         assertMsg "Receiver is blacklisted" (mintTo `notElem` admin.blackListed)
-        assertMsg "Minter not authorized"   (minter `elem` admin.canMint)
 
-        let allowedAmt = case lookup minter admin.mintAmounts of
-                           Some a -> a
-                           None   -> 0
-        assertMsg "Amount does not match authorized mint amount"
-          (allowedAmt == amount)
+        (mintCid, mintRegistry) <- fetchByKey @MintRegistry issuer
+        assertMsg "Minter not authorized" (minter `elem` mintRegistry.canMint)
 
-        -- Remove mint authorization from admin
-        exercise adminCid RemoveCanMint with user = minter
+        case findMintGrant minter mintRegistry.mintGrants of
+          None -> abort "No outstanding mint grant for this minter"
+          Some (grantedProposalId, grantedAmount) -> do
+            assertMsg "Mint grant is not authorized for this proposal"
+              (grantedProposalId == proposalId)
+            assertMsg "Amount does not match authorized mint amount"
+              (grantedAmount == amount)
+
+        -- Remove mint authorization from the issuer's canonical registry
+        exercise mintCid RemoveCanMint with user = minter
 
         create CNGNToken with
           issuer = issuer
@@ -108,6 +143,12 @@ template MintProposal
 
     choice CancelMint : ()
       controller issuer
+      do return ()
+
+    -- Lets the named minter walk away from a proposal they never
+    -- solicited, without needing the issuer's cooperation.
+    choice RejectMint : ()
+      controller minter
       do return ()
 
 
@@ -120,29 +161,41 @@ template Allowance
   where
     signatory tokenOwner
     observer spender
+    ensure amount > 0
 
-    choice SpendAllowance : ContractId Allowance
+    choice SpendAllowance : Optional (ContractId Allowance)
       with spendAmt : Int
       controller spender
       do
+        assertMsg "Spend amount must be positive" (spendAmt > 0)
         assertMsg "Insufficient allowance" (spendAmt <= amount)
-        if amount - spendAmt == 0
-          then return (error "Allowance exhausted — archive this")  -- caller archives
-          else create this with amount = amount - spendAmt
+        if amount == spendAmt
+          then return None
+          else do
+            cid <- create this with amount = amount - spendAmt
+            return (Some cid)
 
     choice IncreaseAllowance : ContractId Allowance
       with addedValue : Int
       controller tokenOwner
       do
+        assertMsg "Added value must be positive" (addedValue > 0)
         create this with amount = amount + addedValue
 
     choice DecreaseAllowance : ContractId Allowance
       with subtractedValue : Int
       controller tokenOwner
       do
-        assertMsg "Decreased allowance below zero" (amount >= subtractedValue)
+        assertMsg "Subtracted value must be positive" (subtractedValue > 0)
+        assertMsg "Decreased allowance would not be positive" (amount > subtractedValue)
         create this with amount = amount - subtractedValue
 
     choice RevokeAllowance : ()
       controller tokenOwner
+      do return ()
+
+    -- Lets the named spender walk away from an allowance they never
+    -- solicited, without needing the token owner's cooperation.
+    choice RejectAllowance : ()
+      controller spender
       do return ()
