@@ -3,14 +3,32 @@ module Forwarder where
 import Admin
 import CNGN
 
--- A signed forward request, submitted by a relayer on behalf of a minter
+-- A signed forward request, submitted by a relayer on behalf of a minter.
+--
+-- The registry and tracker contract ids are supplied by the minter and
+-- issuer at request-creation time — a transaction where both already
+-- have full visibility of their own state — and re-validated by
+-- ownership equality at execution time. This means the relayer only
+-- ever needs actAs=relayer to submit Execute: no standing readAs grant
+-- over the issuer's or minter's participant is required, unlike a
+-- fetchByKey-based lookup (which would require the relayer's own
+-- submission to carry a maintainer in its actAs/readAs set). A policy
+-- change after the request is created (revoking the minter, updating
+-- any of these registries) archives the referenced contract, so a
+-- stale request simply fails to execute rather than running against
+-- outdated state — it does not need to be re-checked "live" against a
+-- registry the relayer can't see.
 template ForwardRequest
   with
-    from     : Party   -- The minter (signer of the original intent)
-    relayer  : Party   -- The party executing the forward (onlyOwner equivalent)
-    to       : Party   -- Target (cNGN token issuer)
-    nonce    : Int
-    payload  : ForwardPayload
+    from            : Party   -- The minter (signer of the original intent)
+    relayer         : Party   -- The party executing the forward
+    to              : Party   -- Target (cNGN token issuer)
+    nonce           : Int
+    payload         : ForwardPayload
+    complianceCid   : ContractId AdminState
+    forwarderCid    : ContractId ForwarderRegistry
+    mintCid         : ContractId MintRegistry
+    nonceTrackerCid : ContractId NonceTracker
   where
     signatory from, to  -- Minter and issuer must both authorize the forward
     observer  relayer
@@ -18,25 +36,59 @@ template ForwardRequest
     choice Execute : ContractId CNGNToken
       controller relayer
       do
-        (_, admin) <- fetchByKey @AdminState to
+        admin <- fetch complianceCid
+        assertMsg "Compliance registry does not belong to the issuer" (admin.owner == to)
+        assertMsg "Token is globally paused" (not admin.globalPaused)
         assertMsg "Relayer is blacklisted" (relayer `notElem` admin.blackListed)
         assertMsg "Minter is blacklisted"  (from    `notElem` admin.blackListed)
 
-        (_, forwarderRegistry) <- fetchByKey @ForwarderRegistry to
+        forwarderRegistry <- fetch forwarderCid
+        assertMsg "Forwarder registry does not belong to the issuer" (forwarderRegistry.owner == to)
         assertMsg "Relayer not authorized to forward" (relayer `elem` forwarderRegistry.canForward)
 
-        (_, mintRegistry) <- fetchByKey @MintRegistry to
+        mintRegistry <- fetch mintCid
+        assertMsg "Mint registry does not belong to the issuer" (mintRegistry.owner == to)
         assertMsg "Minter not authorized to mint" (from `elem` mintRegistry.canMint)
 
         -- Replay protection: the request's nonce must match the minter's
-        -- current tracked nonce, and executing it advances the tracker so
-        -- the same nonce cannot authorize a second forward.
-        (trackerCid, tracker) <- fetchByKey @NonceTracker from
+        -- current tracked nonce, and executing it advances the tracker
+        -- so the same nonce cannot authorize a second forward.
+        tracker <- fetch nonceTrackerCid
+        assertMsg "Nonce tracker does not belong to the minter" (tracker.owner == from)
         assertMsg "Nonce does not match the minter's current nonce" (nonce == tracker.nonce)
-        _ <- exercise trackerCid IncrementNonce
+        _ <- exercise nonceTrackerCid IncrementNonce
 
-        -- Dispatch to MintProposal execution against the issuer's canonical registry
-        exercise payload.mintProposalCid ExecuteMint
+        -- The proposal's own identity is checked against the parties
+        -- that actually signed this forward request, rather than trusted
+        -- because it happens to be referenced here.
+        proposal <- fetch payload.mintProposalCid
+        assertMsg "Proposal issuer does not match the forward target" (proposal.issuer == to)
+        assertMsg "Proposal minter does not match the forward signer" (proposal.minter == from)
+        assertMsg "Proposal is paused" (not proposal.paused)
+        assertMsg "Receiver is blacklisted" (proposal.mintTo `notElem` admin.blackListed)
+
+        case findMintGrant from mintRegistry.mintGrants of
+          None -> abort "No outstanding mint grant for this minter"
+          Some (grantedProposalId, grantedAmount) -> do
+            assertMsg "Mint grant is not authorized for this proposal"
+              (grantedProposalId == proposal.proposalId)
+            assertMsg "Amount does not match authorized mint amount"
+              (grantedAmount == proposal.amount)
+
+        -- Remove mint authorization from the issuer's canonical registry
+        -- and consume the proposal directly (this bypasses
+        -- MintProposal.ExecuteMint, which is reserved for the minter and
+        -- issuer executing directly — see module comment above for why
+        -- the forwarder path can't share it without reintroducing a
+        -- readAs requirement for the relayer).
+        _ <- exercise mintCid RemoveCanMint with user = from
+        archive payload.mintProposalCid
+
+        create CNGNToken with
+          issuer = proposal.issuer
+          owner  = proposal.mintTo
+          amount = proposal.amount
+          paused = proposal.paused
 
     -- Lets the named relayer walk away from a forward request it never
     -- solicited, without needing the minter's cooperation.
@@ -52,8 +104,8 @@ data ForwardPayload = ForwardPayload
   deriving (Show, Eq)
 
 
--- Nonce tracker per minter (replay protection). Keyed so Execute can
--- resolve the minter's current tracker without a caller-supplied cid.
+-- Nonce tracker per minter (replay protection). Keyed so the minter and
+-- issuer can resolve it when creating a ForwardRequest.
 template NonceTracker
   with
     owner  : Party

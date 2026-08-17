@@ -2,7 +2,7 @@ sdk-version: 2.10.4
 name: cngn
 version: 1.0.0
 source: daml
-scenario: Setup:initialize # entrypoint for daml script
+init-script: Setup:initialize # entrypoint for daml script
 dependencies:
   - daml-prim
   - daml-stdlib

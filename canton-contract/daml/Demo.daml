@@ -1,0 +1,187 @@
+module Demo where
+
+import Daml.Script
+import Admin
+import CNGN
+import Forwarder
+import Tests.Common (setupParties, createRegistries)
+
+-- Operational smoke-test scripts, run against a real (sandbox or Canton)
+-- ledger via `daml script`, one per capability: mint, transfer, burn,
+-- admin actions, and the disclosure-based forwarder flow. Each is
+-- self-contained — it allocates its own fresh parties and registries
+-- rather than depending on Setup:initialize's parties, since Daml
+-- Script has no reliable way to look up an existing party by hint
+-- across separate script invocations.
+
+mintFlow : Script ()
+mintFlow = do
+  debug "=== Demo: Mint ==="
+  (issuer, _, recipient, minter) <- setupParties
+  _ <- createRegistries issuer [] [minter] [(minter, "demo-mint", 1000000)]
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 1000000; paused = False
+      proposalId = "demo-mint"
+
+  mintedCid <- submitMulti [minter, issuer] [] do exerciseCmd proposalCid ExecuteMint
+  Some minted <- queryContractId recipient mintedCid
+  debug ("Minted " <> show minted.amount <> " cNGN to " <> show recipient)
+
+transferFlow : Script ()
+transferFlow = do
+  debug "=== Demo: Transfer ==="
+  (issuer, holder, recipient, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 500000; paused = False
+
+  newCid <- submitMulti [holder, issuer] [] do
+    exerciseCmd tokenCid Transfer with to = recipient; transferAmt = 200000
+  Some newToken <- queryContractId recipient newCid
+  debug ("Transferred " <> show newToken.amount <> " cNGN from " <> show holder <> " to " <> show recipient)
+
+burnFlow : Script ()
+burnFlow = do
+  debug "=== Demo: Burn ==="
+  (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 300000; paused = False
+
+  submitMulti [holder, issuer] [] do exerciseCmd tokenCid BurnByUser with burnAmt = 300000
+  debug ("Burned 300000 cNGN held by " <> show holder)
+
+adminFlow : Script ()
+adminFlow = do
+  debug "=== Demo: Admin actions ==="
+  (issuer, holder, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  pausedCid <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  debug "Paused all transfers/mints/burns globally"
+  unpausedCid <- submit issuer do exerciseCmd pausedCid UnpauseAll
+  debug "Lifted the global pause"
+
+  blacklistedCid <- submit issuer do
+    exerciseCmd unpausedCid AddBlackList with user = holder
+  debug (show holder <> " blacklisted (cascades to mint/forward/trust registries)")
+  _ <- submit issuer do exerciseCmd blacklistedCid RemoveBlackList with user = holder
+  debug (show holder <> " removed from blacklist")
+
+  -- AddBlackList's cascade archives and recreates every sibling
+  -- registry, not just the compliance one — re-resolve the current
+  -- MintRegistry and TrustedContractRegistry before continuing.
+  Some (freshMintCid, _) <- queryContractKey @MintRegistry issuer issuer
+  canMintCid <- submit issuer do exerciseCmd freshMintCid AddCanMint with user = minter
+  debug (show minter <> " authorized to mint (AddCanMint)")
+  _ <- submit issuer do
+    exerciseCmd canMintCid AddMintGrant with user = minter; proposalId = "demo-admin-grant"; amount = 100
+  debug (show minter <> " granted a mint amount of 100 under proposal id demo-admin-grant (AddMintGrant)")
+
+  Some (freshTrustCid, _) <- queryContractKey @TrustedContractRegistry issuer issuer
+  trustedCid <- submit issuer do
+    exerciseCmd freshTrustCid AddTrustedContract with contract = minter
+  debug (show minter <> " added as a trusted contract (AddTrustedContract)")
+  _ <- submit issuer do exerciseCmd trustedCid RemoveTrustedContract with contract = minter
+  debug (show minter <> " removed as a trusted contract (RemoveTrustedContract)")
+
+-- Per-holding pause: distinct from AdminState.PauseAll in adminFlow
+-- above — this freezes one CNGNToken, issuer-controlled, independent of
+-- the global halt.
+pauseTokenFlow : Script ()
+pauseTokenFlow = do
+  debug "=== Demo: Per-token pause ==="
+  (issuer, holder, _, _) <- setupParties
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 400000; paused = False
+
+  pausedCid <- submit issuer do exerciseCmd tokenCid Pause
+  debug "Holding paused (Pause) — Transfer/BurnByUser on it now fail"
+  _ <- submit issuer do exerciseCmd pausedCid UnPause
+  debug "Holding unpaused (UnPause) — normal again"
+
+-- Approve/spend allowance lifecycle. Note: Allowance is a standalone
+-- approval record in this package — there is no TransferFrom choice
+-- that debits a CNGNToken against it (see SECURITY.md).
+allowanceFlow : Script ()
+allowanceFlow = do
+  debug "=== Demo: Allowance (approve/spend) ==="
+  (_, holder, spender, _) <- setupParties
+  allowanceCid <- submit holder do
+    createCmd Allowance with tokenOwner = holder; spender; amount = 100000
+  debug (show holder <> " approved " <> show spender <> " for 100000 (create Allowance)")
+
+  increasedCid <- submit holder do
+    exerciseCmd allowanceCid IncreaseAllowance with addedValue = 50000
+  debug "Allowance increased by 50000 (IncreaseAllowance)"
+  decreasedCid <- submit holder do
+    exerciseCmd increasedCid DecreaseAllowance with subtractedValue = 20000
+  debug "Allowance decreased by 20000 (DecreaseAllowance)"
+
+  Some remainingCid <- submit spender do
+    exerciseCmd decreasedCid SpendAllowance with spendAmt = 30000
+  debug "Spender drew down 30000 (SpendAllowance)"
+
+  submit holder do exerciseCmd remainingCid RevokeAllowance
+  debug "Remaining allowance revoked (RevokeAllowance)"
+
+discloseFrom : (Template t, HasAgreement t) => Party -> ContractId t -> Script Disclosure
+discloseFrom party cid = do
+  Some disclosure <- queryDisclosure party cid
+  return disclosure
+
+-- Meta-transaction pattern: the minter signs their intent (the
+-- ForwardRequest), but the relayer is the one who actually submits the
+-- ledger command and bears its submission/execution cost — Canton has
+-- no per-transaction gas fee the way EVM chains do, but the relayer is
+-- the cost-bearing party in the same structural role a gas-paying
+-- relayer plays in an EVM meta-transaction.
+forwarderFlow : Script ()
+forwarderFlow = do
+  debug "=== Demo: Forwarder (relayer submits/pays for the mint the minter signed, via explicit disclosure) ==="
+  (issuer, _, recipient, minter) <- setupParties
+  relayer <- allocateParty "DemoRelayer"
+  registries0 <- createRegistries issuer [] [minter] [(minter, "demo-forward", 100000)]
+  forwarderCid <- submit issuer do
+    exerciseCmd registries0.forwarderCid AddCanForward with user = relayer
+  let registries = registries0 with forwarderCid
+  trackerCid <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
+
+  proposalCid <- submit issuer do
+    createCmd MintProposal with
+      issuer; minter; mintTo = recipient; amount = 100000; paused = False
+      proposalId = "demo-forward"
+
+  requestCid <- submitMulti [minter, issuer] [] do
+    createCmd ForwardRequest with
+      from = minter; relayer; to = issuer; nonce = 0
+      payload = ForwardPayload with mintProposalCid = proposalCid
+      complianceCid = registries.complianceCid
+      forwarderCid = registries.forwarderCid
+      mintCid = registries.mintCid
+      nonceTrackerCid = trackerCid
+
+  -- The relayer submits with exactly the disclosures it needs — no
+  -- standing readAs grant over the issuer or minter's party.
+  discs <- sequence
+    [ discloseFrom issuer registries.complianceCid
+    , discloseFrom issuer registries.forwarderCid
+    , discloseFrom issuer registries.mintCid
+    , discloseFrom minter trackerCid
+    , discloseFrom issuer proposalCid
+    ]
+  mintedCid <- submitWithDisclosures relayer discs do exerciseCmd requestCid Execute
+  Some minted <- queryContractId recipient mintedCid
+  debug ("Relayer " <> show relayer <> " executed forward mint: " <> show minted.amount <> " cNGN to " <> show recipient)
+
+allFlows : Script ()
+allFlows = do
+  mintFlow
+  transferFlow
+  burnFlow
+  pauseTokenFlow
+  allowanceFlow
+  adminFlow
+  forwarderFlow
+  debug "=== Demo: all flows completed ==="

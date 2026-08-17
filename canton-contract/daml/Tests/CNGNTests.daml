@@ -205,24 +205,80 @@ unPause_rejectsWhenNotPaused = do
 merge_combinesAmounts : Script ()
 merge_combinesAmounts = do
   (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
   tokenCid1 <- submit issuer do
     createCmd CNGNToken with issuer; owner = holder; amount = 30; paused = False
   tokenCid2 <- submit issuer do
     createCmd CNGNToken with issuer; owner = holder; amount = 70; paused = False
 
-  mergedCid <- submit holder do exerciseCmd tokenCid1 Merge with otherCids = [tokenCid2]
+  mergedCid <- submitMulti [holder, issuer] [] do exerciseCmd tokenCid1 Merge with otherCids = [tokenCid2]
   Some merged <- queryContractId holder mergedCid
   merged.amount === 100
+
+-- Merge is gated the same way Transfer and BurnByUser are: a blacklisted
+-- holder cannot even consolidate their own holdings.
+merge_rejectsBlacklistedHolder : Script ()
+merge_rejectsBlacklistedHolder = do
+  (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [holder] [] []
+  tokenCid1 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 30; paused = False
+  tokenCid2 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 70; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid1 Merge with otherCids = [tokenCid2]
+
+-- Merge is blocked during a global halt, just like Transfer and
+-- BurnByUser — pause freezes disposition of a holding entirely, not
+-- just its movement to another party.
+merge_rejectsWhenGloballyPaused : Script ()
+merge_rejectsWhenGloballyPaused = do
+  (issuer, holder, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+  _ <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  tokenCid1 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 30; paused = False
+  tokenCid2 <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 70; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do
+    exerciseCmd tokenCid1 Merge with otherCids = [tokenCid2]
 
 rejectToken_archivesHolding : Script ()
 rejectToken_archivesHolding = do
   (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [] [] []
   tokenCid <- submit issuer do
     createCmd CNGNToken with issuer; owner = holder; amount = 1; paused = False
 
-  submit holder do exerciseCmd tokenCid RejectToken
+  submitMulti [holder, issuer] [] do exerciseCmd tokenCid RejectToken
   result <- queryContractId holder tokenCid
   result === (None : Optional CNGNToken)
+
+-- RejectToken is gated the same way BurnByUser is: a blacklisted holder
+-- cannot use it to dispose of an official holding outside compliance
+-- control. This means RejectToken is no longer a route for a victim to
+-- unilaterally clear a self-issued, non-cooperating party's unsolicited
+-- token — see SECURITY.md.
+rejectToken_rejectsBlacklistedHolder : Script ()
+rejectToken_rejectsBlacklistedHolder = do
+  (issuer, holder, _, _) <- setupParties
+  _ <- createRegistries issuer [holder] [] []
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 1; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do exerciseCmd tokenCid RejectToken
+
+rejectToken_rejectsWhenGloballyPaused : Script ()
+rejectToken_rejectsWhenGloballyPaused = do
+  (issuer, holder, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+  _ <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  tokenCid <- submit issuer do
+    createCmd CNGNToken with issuer; owner = holder; amount = 1; paused = False
+
+  submitMultiMustFail [holder, issuer] [] do exerciseCmd tokenCid RejectToken
 
 -- ── MintProposal ─────────────────────────────────────────────────────────
 

@@ -40,21 +40,37 @@ template AdminState
 
     -- Blacklisting cascades into the mint, forwarder, and trusted-contract
     -- registries in the same transaction, so a blacklisted party never
-    -- retains a grant those registries forgot to check.
+    -- retains a grant those registries forgot to check. Uses lookupByKey
+    -- rather than fetchByKey for the siblings: the emergency freeze must
+    -- not depend on those registries' existence. If a sibling registry
+    -- is missing, blacklisting still proceeds — there's simply nothing
+    -- to clear there.
     choice AddBlackList : ContractId AdminState
       with user : Party
       controller owner
       do
         assertMsg "User already blacklisted" (user `notElem` blackListed)
 
-        (mintCid, _) <- fetchByKey @MintRegistry owner
-        _ <- exercise mintCid ClearMinter with user
+        maybeMintCid <- lookupByKey @MintRegistry owner
+        case maybeMintCid of
+          Some mintCid -> do
+            _ <- exercise mintCid ClearMinter with user
+            return ()
+          None -> return ()
 
-        (forwarderCid, _) <- fetchByKey @ForwarderRegistry owner
-        _ <- exercise forwarderCid ClearForwarder with user
+        maybeForwarderCid <- lookupByKey @ForwarderRegistry owner
+        case maybeForwarderCid of
+          Some forwarderCid -> do
+            _ <- exercise forwarderCid ClearForwarder with user
+            return ()
+          None -> return ()
 
-        (trustCid, _) <- fetchByKey @TrustedContractRegistry owner
-        _ <- exercise trustCid ClearTrustedContract with contract = user
+        maybeTrustCid <- lookupByKey @TrustedContractRegistry owner
+        case maybeTrustCid of
+          Some trustCid -> do
+            _ <- exercise trustCid ClearTrustedContract with contract = user
+            return ()
+          None -> return ()
 
         create this with blackListed = user :: blackListed
 

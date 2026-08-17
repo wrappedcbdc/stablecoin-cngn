@@ -76,10 +76,17 @@ template CNGNToken
     -- Consolidates other holdings of the same owner, issuer, and pause
     -- state into this one, so repeated partial transfers don't leave a
     -- holder's balance permanently fragmented across many contracts.
+    -- Gated the same way Transfer and BurnByUser are: a frozen holder,
+    -- or a holder during a global halt, cannot touch their holdings at
+    -- all, not even to consolidate them.
     choice Merge : ContractId CNGNToken
       with otherCids : [ContractId CNGNToken]
-      controller owner
+      controller owner, issuer
       do
+        (_, admin) <- fetchByKey @AdminState issuer
+        assertMsg "Token is globally paused" (not admin.globalPaused)
+        assertMsg "Owner is blacklisted" (owner `notElem` admin.blackListed)
+
         others <- mapA fetch otherCids
         assertMsg "Issuer mismatch" (all (\o -> o.issuer == issuer) others)
         assertMsg "Owner mismatch"  (all (\o -> o.owner  == owner)  others)
@@ -87,11 +94,20 @@ template CNGNToken
         mapA_ (\cid -> exercise cid Archive) otherCids
         create this with amount = amount + sum (map (.amount) others)
 
-    -- Lets the holder walk away from a holding they never solicited,
-    -- without needing the issuer's cooperation.
+    -- Lets the holder walk away from a holding, gated by the same
+    -- compliance rules as BurnByUser: a frozen holder or a global halt
+    -- blocks disposal of an official holding the same way it blocks
+    -- burning or transferring one. This requires the issuer's
+    -- co-authorization, so it is not a route for disposing of a
+    -- self-issued, non-cooperating party's unsolicited token — see
+    -- SECURITY.md for that residual.
     choice RejectToken : ()
-      controller owner
-      do return ()
+      controller owner, issuer
+      do
+        (_, admin) <- fetchByKey @AdminState issuer
+        assertMsg "Token is globally paused" (not admin.globalPaused)
+        assertMsg "Owner is blacklisted" (owner `notElem` admin.blackListed)
+        return ()
 
 
 -- Mint proposal: issuer pre-authorizes a mint; minter executes it
@@ -144,6 +160,15 @@ template MintProposal
     choice CancelMint : ()
       controller issuer
       do return ()
+
+    -- Lets the issuer lift a proposal-level pause set at creation — the
+    -- only way to change it previously was CancelMint, which discards
+    -- the proposal outright rather than allowing it to later execute.
+    choice UnpauseMint : ContractId MintProposal
+      controller issuer
+      do
+        assertMsg "Proposal is not paused" paused
+        create this with paused = False
 
     -- Lets the named minter walk away from a proposal they never
     -- solicited, without needing the issuer's cooperation.

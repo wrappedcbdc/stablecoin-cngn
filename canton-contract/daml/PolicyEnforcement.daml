@@ -4,7 +4,6 @@ import DA.Assert
 import Daml.Script
 import Admin
 import CNGN
-import Forwarder
 
 -- Sets up one issuer with a canonical AdminState plus a holder, a recipient
 -- and a minter, and returns everything a test needs to exercise the token
@@ -360,95 +359,6 @@ mintGrantCannotBeDivertedToStaleProposal = do
   minted.owner === recipient
   minted.amount === 100
 
--- A relayer forwarding a minter's signed request can only execute against
--- the issuer's canonical registries: the forward succeeds when the relayer
--- is itself authorized to forward and the minter is authorized to mint.
-forwarderMintSucceedsForAuthorizedMinter : Script ()
-forwarderMintSucceedsForAuthorizedMinter = do
-  (issuer, _, recipient, minter) <- setup
-  relayer <- allocateParty "Relayer"
-  registries <- createRegistries issuer [] [minter] [(minter, "p-forwarder-ok", 100)]
-  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
-  _ <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
-
-  proposalCid <- submit issuer do
-    createCmd MintProposal with
-      issuer; minter; mintTo = recipient; amount = 100; paused = False
-      proposalId = "p-forwarder-ok"
-
-  requestCid <- submitMulti [minter, issuer] [] do
-    createCmd ForwardRequest with
-      from = minter
-      relayer
-      to = issuer
-      nonce = 0
-      payload = ForwardPayload with mintProposalCid = proposalCid
-
-  -- The relaying service is granted read access to the issuer and the
-  -- minter (a normal hosting arrangement) so it can resolve the
-  -- canonical registries and the minter's nonce tracker by key; it
-  -- gains no authority beyond the relayer role itself.
-  mintedCid <- submitMulti [relayer] [issuer, minter] do
-    exerciseCmd requestCid Execute
-
-  Some minted <- queryContractId recipient mintedCid
-  minted.owner === recipient
-  minted.amount === 100
-
--- A relayer that was never added to the issuer's forwarder allowlist
--- cannot execute a forward, even with a valid, unexecuted mint proposal
--- and a genuinely authorized minter sitting behind it.
-forwarderMintFailsWithoutForwardingRight : Script ()
-forwarderMintFailsWithoutForwardingRight = do
-  (issuer, _, recipient, minter) <- setup
-  relayer <- allocateParty "Relayer"
-  _ <- createRegistries issuer [] [minter] [(minter, "p-forwarder-fail", 100)]  -- minter can mint, relayer is not on the forwarder allowlist
-
-  proposalCid <- submit issuer do
-    createCmd MintProposal with
-      issuer; minter; mintTo = recipient; amount = 100; paused = False
-      proposalId = "p-forwarder-fail"
-
-  requestCid <- submitMulti [minter, issuer] [] do
-    createCmd ForwardRequest with
-      from = minter
-      relayer
-      to = issuer
-      nonce = 0
-      payload = ForwardPayload with mintProposalCid = proposalCid
-
-  submitMultiMustFail [relayer] [issuer] do
-    exerciseCmd requestCid Execute
-
--- A relayer with genuine forwarding rights still cannot execute a forward
--- for a minter who is blacklisted in the issuer's canonical registry.
-forwarderMintFailsForBlacklistedMinter : Script ()
-forwarderMintFailsForBlacklistedMinter = do
-  (issuer, _, recipient, minter) <- setup
-  relayer <- allocateParty "Relayer"
-  registries <- createRegistries issuer [] [minter] [(minter, "p-forwarder-blacklisted", 100)]
-  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
-
-  proposalCid <- submit issuer do
-    createCmd MintProposal with
-      issuer; minter; mintTo = recipient; amount = 100; paused = False
-      proposalId = "p-forwarder-blacklisted"
-
-  -- The minter is blacklisted after the forward request and proposal already exist.
-  _ <- submit issuer do
-    exerciseCmd registries.complianceCid AddBlackList with user = minter
-
-  requestCid <- submitMulti [minter, issuer] [] do
-    createCmd ForwardRequest with
-      from = minter
-      relayer
-      to = issuer
-      nonce = 0
-      payload = ForwardPayload with mintProposalCid = proposalCid
-
-  submitMultiMustFail [relayer] [issuer] do
-    exerciseCmd requestCid Execute
-
 -- Blacklisting a party immediately strips their mint, forward, and
 -- trusted-contract standing in the same transaction, rather than leaving
 -- those grants in place until something else notices the conflict.
@@ -488,12 +398,13 @@ grantChoicesRejectAlreadyBlacklistedUser = do
 mergeConsolidatesMatchingHoldings : Script ()
 mergeConsolidatesMatchingHoldings = do
   (issuer, holder, _, _) <- setup
+  _ <- createRegistries issuer [] [] []
   tokenCid1 <- submit issuer do
     createCmd CNGNToken with issuer; owner = holder; amount = 40; paused = False
   tokenCid2 <- submit issuer do
     createCmd CNGNToken with issuer; owner = holder; amount = 60; paused = False
 
-  mergedCid <- submit holder do
+  mergedCid <- submitMulti [holder, issuer] [] do
     exerciseCmd tokenCid1 Merge with otherCids = [tokenCid2]
 
   Some merged <- queryContractId holder mergedCid
@@ -529,10 +440,11 @@ mergeRejectsPauseMismatch = do
 tokenRejectLetsHolderDisposeOfUnwantedHolding : Script ()
 tokenRejectLetsHolderDisposeOfUnwantedHolding = do
   (issuer, holder, _, _) <- setup
+  _ <- createRegistries issuer [] [] []
   tokenCid <- submit issuer do
     createCmd CNGNToken with issuer; owner = holder; amount = 1; paused = False
 
-  submit holder do exerciseCmd tokenCid RejectToken
+  submitMulti [holder, issuer] [] do exerciseCmd tokenCid RejectToken
 
   archived <- queryContractId holder tokenCid
   archived === (None : Optional CNGNToken)
@@ -558,24 +470,6 @@ allowanceRejectLetsSpenderDisposeOfUnwantedAllowance = do
     createCmd Allowance with tokenOwner = issuer; spender = holder; amount = 1
 
   submit holder do exerciseCmd allowanceCid RejectAllowance
-
--- A named relayer can dispose of a forward request it never solicited
--- without the minter's cooperation.
-forwardRequestRejectLetsRelayerDisposeOfUnwantedRequest : Script ()
-forwardRequestRejectLetsRelayerDisposeOfUnwantedRequest = do
-  (issuer, _, recipient, minter) <- setup
-  relayer <- allocateParty "RelayerReject"
-  proposalCid <- submit issuer do
-    createCmd MintProposal with
-      issuer; minter; mintTo = recipient; amount = 1; paused = False
-      proposalId = "reject-forward"
-
-  requestCid <- submitMulti [minter, issuer] [] do
-    createCmd ForwardRequest with
-      from = minter; relayer; to = issuer; nonce = 0
-      payload = ForwardPayload with mintProposalCid = proposalCid
-
-  submit relayer do exerciseCmd requestCid RejectForward
 
 -- Spending an allowance down to exactly zero archives it outright,
 -- instead of aborting the transaction on exact exhaustion.
@@ -617,69 +511,3 @@ allowanceChoicesRejectNonPositiveArguments = do
   submitMustFail issuer do exerciseCmd allowanceCid DecreaseAllowance with subtractedValue = 0
   submitMustFail issuer do exerciseCmd allowanceCid DecreaseAllowance with subtractedValue = 100
 
--- A forward request whose nonce does not match the minter's current
--- tracked nonce is refused.
-forwarderExecuteFailsOnNonceMismatch : Script ()
-forwarderExecuteFailsOnNonceMismatch = do
-  (issuer, _, recipient, minter) <- setup
-  relayer <- allocateParty "RelayerNonceMismatch"
-  registries <- createRegistries issuer [] [minter] [(minter, "p-nonce-mismatch", 100)]
-  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
-  _ <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
-
-  proposalCid <- submit issuer do
-    createCmd MintProposal with
-      issuer; minter; mintTo = recipient; amount = 100; paused = False
-      proposalId = "p-nonce-mismatch"
-
-  requestCid <- submitMulti [minter, issuer] [] do
-    createCmd ForwardRequest with
-      from = minter; relayer; to = issuer; nonce = 5
-      payload = ForwardPayload with mintProposalCid = proposalCid
-
-  submitMultiMustFail [relayer] [issuer, minter] do
-    exerciseCmd requestCid Execute
-
--- A forward request cannot be executed twice: the nonce it consumed is
--- gone, so a second request re-using that same nonce is refused even
--- though it carries a fresh, otherwise-valid mint proposal and grant.
-forwarderExecuteCannotReuseAConsumedNonce : Script ()
-forwarderExecuteCannotReuseAConsumedNonce = do
-  (issuer, _, recipient, minter) <- setup
-  relayer <- allocateParty "RelayerReplay"
-  registries <- createRegistries issuer [] [minter] [(minter, "p-replay-1", 100)]
-  _ <- submit issuer do exerciseCmd registries.forwarderCid AddCanForward with user = relayer
-  _ <- submit minter do createCmd NonceTracker with owner = minter; nonce = 0
-
-  proposal1 <- submit issuer do
-    createCmd MintProposal with
-      issuer; minter; mintTo = recipient; amount = 100; paused = False
-      proposalId = "p-replay-1"
-
-  request1 <- submitMulti [minter, issuer] [] do
-    createCmd ForwardRequest with
-      from = minter; relayer; to = issuer; nonce = 0
-      payload = ForwardPayload with mintProposalCid = proposal1
-
-  _ <- submitMulti [relayer] [issuer, minter] do
-    exerciseCmd request1 Execute
-
-  Some (freshMintCid, _) <- queryContractKey @MintRegistry issuer issuer
-  mintCid2 <- submit issuer do exerciseCmd freshMintCid AddCanMint with user = minter
-  _ <- submit issuer do
-    exerciseCmd mintCid2 AddMintGrant with user = minter; proposalId = "p-replay-2"; amount = 100
-
-  proposal2 <- submit issuer do
-    createCmd MintProposal with
-      issuer; minter; mintTo = recipient; amount = 100; paused = False
-      proposalId = "p-replay-2"
-
-  -- Same nonce (0) as the already-executed request1 — the minter's
-  -- tracker has already advanced to 1.
-  request2 <- submitMulti [minter, issuer] [] do
-    createCmd ForwardRequest with
-      from = minter; relayer; to = issuer; nonce = 0
-      payload = ForwardPayload with mintProposalCid = proposal2
-
-  submitMultiMustFail [relayer] [issuer, minter] do
-    exerciseCmd request2 Execute

@@ -1,104 +1,99 @@
 ## Summary
 
-Remediates the full set of Canton/DAML audit findings (H-1, M-1, M-2, L-1
-through L-3, plus a second bundled review pass) for the cNGN contracts,
-and adds a proper per-module + per-flow test suite. Net: 118 passing
-tests, 0 failures, choice coverage up from 50% to 82.6%.
+Follow-up remediation from a review of the prior H-1/M-1/M-2/L-1–L-3 fix
+(commit `812373a`), plus a fix to the deployment tooling, which was
+non-functional as committed. Test count: 118 → 126, 0 failures.
 
 ## Security fixes
 
-- **[H-1] Caller-controlled `AdminState` bypassed blacklist and mint
-  revocation.** `Transfer`, `BurnByUser`, and `ExecuteMint` took a
-  caller-supplied `adminCid` and never verified it belonged to the
-  issuer — any party could forge their own permissive registry to defeat
-  a freeze or a revoked mint grant. `AdminState` now has a `key
-  owner`/`maintainer key`; every consumer resolves it via `fetchByKey`,
-  and the token/mint choices require joint `owner, issuer` /
-  `minter, issuer` authorization so the fetch is both authorized and
-  visible.
-- **[M-1] Legitimate transfers/mints were blocked by registry
-  visibility.** Resolved as a side effect of the H-1 fix — the issuer is
-  now a mandatory co-authorizer on every value-moving choice, so the
-  registry (of which the issuer is the sole signatory) is always
-  visible when it's needed.
-- **[M-2] Zero/negative-value spam holdings.** Added `ensure amount > 0`
-  to `CNGNToken`, `MintProposal`, and `Allowance` — closes the
-  unremovable zero-value-holding griefing vector. Residual (documented
-  in `SECURITY.md`): a positive-value self-issued token from an
-  untrusted party still requires Ledger API command permissioning or
-  consumer-side issuer-allowlisting outside this package.
-- **[L-1] Pause was per-holding, not atomic.** Added `globalPaused` to
-  the compliance registry with `PauseAll`/`UnpauseAll`, checked in
-  `Transfer`, `BurnByUser`, and `ExecuteMint`.
-- **[L-2] `BurnByUser` ignored blacklist and pause entirely** (it took an
-  `adminCid` parameter and never fetched it). Now fetches the compliance
-  registry and checks both.
-- **[L-3] Mint grants were scoped to `(minter, amount)`, not to a
-  specific proposal** — a stale same-amount proposal could consume a
-  grant meant for a different one. Grants are now bound to an
-  issuer-chosen `proposalId`, and `MintProposal` has a
-  `key (issuer, proposalId)` so ids can't collide.
-- **Registry confidentiality split.** The original `AdminState` bundled
-  blacklist, mint authorization, forwarder allowlist, and trusted
-  contracts in one contract, so a plain `Transfer` disclosed the entire
-  thing to the holder. Split into `AdminState` (blacklist + pause),
-  `MintRegistry`, `ForwarderRegistry`, `TrustedContractRegistry`, each
-  independently keyed — a transfer now only ever touches the compliance
-  registry.
-- **`Forwarder.Execute` checked the wrong party against the forwarder
-  allowlist** (`from`/minter instead of `relayer`) — under the shipped
-  config every forward would have failed, and "fixing" it the obvious
-  way would have skipped relayer authorization entirely. Corrected, plus
-  added the missing minter-blacklist check.
-- **Blacklist didn't cascade.** `AddBlackList` now strips the target from
-  `canMint`, `mintGrants`, `canForward`, and `trustedContracts` in the
-  same transaction; `AddCanMint`/`AddCanForward`/`AddTrustedContract` all
-  reject an already-blacklisted party up front.
-- **Replay protection wired up for real.** `NonceTracker` is now keyed to
-  the minter (not the relayer), and `Execute` asserts the request's
-  `nonce` matches the tracker and advances it atomically.
-- **`Allowance.SpendAllowance` aborted on exact exhaustion** instead of
-  archiving cleanly (`error` call left a spender unable to ever spend
-  their full remaining allowance). Now returns
-  `Optional (ContractId Allowance)`; all `Allowance` choices reject
-  non-positive arguments.
+- **`RejectToken`/`Merge` could bypass a freeze.** Both let a holder
+  dispose of or consolidate an official holding with no issuer
+  co-authorization and no compliance check — a blacklisted holder could
+  use either to route around `BurnByUser`'s and `Transfer`'s checks.
+  Both now require `controller owner, issuer` and check
+  `globalPaused`/`blackListed`, identical to `BurnByUser`. Documented
+  tradeoff in `SECURITY.md`: this closes the freeze-bypass, but means
+  neither choice can be used anymore to unilaterally clear a
+  *non-cooperating* self-issued spam token (the earlier M-2 scenario) —
+  that residual still depends on the Ledger-API-permissioning/
+  consumer-side filtering already documented there.
+- **`AddBlackList`'s cascade used `fetchByKey` on sibling registries** —
+  the emergency freeze would hard-fail if a sibling registry happened to
+  be missing. Switched to `lookupByKey`; blacklisting now proceeds
+  regardless, clearing whichever sibling registries exist.
+- **`MintProposal` had no way to lift a proposal-level pause** except
+  `CancelMint` (which discards it outright). Added `UnpauseMint`.
+- **Forwarder relayer visibility, redesigned.** The relayer previously
+  needed a standing `readAs` grant over the issuer's (and minter's)
+  party to resolve `AdminState`/`MintRegistry`/`ForwarderRegistry` via
+  `fetchByKey` — broader access than the relayer's role requires. Fixed
+  with **Explicit Contract Disclosure**
+  (`queryDisclosure`/`submitWithDisclosures`): `ForwardRequest` now
+  carries the exact registry/tracker/proposal contract ids the minter
+  and issuer supplied at (jointly-authorized) creation time; `Execute`
+  does a plain `fetch` on each and asserts ownership equality
+  (`admin.owner == to`, etc.) instead of a key lookup. The relayer's own
+  submission needs zero `readAs` — it carries exactly five disclosure
+  blobs (compliance, forwarder, and mint registries, the nonce tracker,
+  and the proposal), which in production the issuer/minter's service
+  transmits to the relayer out of band alongside the request. Verified
+  this actually works — and that a naive "just switch to plain fetch"
+  attempt does *not* (Daml's plain-`fetch` visibility rule is exactly as
+  strict as `fetchByKey`'s) — by testing directly against a running
+  sandbox before committing to the approach. Documented in `SECURITY.md`.
 
-## New functionality
+## Build fix
 
-- **`CNGNToken.Merge`** — consolidates matching holdings (same issuer,
-  owner, pause state), countering the fragmentation `Transfer`'s
-  change-creation causes over time.
-- **`RejectToken` / `RejectMint` / `RejectAllowance` / `RejectForward`**
-  — give every non-consenting observer (holder, minter, spender,
-  relayer) an unconditional way to dispose of a contract they never
-  solicited.
-
-## Build fixes (unrelated to the audit, found while getting things to compile)
-
-- `Setup.daml` imported a nonexistent `MinimalForwarder` module; fixed to
-  `Forwarder`.
-- `daml.yaml` was missing the `daml-script` dependency.
-- `CNGN.daml` used `when` without importing `DA.Action`.
+- `daml.yaml`: `scenario:` (a legacy/deprecated key) replaced with
+  `init-script:`.
 
 ## Test suite
 
-Reorganized/expanded under `daml/Tests/`:
+- `Tests/CNGNTests.daml` — added freeze-gating coverage for `Merge`/
+  `RejectToken` (blacklisted holder, globally paused).
+- `Tests/ForwarderTests.daml` — rewritten around the explicit-disclosure
+  execution model: forged-registry rejection, wrong-minter-proposal
+  rejection, nonce mismatch/reuse/sequencing, all via
+  `queryDisclosure`/`submitWithDisclosures` against the new
+  `ForwardRequest` shape.
+- `PolicyEnforcement.daml` — removed the forwarder tests now fully
+  superseded by `ForwarderTests.daml`; fixed `Merge`/`RejectToken` tests
+  for the new issuer-co-authorization requirement.
 
-- `Common.daml` — shared `setupParties`/`createRegistries` helpers.
-- `AdminTests.daml` (25 tests) — every `AdminState`/`MintRegistry`/
-  `ForwarderRegistry`/`TrustedContractRegistry` choice in isolation.
-- `CNGNTests.daml` (36 tests) — `CNGNToken`, `MintProposal`, `Allowance`.
-- `ForwarderTests.daml` (11 tests) — `ForwardRequest`, `NonceTracker`.
-- `UserFlowTests.daml` — three end-to-end flows: user (hold → transfer →
-  burn), admin (every registry capability exercised in one run), and
-  cngn (mint → approve → burn).
-- `PolicyEnforcement.daml` (unchanged in structure, extended) — the
-  cross-cutting security-regression suite for the H-1/M-1/M-2/L-1–L-3
-  attack scenarios and their fixes.
+**126 tests, 0 failures** (`daml test` / `make test`), up from 118.
 
-**118 tests, 0 failures.** Choice coverage: 38/46 (82.6%), up from 23/46
-(50%) at the start of this pass — remaining gaps are exclusively the
-implicit `Archive` choice every template gets.
+## Deployment tooling
+
+The Makefile's "real Canton node" path was non-functional as committed:
+`config/canton.local.conf` and `scripts/allocate-parties.sh` were empty
+placeholders, no `canton` binary was available, and `start-bg`'s PID
+capture was broken (`$!` read in a separate shell from the backgrounded
+process, so `stop` could never have killed the right thing).
+
+- `start`/`start-bg` now use `daml sandbox` — the Daml SDK's bundled
+  ledger, a real single-node Canton participant, not a mock. Falls back
+  to a real `-c <canton.conf>` automatically if one is ever populated
+  for `ENV=staging|prod`; `config/canton.{staging,prod}.conf` are left
+  as placeholders since filling them in requires real infrastructure
+  this repo doesn't have.
+- Fixed the PID-capture bug so `stop` genuinely works.
+- Added `daml/Demo.daml` — seven self-contained, real Daml Scripts
+  (`mintFlow`, `transferFlow`, `burnFlow`, `pauseTokenFlow`,
+  `allowanceFlow`, `adminFlow`, `forwarderFlow`, plus `allFlows`),
+  wired to new Makefile targets: `demo-mint`, `demo-transfer`,
+  `demo-burn`, `demo-token-pause`, `demo-allowance`, `demo-admin`,
+  `demo-forwarder`, `demo-all`. `adminFlow` covers add-minter, set-mint-
+  amount, blacklist/whitelist, add/remove-trusted-contract, and global
+  pause; `forwarderFlow` demonstrates the relayer submitting/paying for
+  a mint the minter signed via explicit disclosure.
+- Replaced the dead `allocate-parties` target with `list-parties` (real
+  `daml ledger list-parties`).
+- Deleted `scripts/deploy.sh` and `scripts/allocate-parties.sh` — dead,
+  unreferenced, and one was actively misleading.
+
+Every target was run live against a real sandbox, not just read: `make
+deploy` → each `demo-*` target individually → `demo-all` → `list-parties`
+→ `stop` (confirmed the ledger process actually exits).
 
 ## Known residual / out of scope
 
@@ -106,11 +101,9 @@ implicit `Archive` choice every template gets.
   issuer, so concurrent mints for *different* minters contend on the
   same contract (throughput characteristic, not a security bug — see
   code comments in `Admin.daml`).
-- `TrustedContractRegistry` remains a documented no-op placeholder —
-  nothing in the package reads it to gate anything; kept rather than
-  removed pending a decision on whether it's needed.
-- `Allowance` is a standalone approve/spend ledger; there's no
-  `TransferFrom` that debits a `CNGNToken` against it yet.
+- `RejectToken`/`Merge` no longer help a victim dispose of a
+  non-cooperating self-issued spam token (see above); that residual is
+  unchanged from the earlier M-2 fix's own documented scope.
 - Full per-subject disclosure narrowing (a minter learning only *their
   own* grant, not the full `canMint`/`mintGrants` list) would need a
   further step (Daml interface views); not done here.
@@ -119,5 +112,8 @@ implicit `Archive` choice every template gets.
 
 ```
 cd canton-contract
-make test
+make test          # daml test — 126 tests, 0 failures
+make deploy        # build + start sandbox + upload + Setup:initialize
+make demo-all      # exercise mint/transfer/burn/pause/allowance/admin/forwarder
+make stop
 ```
