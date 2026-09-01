@@ -30,7 +30,7 @@ export class CNGNClient {
   }
 
   // ==========================================
-  // 1. Admin Mint Grant Management
+  // 1. Admin Mint Grant Management (Object first, Cap second)
   // ==========================================
 
   /**
@@ -41,8 +41,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::admin::grant_mint_permission`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.adminRegistryId),
+        tx.object(this.config.adminCapId),
         tx.pure.address(minterAddress),
         tx.pure.u64(amount),
       ],
@@ -63,8 +63,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::admin::revoke_mint_permission`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.adminRegistryId),
+        tx.object(this.config.adminCapId),
         tx.pure.address(minterAddress),
       ],
     });
@@ -124,7 +124,7 @@ export class CNGNClient {
   }
 
   // ==========================================
-  // 3. Emergency Circuit Breakers (Pause / Unpause)
+  // 3. Emergency Circuit Breakers (Pause / Unpause: Object first, Cap second)
   // ==========================================
 
   /**
@@ -135,8 +135,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::cngn::pause`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.coinStateId),
+        tx.object(this.config.adminCapId),
         tx.object(this.config.denyListId),
       ],
     });
@@ -156,8 +156,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::cngn::unpause`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.coinStateId),
+        tx.object(this.config.adminCapId),
         tx.object(this.config.denyListId),
       ],
     });
@@ -170,7 +170,7 @@ export class CNGNClient {
   }
 
   // ==========================================
-  // 4. Compliance & DenyList Sanctions
+  // 4. Compliance & DenyList Sanctions (Object first, Cap second)
   // ==========================================
 
   /**
@@ -181,8 +181,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::cngn::add_black_list`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.coinStateId),
+        tx.object(this.config.adminCapId),
         tx.object(this.config.denyListId),
         tx.pure.address(targetAddress),
       ],
@@ -203,8 +203,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::cngn::remove_black_list`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.coinStateId),
+        tx.object(this.config.adminCapId),
         tx.object(this.config.denyListId),
         tx.pure.address(targetAddress),
       ],
@@ -218,7 +218,7 @@ export class CNGNClient {
   }
 
   // ==========================================
-  // 5. Forwarders & Trusted Contracts
+  // 5. Forwarders & Trusted Contracts (Object first, Cap second)
   // ==========================================
 
   async addForwarder(adminSigner: Ed25519Keypair, forwarderAddress: string) {
@@ -226,8 +226,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::admin::add_can_forward`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.adminRegistryId),
+        tx.object(this.config.adminCapId),
         tx.pure.address(forwarderAddress),
       ],
     });
@@ -239,8 +239,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::admin::remove_can_forward`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.adminRegistryId),
+        tx.object(this.config.adminCapId),
         tx.pure.address(forwarderAddress),
       ],
     });
@@ -252,8 +252,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::admin::add_trusted_contract`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.adminRegistryId),
+        tx.object(this.config.adminCapId),
         tx.pure.address(contractAddress),
       ],
     });
@@ -265,8 +265,8 @@ export class CNGNClient {
     tx.moveCall({
       target: `${this.config.packageId}::admin::remove_trusted_contract`,
       arguments: [
-        tx.object(this.config.adminCapId),
         tx.object(this.config.adminRegistryId),
+        tx.object(this.config.adminCapId),
         tx.pure.address(contractAddress),
       ],
     });

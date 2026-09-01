@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# cNGN on Sui — CLI Interaction Script (100% Coverage of Admin & Token Actions)
+# cNGN on Sui — CLI Interaction Script (Sui Move 2024 Compliant)
 # ==============================================================================
 # Usage:
 #   ./interact.sh grant-mint <minter_address> <amount>
@@ -14,7 +14,7 @@
 #   ./interact.sh remove-forwarder <forwarder_address>
 #   ./interact.sh add-trusted-contract <contract_address>
 #   ./interact.sh remove-trusted-contract <contract_address>
-#   ./interact.sh query-supply
+#   ./interact.sh query-state
 # ==============================================================================
 
 set -euo pipefail
@@ -38,7 +38,7 @@ GAS_BUDGET=50000000
 COMMAND=${1:-"help"}
 
 case "${COMMAND}" in
-  # --- Admin Mint Grant Management ---
+  # --- Admin Mint Grant Management (Object first, Cap second) ---
   "grant-mint")
     MINTER=${2:?"Usage: ./interact.sh grant-mint <minter_address> <amount>"}
     AMOUNT=${3:?"Usage: ./interact.sh grant-mint <minter_address> <amount>"}
@@ -47,7 +47,7 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "admin" \
       --function "grant_mint_permission" \
-      --args "${ADMIN_CAP_ID}" "${ADMIN_REGISTRY_ID}" "${MINTER}" "${AMOUNT}" \
+      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${MINTER}" "${AMOUNT}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
@@ -58,7 +58,7 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "admin" \
       --function "revoke_mint_permission" \
-      --args "${ADMIN_CAP_ID}" "${ADMIN_REGISTRY_ID}" "${MINTER}" \
+      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${MINTER}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
@@ -86,14 +86,14 @@ case "${COMMAND}" in
       --gas-budget "${GAS_BUDGET}"
     ;;
 
-  # --- Emergency Circuit Breakers (Pause / Unpause) ---
+  # --- Emergency Circuit Breakers (Pause / Unpause: Object first, Cap second) ---
   "pause")
     echo "Pausing cNGN secondary transfers..."
     sui client call \
       --package "${PACKAGE_ID}" \
       --module "cngn" \
       --function "pause" \
-      --args "${ADMIN_CAP_ID}" "${COIN_STATE_ID}" "${DENY_LIST_ID}" \
+      --args "${COIN_STATE_ID}" "${ADMIN_CAP_ID}" "${DENY_LIST_ID}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
@@ -103,11 +103,11 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "cngn" \
       --function "unpause" \
-      --args "${ADMIN_CAP_ID}" "${COIN_STATE_ID}" "${DENY_LIST_ID}" \
+      --args "${COIN_STATE_ID}" "${ADMIN_CAP_ID}" "${DENY_LIST_ID}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
-  # --- Blacklist / Sanctions Controls ---
+  # --- Blacklist / Sanctions Controls (Object first, Cap second) ---
   "add-blacklist")
     USER=${2:?"Usage: ./interact.sh add-blacklist <user_address>"}
     echo "Adding ${USER} to DenyList..."
@@ -115,7 +115,7 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "cngn" \
       --function "add_black_list" \
-      --args "${ADMIN_CAP_ID}" "${COIN_STATE_ID}" "${DENY_LIST_ID}" "${USER}" \
+      --args "${COIN_STATE_ID}" "${ADMIN_CAP_ID}" "${DENY_LIST_ID}" "${USER}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
@@ -126,11 +126,11 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "cngn" \
       --function "remove_black_list" \
-      --args "${ADMIN_CAP_ID}" "${COIN_STATE_ID}" "${DENY_LIST_ID}" "${USER}" \
+      --args "${COIN_STATE_ID}" "${ADMIN_CAP_ID}" "${DENY_LIST_ID}" "${USER}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
-  # --- Forwarder Whitelist Management ---
+  # --- Forwarder Whitelist Management (Object first, Cap second) ---
   "add-forwarder")
     FORWARDER=${2:?"Usage: ./interact.sh add-forwarder <forwarder_address>"}
     echo "Adding forwarder ${FORWARDER}..."
@@ -138,7 +138,7 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "admin" \
       --function "add_can_forward" \
-      --args "${ADMIN_CAP_ID}" "${ADMIN_REGISTRY_ID}" "${FORWARDER}" \
+      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${FORWARDER}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
@@ -149,11 +149,11 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "admin" \
       --function "remove_can_forward" \
-      --args "${ADMIN_CAP_ID}" "${ADMIN_REGISTRY_ID}" "${FORWARDER}" \
+      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${FORWARDER}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
-  # --- Trusted Contract Management ---
+  # --- Trusted Contract Management (Object first, Cap second) ---
   "add-trusted-contract")
     CONTRACT=${2:?"Usage: ./interact.sh add-trusted-contract <contract_address>"}
     echo "Adding trusted contract ${CONTRACT}..."
@@ -161,7 +161,7 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "admin" \
       --function "add_trusted_contract" \
-      --args "${ADMIN_CAP_ID}" "${ADMIN_REGISTRY_ID}" "${CONTRACT}" \
+      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${CONTRACT}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
@@ -172,7 +172,7 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "admin" \
       --function "remove_trusted_contract" \
-      --args "${ADMIN_CAP_ID}" "${ADMIN_REGISTRY_ID}" "${CONTRACT}" \
+      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${CONTRACT}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
@@ -184,7 +184,7 @@ case "${COMMAND}" in
     ;;
 
   *)
-    echo "cNGN CLI Manager"
+    echo "cNGN CLI Manager (Move 2024 Edition)"
     echo "Available commands:"
     echo "  grant-mint <minter> <amount>"
     echo "  revoke-mint <minter>"

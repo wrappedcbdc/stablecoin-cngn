@@ -2,7 +2,7 @@
 # cNGN Sui Move Contract — Makefile
 # =============================================================================
 # Standard interface for building, testing, deploying, upgrading, and interacting
-# with the cNGN stablecoin contract on the Sui network.
+# with the cNGN stablecoin contract on the Sui network (Move 2024 Compliant).
 #
 # Usage:
 #   make <target> [ARGS...]
@@ -26,7 +26,7 @@ DENY_LIST_ID       ?= $(shell jq -r '.denyListId // "0x0000000000000000000000000
 help:
 	@echo ""
 	@echo "============================================================"
-	@echo "  cNGN Sui Move Contract — Make Targets"
+	@echo "  cNGN Sui Move Contract — Make Targets (Move 2024)"
 	@echo "============================================================"
 	@echo ""
 	@echo "  BUILD & TEST"
@@ -95,7 +95,7 @@ upgrade:
 	./scripts/upgrade.sh
 
 # =============================================================================
-# ADMIN / ACCESS CONTROL (Operations.sol Parity)
+# ADMIN / ACCESS CONTROL (Objects first, Caps second)
 # =============================================================================
 
 .PHONY: grant-mint
@@ -108,7 +108,7 @@ grant-mint:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "grant_mint_permission" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(MINTER)" "$(AMOUNT)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(MINTER)" "$(AMOUNT)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: revoke-mint
@@ -120,7 +120,7 @@ revoke-mint:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "revoke_mint_permission" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(MINTER)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(MINTER)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: add-minter
@@ -131,7 +131,7 @@ add-minter:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "add_can_mint" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(MINTER)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(MINTER)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: remove-minter
@@ -142,7 +142,7 @@ remove-minter:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "remove_can_mint_by_admin" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(MINTER)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(MINTER)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: set-mint-amount
@@ -154,7 +154,7 @@ set-mint-amount:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "add_mint_amount" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(MINTER)" "$(AMOUNT)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(MINTER)" "$(AMOUNT)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: remove-mint-amount
@@ -165,7 +165,7 @@ remove-mint-amount:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "remove_mint_amount" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(MINTER)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(MINTER)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: add-forwarder
@@ -176,7 +176,7 @@ add-forwarder:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "add_can_forward" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(FORWARDER)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(FORWARDER)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: remove-forwarder
@@ -187,7 +187,7 @@ remove-forwarder:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "remove_can_forward" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(FORWARDER)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(FORWARDER)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: add-trusted
@@ -198,7 +198,7 @@ add-trusted:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "add_trusted_contract" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(CONTRACT)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(CONTRACT)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: remove-trusted
@@ -209,7 +209,7 @@ remove-trusted:
 		--package "$(PACKAGE_ID)" \
 		--module "admin" \
 		--function "remove_trusted_contract" \
-		--args "$(ADMIN_CAP_ID)" "$(ADMIN_REGISTRY_ID)" "$(CONTRACT)" \
+		--args "$(ADMIN_REGISTRY_ID)" "$(ADMIN_CAP_ID)" "$(CONTRACT)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: blacklist
@@ -221,7 +221,7 @@ blacklist:
 		--package "$(PACKAGE_ID)" \
 		--module "cngn" \
 		--function "add_black_list" \
-		--args "$(ADMIN_CAP_ID)" "$(COIN_STATE_ID)" "$(DENY_LIST_ID)" "$(USER)" \
+		--args "$(COIN_STATE_ID)" "$(ADMIN_CAP_ID)" "$(DENY_LIST_ID)" "$(USER)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: unblacklist
@@ -233,7 +233,7 @@ unblacklist:
 		--package "$(PACKAGE_ID)" \
 		--module "cngn" \
 		--function "remove_black_list" \
-		--args "$(ADMIN_CAP_ID)" "$(COIN_STATE_ID)" "$(DENY_LIST_ID)" "$(USER)" \
+		--args "$(COIN_STATE_ID)" "$(ADMIN_CAP_ID)" "$(DENY_LIST_ID)" "$(USER)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: pause
@@ -244,7 +244,7 @@ pause:
 		--package "$(PACKAGE_ID)" \
 		--module "cngn" \
 		--function "pause" \
-		--args "$(ADMIN_CAP_ID)" "$(COIN_STATE_ID)" "$(DENY_LIST_ID)" \
+		--args "$(COIN_STATE_ID)" "$(ADMIN_CAP_ID)" "$(DENY_LIST_ID)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 .PHONY: unpause
@@ -255,7 +255,7 @@ unpause:
 		--package "$(PACKAGE_ID)" \
 		--module "cngn" \
 		--function "unpause" \
-		--args "$(ADMIN_CAP_ID)" "$(COIN_STATE_ID)" "$(DENY_LIST_ID)" \
+		--args "$(COIN_STATE_ID)" "$(ADMIN_CAP_ID)" "$(DENY_LIST_ID)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 # =============================================================================
