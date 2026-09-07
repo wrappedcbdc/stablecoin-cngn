@@ -11,19 +11,22 @@ use sui::coin::{Self, Coin};
 use sui::deny_list::{Self, DenyList};
 use sui::test_scenario::{Self as ts, Scenario};
 
+use fun cngn::is_black_listed as DenyList.is_black_listed;
+
 const ADMIN: address = @0xAD;
 const MINTER: address = @0xB0B;
 const ALICE: address = @0xA11CE;
 const BOB: address = @0xB0B2;
-const FORWARDER: address = @0xF08;
-const TRUSTED_CONTRACT: address = @0x789;
 const MINT_AMOUNT: u64 = 50_000_000_000; // 50,000 cNGN (6 decimals)
 const HALF_MINT_AMOUNT: u64 = 25_000_000_000;
 
 fun setup(): Scenario {
-    let mut scenario = ts::begin(ADMIN);
+    let mut scenario = ts::begin(@0x0);
     {
-        deny_list::create_for_test(scenario.ctx());
+        deny_list::create_for_testing(scenario.ctx());
+    };
+    scenario.next_tx(ADMIN);
+    {
         admin::init_for_testing(scenario.ctx());
         cngn::init_for_testing(scenario.ctx());
     };
@@ -41,130 +44,9 @@ fun admin_init_defaults() {
     scenario.next_tx(ADMIN);
     {
         let registry = scenario.take_shared<AdminRegistry>();
-        assert!(registry.can_mint(ADMIN));
-        assert!(registry.can_forward(ADMIN));
+        assert!(!registry.can_mint(ADMIN));
         assert_eq!(registry.mint_amount(ADMIN), 0);
-        assert!(!registry.is_trusted_contract(ADMIN));
-        ts::return_shared(registry);
-    };
-
-    scenario.end();
-}
-
-#[test]
-fun admin_forwarder_management() {
-    let mut scenario = setup();
-
-    scenario.next_tx(ADMIN);
-    {
-        let cap = scenario.take_from_sender<AdminCap>();
-        let mut registry = scenario.take_shared<AdminRegistry>();
-
-        assert!(!registry.can_forward(FORWARDER));
-        registry.add_can_forward(&cap, FORWARDER);
-        assert!(registry.can_forward(FORWARDER));
-
-        registry.remove_can_forward(&cap, FORWARDER);
-        assert!(!registry.can_forward(FORWARDER));
-
-        scenario.return_to_sender(cap);
-        ts::return_shared(registry);
-    };
-
-    scenario.end();
-}
-
-#[test, expected_failure(abort_code = cngn::admin::EForwarderAlreadyAdded)]
-fun admin_add_forwarder_duplicate_fails() {
-    let mut scenario = setup();
-
-    scenario.next_tx(ADMIN);
-    {
-        let cap = scenario.take_from_sender<AdminCap>();
-        let mut registry = scenario.take_shared<AdminRegistry>();
-
-        registry.add_can_forward(&cap, FORWARDER);
-        registry.add_can_forward(&cap, FORWARDER); // Fails
-
-        scenario.return_to_sender(cap);
-        ts::return_shared(registry);
-    };
-
-    scenario.end();
-}
-
-#[test, expected_failure(abort_code = cngn::admin::ENotAForwarder)]
-fun admin_remove_non_forwarder_fails() {
-    let mut scenario = setup();
-
-    scenario.next_tx(ADMIN);
-    {
-        let cap = scenario.take_from_sender<AdminCap>();
-        let mut registry = scenario.take_shared<AdminRegistry>();
-
-        registry.remove_can_forward(&cap, FORWARDER); // Fails
-
-        scenario.return_to_sender(cap);
-        ts::return_shared(registry);
-    };
-
-    scenario.end();
-}
-
-#[test]
-fun admin_trusted_contract_management() {
-    let mut scenario = setup();
-
-    scenario.next_tx(ADMIN);
-    {
-        let cap = scenario.take_from_sender<AdminCap>();
-        let mut registry = scenario.take_shared<AdminRegistry>();
-
-        assert!(!registry.is_trusted_contract(TRUSTED_CONTRACT));
-        registry.add_trusted_contract(&cap, TRUSTED_CONTRACT);
-        assert!(registry.is_trusted_contract(TRUSTED_CONTRACT));
-
-        registry.remove_trusted_contract(&cap, TRUSTED_CONTRACT);
-        assert!(!registry.is_trusted_contract(TRUSTED_CONTRACT));
-
-        scenario.return_to_sender(cap);
-        ts::return_shared(registry);
-    };
-
-    scenario.end();
-}
-
-#[test, expected_failure(abort_code = cngn::admin::EContractAlreadyAdded)]
-fun admin_add_trusted_contract_duplicate_fails() {
-    let mut scenario = setup();
-
-    scenario.next_tx(ADMIN);
-    {
-        let cap = scenario.take_from_sender<AdminCap>();
-        let mut registry = scenario.take_shared<AdminRegistry>();
-
-        registry.add_trusted_contract(&cap, TRUSTED_CONTRACT);
-        registry.add_trusted_contract(&cap, TRUSTED_CONTRACT); // Fails
-
-        scenario.return_to_sender(cap);
-        ts::return_shared(registry);
-    };
-
-    scenario.end();
-}
-
-#[test, expected_failure(abort_code = cngn::admin::EContractDoesNotExist)]
-fun admin_remove_non_existent_trusted_contract_fails() {
-    let mut scenario = setup();
-
-    scenario.next_tx(ADMIN);
-    {
-        let cap = scenario.take_from_sender<AdminCap>();
-        let mut registry = scenario.take_shared<AdminRegistry>();
-
-        registry.remove_trusted_contract(&cap, TRUSTED_CONTRACT); // Fails
-
-        scenario.return_to_sender(cap);
+        assert_eq!(registry.version(), 1);
         ts::return_shared(registry);
     };
 
@@ -212,7 +94,7 @@ fun admin_minter_stepwise_and_revocation() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = cngn::admin::EAlreadyAuthorized)]
+#[test, expected_failure(abort_code = admin::EAlreadyAuthorized)]
 fun admin_add_minter_duplicate_fails() {
     let mut scenario = setup();
 
@@ -231,7 +113,26 @@ fun admin_add_minter_duplicate_fails() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = cngn::admin::ENotAuthorized)]
+#[test, expected_failure(abort_code = admin::EAlreadyAuthorized)]
+fun admin_grant_mint_permission_duplicate_fails() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+
+        registry.grant_mint_permission(&cap, MINTER, MINT_AMOUNT);
+        registry.grant_mint_permission(&cap, MINTER, MINT_AMOUNT); // Fails
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(registry);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = admin::ENotAuthorized)]
 fun admin_add_mint_amount_to_unauthorized_minter_fails() {
     let mut scenario = setup();
 
@@ -249,7 +150,7 @@ fun admin_add_mint_amount_to_unauthorized_minter_fails() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = cngn::admin::EZeroAmount)]
+#[test, expected_failure(abort_code = admin::EZeroAmount)]
 fun admin_grant_mint_zero_amount_fails() {
     let mut scenario = setup();
 
@@ -280,6 +181,7 @@ fun token_full_mint_and_supply_tracking() {
     {
         let state = scenario.take_shared<CoinState>();
         assert_eq!(state.total_supply(), 0);
+        assert_eq!(state.version(), 1);
         ts::return_shared(state);
     };
 
@@ -294,7 +196,7 @@ fun token_full_mint_and_supply_tracking() {
         ts::return_shared(registry);
     };
 
-    // 3. Minter executes mint to ALICE
+    // 3. MINTER mints directly to ALICE
     scenario.next_tx(MINTER);
     {
         let mut state = scenario.take_shared<CoinState>();
@@ -309,46 +211,32 @@ fun token_full_mint_and_supply_tracking() {
             scenario.ctx(),
         );
 
-        assert_eq!(state.total_supply(), MINT_AMOUNT);
+        // Grant is consumed
         assert!(!registry.can_mint(MINTER));
         assert_eq!(registry.mint_amount(MINTER), 0);
+        assert_eq!(state.total_supply(), MINT_AMOUNT);
 
         ts::return_shared(state);
         ts::return_shared(registry);
         ts::return_shared(deny_list);
     };
 
-    // 4. ALICE splits coin and transfers half to BOB
+    // 4. Verify ALICE received the exact amount
     scenario.next_tx(ALICE);
     {
-        let mut coin_alice = scenario.take_from_sender<Coin<CNGN>>();
-        assert_eq!(coin_alice.value(), MINT_AMOUNT);
-
-        let coin_bob = coin_alice.split(HALF_MINT_AMOUNT, scenario.ctx());
-        assert_eq!(coin_alice.value(), HALF_MINT_AMOUNT);
-        assert_eq!(coin_bob.value(), HALF_MINT_AMOUNT);
-
-        transfer::public_transfer(coin_bob, BOB);
-        scenario.return_to_sender(coin_alice);
-    };
-
-    // 5. BOB joins coins and verifies balance
-    scenario.next_tx(BOB);
-    {
-        let mut coin_bob = scenario.take_from_sender<Coin<CNGN>>();
-        let coin_extra = coin::zero<CNGN>(scenario.ctx());
-        coin_bob.join(coin_extra);
-        assert_eq!(coin_bob.value(), HALF_MINT_AMOUNT);
-        scenario.return_to_sender(coin_bob);
+        let coin = scenario.take_from_sender<Coin<CNGN>>();
+        assert_eq!(coin.value(), MINT_AMOUNT);
+        scenario.return_to_sender(coin);
     };
 
     scenario.end();
 }
 
 #[test]
-fun token_mint_coin_and_mint_balance_composable() {
+fun token_mint_coin_composable() {
     let mut scenario = setup();
 
+    // Admin grants mint permission to MINTER
     scenario.next_tx(ADMIN);
     {
         let cap = scenario.take_from_sender<AdminCap>();
@@ -358,6 +246,7 @@ fun token_mint_coin_and_mint_balance_composable() {
         ts::return_shared(registry);
     };
 
+    // MINTER mints composable Coin
     scenario.next_tx(MINTER);
     {
         let mut state = scenario.take_shared<CoinState>();
@@ -374,10 +263,7 @@ fun token_mint_coin_and_mint_balance_composable() {
         assert_eq!(coin.value(), MINT_AMOUNT);
         assert_eq!(state.total_supply(), MINT_AMOUNT);
 
-        let balance = coin.into_balance();
-        assert_eq!(balance.value(), MINT_AMOUNT);
-
-        state.burn_balance(balance, scenario.ctx());
+        state.burn_by_user(coin, scenario.ctx());
         assert_eq!(state.total_supply(), 0);
 
         ts::return_shared(state);
@@ -388,7 +274,7 @@ fun token_mint_coin_and_mint_balance_composable() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = cngn::cngn::EBlacklisted)]
+#[test, expected_failure(abort_code = cngn::EBlacklisted)]
 fun token_mint_fails_if_minter_is_blacklisted() {
     let mut scenario = setup();
 
@@ -439,7 +325,90 @@ fun token_mint_fails_if_minter_is_blacklisted() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = cngn::cngn::ENotAuthorizedToMint)]
+#[test, expected_failure(abort_code = cngn::ERecipientBlacklisted)]
+fun token_mint_fails_if_recipient_is_blacklisted() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        registry.grant_mint_permission(&cap, MINTER, MINT_AMOUNT);
+        scenario.return_to_sender(cap);
+        ts::return_shared(registry);
+    };
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+        let mut deny_list = scenario.take_shared<DenyList>();
+
+        state.add_black_list(&cap, &mut deny_list, ALICE, scenario.ctx());
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.next_tx(MINTER);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        let deny_list = scenario.take_shared<DenyList>();
+
+        state.mint(
+            &mut registry,
+            &deny_list,
+            MINT_AMOUNT,
+            ALICE, // Blacklisted recipient -> Fails
+            scenario.ctx(),
+        );
+
+        ts::return_shared(state);
+        ts::return_shared(registry);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = cngn::EZeroAddress)]
+fun token_mint_to_zero_address_fails() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        registry.grant_mint_permission(&cap, MINTER, MINT_AMOUNT);
+        scenario.return_to_sender(cap);
+        ts::return_shared(registry);
+    };
+
+    scenario.next_tx(MINTER);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        let deny_list = scenario.take_shared<DenyList>();
+
+        state.mint(
+            &mut registry,
+            &deny_list,
+            MINT_AMOUNT,
+            @0x0, // Zero address -> Fails
+            scenario.ctx(),
+        );
+
+        ts::return_shared(state);
+        ts::return_shared(registry);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = cngn::ENotAuthorizedToMint)]
 fun token_cannot_mint_twice_with_single_grant() {
     let mut scenario = setup();
 
@@ -495,7 +464,7 @@ fun token_cannot_mint_twice_with_single_grant() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = cngn::cngn::EAmountMismatch)]
+#[test, expected_failure(abort_code = cngn::EAmountMismatch)]
 fun token_mint_fails_on_amount_mismatch() {
     let mut scenario = setup();
 
@@ -530,7 +499,7 @@ fun token_mint_fails_on_amount_mismatch() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = cngn::cngn::EZeroAmount)]
+#[test, expected_failure(abort_code = cngn::EZeroAmount)]
 fun token_mint_zero_amount_fails() {
     let mut scenario = setup();
 
@@ -566,14 +535,14 @@ fun token_mint_zero_amount_fails() {
 }
 
 // ==========================================
-// 3. cNGN Token Redemption & Burning Tests
+// 3. Token Redemption & Burning Tests
 // ==========================================
 
 #[test]
 fun token_partial_and_full_self_burn() {
     let mut scenario = setup();
 
-    // Mint MINT_AMOUNT to ALICE
+    // Admin grants mint permission to MINTER
     scenario.next_tx(ADMIN);
     {
         let cap = scenario.take_from_sender<AdminCap>();
@@ -583,6 +552,7 @@ fun token_partial_and_full_self_burn() {
         ts::return_shared(registry);
     };
 
+    // MINTER mints to ALICE
     scenario.next_tx(MINTER);
     {
         let mut state = scenario.take_shared<CoinState>();
@@ -624,6 +594,22 @@ fun token_partial_and_full_self_burn() {
     scenario.end();
 }
 
+#[test, expected_failure(abort_code = cngn::EZeroAmount)]
+fun token_burn_zero_balance_fails() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let zero_bal = balance::zero<CNGN>();
+        state.burn_balance(zero_bal, scenario.ctx());
+
+        ts::return_shared(state);
+    };
+
+    scenario.end();
+}
+
 // ==========================================
 // 4. Token Compliance & Pause Tests
 // ==========================================
@@ -638,8 +624,55 @@ fun token_pause_and_unpause() {
         let mut state = scenario.take_shared<CoinState>();
         let mut deny_list = scenario.take_shared<DenyList>();
 
+        assert!(!cngn::is_paused(&deny_list));
+        assert!(!cngn::is_paused_current_epoch(&deny_list, scenario.ctx()));
+
         state.pause(&cap, &mut deny_list, scenario.ctx());
+        assert!(cngn::is_paused(&deny_list));
+
         state.unpause(&cap, &mut deny_list, scenario.ctx());
+        assert!(!cngn::is_paused(&deny_list));
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = cngn::EAlreadyPaused)]
+fun token_pause_duplicate_fails() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+        let mut deny_list = scenario.take_shared<DenyList>();
+
+        state.pause(&cap, &mut deny_list, scenario.ctx());
+        state.pause(&cap, &mut deny_list, scenario.ctx()); // Fails
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = cngn::ENotPaused)]
+fun token_unpause_when_not_paused_fails() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+        let mut deny_list = scenario.take_shared<DenyList>();
+
+        state.unpause(&cap, &mut deny_list, scenario.ctx()); // Fails
 
         scenario.return_to_sender(cap);
         ts::return_shared(state);
@@ -670,6 +703,79 @@ fun token_blacklist_management() {
         scenario.return_to_sender(cap);
         ts::return_shared(state);
         ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = cngn::EAlreadyBlacklisted)]
+fun token_add_blacklist_duplicate_fails() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+        let mut deny_list = scenario.take_shared<DenyList>();
+
+        state.add_black_list(&cap, &mut deny_list, BOB, scenario.ctx());
+        state.add_black_list(&cap, &mut deny_list, BOB, scenario.ctx()); // Fails
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = cngn::ENotBlacklisted)]
+fun token_remove_unlisted_fails() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+        let mut deny_list = scenario.take_shared<DenyList>();
+
+        state.remove_black_list(&cap, &mut deny_list, BOB, scenario.ctx()); // Fails
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+// ==========================================
+// 5. Versioning & Migration Tests
+// ==========================================
+
+#[test]
+fun token_versioning_and_migration() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        let mut state = scenario.take_shared<CoinState>();
+
+        assert_eq!(registry.version(), 1);
+        assert_eq!(state.version(), 1);
+
+        // Re-migrating to same version succeeds as a no-op / idempotent
+        registry.migrate(&cap);
+        state.migrate(&cap);
+
+        assert_eq!(registry.version(), 1);
+        assert_eq!(state.version(), 1);
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(registry);
+        ts::return_shared(state);
     };
 
     scenario.end();

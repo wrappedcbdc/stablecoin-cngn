@@ -9,6 +9,14 @@ module cngn::admin;
 use sui::event;
 use sui::table::{Self, Table};
 
+use fun get_bool as Table.get_bool;
+use fun set_bool as Table.set_bool;
+use fun set_u64 as Table.set_u64;
+
+// --- Package Version ---
+
+const CURRENT_VERSION: u64 = 1;
+
 // --- Capabilities and Shared State ---
 
 /// Held by the protocol administrator / governance multisig.
@@ -17,14 +25,12 @@ public struct AdminCap has key, store {
     id: UID,
 }
 
-/// Shared registry tracking minter authorizations, mint amounts,
-/// forwarder whitelists, and trusted contracts.
+/// Shared registry tracking minter authorizations and mint amounts.
 public struct AdminRegistry has key {
     id: UID,
+    version: u64,
     can_mint: Table<address, bool>,
     mint_amount: Table<address, u64>,
-    can_forward: Table<address, bool>,
-    trusted_contract: Table<address, bool>,
 }
 
 // --- Events (Named in Past Tense) ---
@@ -46,20 +52,9 @@ public struct MintAmountRemoved has copy, drop {
     user: address,
 }
 
-public struct ForwarderWhitelisted has copy, drop {
+public struct MintGrantConsumed has copy, drop {
     user: address,
-}
-
-public struct ForwarderBlacklisted has copy, drop {
-    user: address,
-}
-
-public struct ContractWhitelisted has copy, drop {
-    contract_address: address,
-}
-
-public struct ContractBlacklisted has copy, drop {
-    contract_address: address,
+    amount: u64,
 }
 
 // --- Error Constants (EPascalCase) ---
@@ -67,10 +62,7 @@ public struct ContractBlacklisted has copy, drop {
 const EAlreadyAuthorized: u64 = 0;
 const ENotAuthorized: u64 = 1;
 const EZeroAmount: u64 = 2;
-const EForwarderAlreadyAdded: u64 = 3;
-const ENotAForwarder: u64 = 4;
-const EContractAlreadyAdded: u64 = 5;
-const EContractDoesNotExist: u64 = 6;
+const EWrongVersion: u64 = 3;
 
 // --- Initialization ---
 
@@ -78,21 +70,14 @@ fun init(ctx: &mut TxContext) {
     let sender = ctx.sender();
     let admin_cap = AdminCap { id: object::new(ctx) };
 
-    let mut can_forward = table::new(ctx);
-    let mut can_mint = table::new(ctx);
+    let can_mint = table::new(ctx);
     let mint_amount = table::new(ctx);
-    let trusted_contract = table::new(ctx);
-
-    // Deployer default privileges
-    can_forward.add(sender, true);
-    can_mint.add(sender, true);
 
     let registry = AdminRegistry {
         id: object::new(ctx),
+        version: CURRENT_VERSION,
         can_mint,
         mint_amount,
-        can_forward,
-        trusted_contract,
     };
 
     transfer::transfer(admin_cap, sender);
@@ -114,6 +99,7 @@ public fun add_can_mint(
     _cap: &AdminCap,
     user: address,
 ) {
+    assert!(registry.version == CURRENT_VERSION, EWrongVersion);
     assert!(!registry.can_mint.get_bool(user), EAlreadyAuthorized);
     registry.can_mint.set_bool(user, true);
 
@@ -126,9 +112,15 @@ public fun remove_can_mint_by_admin(
     _cap: &AdminCap,
     user: address,
 ) {
+    assert!(registry.version == CURRENT_VERSION, EWrongVersion);
     assert!(registry.can_mint.get_bool(user), ENotAuthorized);
-    registry.can_mint.set_bool(user, false);
-    registry.mint_amount.set_u64(user, 0);
+
+    if (registry.can_mint.contains(user)) {
+        registry.can_mint.remove(user);
+    };
+    if (registry.mint_amount.contains(user)) {
+        registry.mint_amount.remove(user);
+    };
 
     event::emit(MinterBlacklisted { user });
 }
@@ -140,6 +132,7 @@ public fun add_mint_amount(
     user: address,
     amount: u64,
 ) {
+    assert!(registry.version == CURRENT_VERSION, EWrongVersion);
     assert!(registry.can_mint.get_bool(user), ENotAuthorized);
     assert!(amount > 0, EZeroAmount);
     registry.mint_amount.set_u64(user, amount);
@@ -153,7 +146,10 @@ public fun remove_mint_amount(
     _cap: &AdminCap,
     user: address,
 ) {
-    registry.mint_amount.set_u64(user, 0);
+    assert!(registry.version == CURRENT_VERSION, EWrongVersion);
+    if (registry.mint_amount.contains(user)) {
+        registry.mint_amount.remove(user);
+    };
 
     event::emit(MintAmountRemoved { user });
 }
@@ -165,6 +161,8 @@ public fun grant_mint_permission(
     user: address,
     amount: u64,
 ) {
+    assert!(registry.version == CURRENT_VERSION, EWrongVersion);
+    assert!(!registry.can_mint.get_bool(user), EAlreadyAuthorized);
     assert!(amount > 0, EZeroAmount);
     registry.can_mint.set_bool(user, true);
     registry.mint_amount.set_u64(user, amount);
@@ -179,8 +177,14 @@ public fun revoke_mint_permission(
     _cap: &AdminCap,
     user: address,
 ) {
-    registry.can_mint.set_bool(user, false);
-    registry.mint_amount.set_u64(user, 0);
+    assert!(registry.version == CURRENT_VERSION, EWrongVersion);
+
+    if (registry.can_mint.contains(user)) {
+        registry.can_mint.remove(user);
+    };
+    if (registry.mint_amount.contains(user)) {
+        registry.mint_amount.remove(user);
+    };
 
     event::emit(MinterBlacklisted { user });
     event::emit(MintAmountRemoved { user });
@@ -192,73 +196,38 @@ public(package) fun consume_mint_grant(
     registry: &mut AdminRegistry,
     user: address,
 ) {
+    assert!(registry.version == CURRENT_VERSION, EWrongVersion);
     assert!(registry.can_mint.get_bool(user), ENotAuthorized);
-    registry.can_mint.set_bool(user, false);
-    registry.mint_amount.set_u64(user, 0);
 
-    event::emit(MinterBlacklisted { user });
-    event::emit(MintAmountRemoved { user });
+    let amount = if (registry.mint_amount.contains(user)) {
+        registry.mint_amount.remove(user)
+    } else {
+        0u64
+    };
+
+    if (registry.can_mint.contains(user)) {
+        registry.can_mint.remove(user);
+    };
+
+    event::emit(MintGrantConsumed { user, amount });
 }
 
 // ==========================================
-// Forwarder Management (canForward)
+// Version Migration
 // ==========================================
 
-/// Whitelists a meta-transaction forwarder / relayer.
-public fun add_can_forward(
-    registry: &mut AdminRegistry,
-    _cap: &AdminCap,
-    user: address,
-) {
-    assert!(!registry.can_forward.get_bool(user), EForwarderAlreadyAdded);
-    registry.can_forward.set_bool(user, true);
-
-    event::emit(ForwarderWhitelisted { user });
-}
-
-/// Removes a forwarder from whitelist.
-public fun remove_can_forward(
-    registry: &mut AdminRegistry,
-    _cap: &AdminCap,
-    user: address,
-) {
-    assert!(registry.can_forward.get_bool(user), ENotAForwarder);
-    registry.can_forward.set_bool(user, false);
-
-    event::emit(ForwarderBlacklisted { user });
-}
-
-// ==========================================
-// Trusted Contract Management (trustedContract)
-// ==========================================
-
-/// Whitelists an external trusted contract address.
-public fun add_trusted_contract(
-    registry: &mut AdminRegistry,
-    _cap: &AdminCap,
-    contract_address: address,
-) {
-    assert!(!registry.trusted_contract.get_bool(contract_address), EContractAlreadyAdded);
-    registry.trusted_contract.set_bool(contract_address, true);
-
-    event::emit(ContractWhitelisted { contract_address });
-}
-
-/// Removes contract from trusted list.
-public fun remove_trusted_contract(
-    registry: &mut AdminRegistry,
-    _cap: &AdminCap,
-    contract_address: address,
-) {
-    assert!(registry.trusted_contract.get_bool(contract_address), EContractDoesNotExist);
-    registry.trusted_contract.set_bool(contract_address, false);
-
-    event::emit(ContractBlacklisted { contract_address });
+public fun migrate(registry: &mut AdminRegistry, _cap: &AdminCap) {
+    assert!(registry.version <= CURRENT_VERSION, EWrongVersion);
+    registry.version = CURRENT_VERSION;
 }
 
 // ==========================================
 // Read Queries
 // ==========================================
+
+public fun version(registry: &AdminRegistry): u64 {
+    registry.version
+}
 
 public fun can_mint(registry: &AdminRegistry, user: address): bool {
     registry.can_mint.get_bool(user)
@@ -270,14 +239,6 @@ public fun mint_amount(registry: &AdminRegistry, user: address): u64 {
     } else {
         0
     }
-}
-
-public fun can_forward(registry: &AdminRegistry, user: address): bool {
-    registry.can_forward.get_bool(user)
-}
-
-public fun is_trusted_contract(registry: &AdminRegistry, contract_address: address): bool {
-    registry.trusted_contract.get_bool(contract_address)
 }
 
 // ==========================================
