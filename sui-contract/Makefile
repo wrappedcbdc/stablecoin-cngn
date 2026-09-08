@@ -258,6 +258,30 @@ unpause:
 		--args "$(COIN_STATE_ID)" "$(ADMIN_CAP_ID)" "$(DENY_LIST_ID)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
+.PHONY: update-icon
+update-icon:
+	@[ -n "$(URL)" ] || (echo "Usage: make update-icon URL=<icon_url>"; exit 1)
+	@[ -n "$(PACKAGE_ID)" ] || (echo "Error: deployment.json missing."; exit 1)
+	@echo "Updating cNGN icon URL..."
+	sui client call \
+		--package "$(PACKAGE_ID)" \
+		--module "cngn" \
+		--function "update_icon_url" \
+		--args "$(COIN_STATE_ID)" "$(ADMIN_CAP_ID)" "$(COIN_METADATA_ID)" "$(URL)" \
+		--gas-budget $(GAS_BUDGET_CALL)
+
+.PHONY: update-description
+update-description:
+	@[ -n "$(DESC)" ] || (echo "Usage: make update-description DESC=<description>"; exit 1)
+	@[ -n "$(PACKAGE_ID)" ] || (echo "Error: deployment.json missing."; exit 1)
+	@echo "Updating cNGN description..."
+	sui client call \
+		--package "$(PACKAGE_ID)" \
+		--module "cngn" \
+		--function "update_description" \
+		--args "$(COIN_STATE_ID)" "$(ADMIN_CAP_ID)" "$(COIN_METADATA_ID)" "$(DESC)" \
+		--gas-budget $(GAS_BUDGET_CALL)
+
 # =============================================================================
 # TOKEN OPERATIONS
 # =============================================================================

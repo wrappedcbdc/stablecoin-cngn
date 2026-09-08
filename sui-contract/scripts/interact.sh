@@ -14,6 +14,8 @@
 #   ./interact.sh remove-forwarder <forwarder_address>
 #   ./interact.sh add-trusted-contract <contract_address>
 #   ./interact.sh remove-trusted-contract <contract_address>
+#   ./interact.sh update-icon <new_icon_url>
+#   ./interact.sh update-description <new_description>
 #   ./interact.sh query-state
 # ==============================================================================
 
@@ -32,6 +34,7 @@ PACKAGE_ID=$(jq -r '.packageId' "${CONFIG_FILE}")
 ADMIN_CAP_ID=$(jq -r '.adminCapId' "${CONFIG_FILE}")
 ADMIN_REGISTRY_ID=$(jq -r '.adminRegistryId' "${CONFIG_FILE}")
 COIN_STATE_ID=$(jq -r '.coinStateId' "${CONFIG_FILE}")
+COIN_METADATA_ID=$(jq -r '.coinMetadataId' "${CONFIG_FILE}")
 DENY_LIST_ID=$(jq -r '.denyListId' "${CONFIG_FILE}")
 GAS_BUDGET=50000000
 
@@ -176,6 +179,29 @@ case "${COMMAND}" in
       --gas-budget "${GAS_BUDGET}"
     ;;
 
+  # --- Token Metadata Updates (Object first, Cap second) ---
+  "update-icon")
+    ICON_URL=${2:?"Usage: ./interact.sh update-icon <new_icon_url>"}
+    echo "Updating cNGN icon URL to ${ICON_URL}..."
+    sui client call \
+      --package "${PACKAGE_ID}" \
+      --module "cngn" \
+      --function "update_icon_url" \
+      --args "${COIN_STATE_ID}" "${ADMIN_CAP_ID}" "${COIN_METADATA_ID}" "${ICON_URL}" \
+      --gas-budget "${GAS_BUDGET}"
+    ;;
+
+  "update-description")
+    DESC=${2:?"Usage: ./interact.sh update-description <new_description>"}
+    echo "Updating cNGN description..."
+    sui client call \
+      --package "${PACKAGE_ID}" \
+      --module "cngn" \
+      --function "update_description" \
+      --args "${COIN_STATE_ID}" "${ADMIN_CAP_ID}" "${COIN_METADATA_ID}" "${DESC}" \
+      --gas-budget "${GAS_BUDGET}"
+    ;;
+
   # --- Views & State Queries ---
   "query-state")
     echo "=== Fetching Shared State Objects ==="
@@ -198,6 +224,8 @@ case "${COMMAND}" in
     echo "  remove-forwarder <forwarder>"
     echo "  add-trusted-contract <contract>"
     echo "  remove-trusted-contract <contract>"
+    echo "  update-icon <icon_url>"
+    echo "  update-description <description>"
     echo "  query-state"
     ;;
 esac
