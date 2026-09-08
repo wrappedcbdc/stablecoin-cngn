@@ -304,7 +304,7 @@ public fun unpause(
 // --- Metadata Management ---
 
 /// Allows Admin to update the coin logo URL.
-public entry fun update_icon_url(
+public fun update_icon_url(
     state: &mut CoinState,
     _admin: &AdminCap,
     metadata: &mut CoinMetadata<CNGN>,
@@ -320,7 +320,7 @@ public entry fun update_icon_url(
 }
 
 /// Allows Admin to update the coin description.
-public entry fun update_description(
+public fun update_description(
     state: &mut CoinState,
     _admin: &AdminCap,
     metadata: &mut CoinMetadata<CNGN>,
@@ -336,7 +336,7 @@ public entry fun update_description(
 }
 
 /// Allows Admin to update the coin display name.
-public entry fun update_name(
+public fun update_name(
     state: &mut CoinState,
     _admin: &AdminCap,
     metadata: &mut CoinMetadata<CNGN>,
@@ -352,7 +352,7 @@ public entry fun update_name(
 }
 
 /// Allows Admin to update the coin symbol.
-public entry fun update_symbol(
+public fun update_symbol(
     state: &mut CoinState,
     _admin: &AdminCap,
     metadata: &mut CoinMetadata<CNGN>,
