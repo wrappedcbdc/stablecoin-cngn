@@ -780,3 +780,62 @@ fun token_versioning_and_migration() {
 
     scenario.end();
 }
+
+// ==========================================
+// 6. Metadata Management Tests
+// ==========================================
+
+#[test]
+fun token_metadata_updates() {
+    let mut scenario = setup();
+
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+        let mut metadata = scenario.take_shared<coin::CoinMetadata<CNGN>>();
+
+        // Verify initial metadata
+        assert_eq!(coin::get_decimals(&metadata), 6);
+        assert_eq!(coin::get_name(&metadata), std::string::utf8(b"cNGN"));
+        assert_eq!(coin::get_symbol(&metadata), std::ascii::string(b"cNGN"));
+
+        // 1. Update icon URL
+        state.update_icon_url(
+            &cap,
+            &mut metadata,
+            b"https://cngn.co/assets/logo.png",
+        );
+
+        // 2. Update description
+        state.update_description(
+            &cap,
+            &mut metadata,
+            b"Updated cNGN stablecoin description.",
+        );
+        assert_eq!(coin::get_description(&metadata), std::string::utf8(b"Updated cNGN stablecoin description."));
+
+        // 3. Update name
+        state.update_name(
+            &cap,
+            &mut metadata,
+            b"Convexity NGN",
+        );
+        assert_eq!(coin::get_name(&metadata), std::string::utf8(b"Convexity NGN"));
+
+        // 4. Update symbol
+        state.update_symbol(
+            &cap,
+            &mut metadata,
+            b"CNGN",
+        );
+        assert_eq!(coin::get_symbol(&metadata), std::ascii::string(b"CNGN"));
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+        ts::return_shared(metadata);
+    };
+
+    scenario.end();
+}
+

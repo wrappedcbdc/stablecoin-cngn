@@ -7,11 +7,13 @@
 module cngn::cngn;
 
 use cngn::admin::{Self, AdminCap, AdminRegistry};
+use std::ascii;
+use std::string;
 use sui::balance::{Self, Balance};
-use sui::coin::{Self, Coin, DenyCapV2, TreasuryCap};
+use sui::coin::{Self, Coin, CoinMetadata, DenyCapV2, TreasuryCap};
 use sui::deny_list::DenyList;
 use sui::event;
-use sui::url::Url;
+use sui::url::{Self, Url};
 
 // --- Package Version ---
 
@@ -54,6 +56,11 @@ public struct BlacklistUpdated has copy, drop {
     blacklisted: bool,
 }
 
+public struct MetadataUpdated has copy, drop {
+    field: std::ascii::String,
+    new_value: std::ascii::String,
+}
+
 // --- Error Constants (EPascalCase) ---
 
 const EBlacklisted: u64 = 0;
@@ -72,19 +79,25 @@ const ENotPaused: u64 = 10;
 
 #[allow(deprecated_usage)]
 fun init(otw: CNGN, ctx: &mut TxContext) {
+    let icon_url = option::some(
+        url::new_unsafe_from_bytes(
+            b"https://aqua-changing-meadowlark-684.mypinata.cloud/ipfs/bafkreifug3lermi2qlcrtyimh5oqd4hmhebi76tevyat3hyul5u32qvb3a"
+        )
+    );
+
     let (treasury, deny_cap, metadata) = coin::create_regulated_currency_v2(
         otw,
         6, // decimals (1 cNGN = 1,000,000 base atomic units)
         b"cNGN",
         b"cNGN",
-        b"Nigerian Naira-pegged stablecoin",
-        option::none<Url>(),
+        b"cNGN is Nigeria's first regulated stablecoin, pegged 1:1 to the Nigerian Naira and fully backed by naira reserves held in licensed commercial banks.",
+        icon_url,
         true, // allow_global_pause enables circuit-breaker pause/unpause
         ctx,
     );
 
-    // Immutable coin metadata
-    transfer::public_freeze_object(metadata);
+    // Shared coin metadata so it remains accessible to explorers and updatable by Admin
+    transfer::public_share_object(metadata);
 
     // Shared coin state holding capability handles
     transfer::share_object(CoinState {
@@ -285,6 +298,72 @@ public fun unpause(
 
     event::emit(Paused {
         paused: false,
+    });
+}
+
+// --- Metadata Management ---
+
+/// Allows Admin to update the coin logo URL.
+public entry fun update_icon_url(
+    state: &mut CoinState,
+    _admin: &AdminCap,
+    metadata: &mut CoinMetadata<CNGN>,
+    new_url: vector<u8>,
+) {
+    assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    let url_ascii = ascii::string(new_url);
+    coin::update_icon_url(&state.treasury, metadata, url_ascii);
+    event::emit(MetadataUpdated {
+        field: ascii::string(b"icon_url"),
+        new_value: url_ascii,
+    });
+}
+
+/// Allows Admin to update the coin description.
+public entry fun update_description(
+    state: &mut CoinState,
+    _admin: &AdminCap,
+    metadata: &mut CoinMetadata<CNGN>,
+    new_description: vector<u8>,
+) {
+    assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    let desc_str = string::utf8(new_description);
+    coin::update_description(&state.treasury, metadata, desc_str);
+    event::emit(MetadataUpdated {
+        field: ascii::string(b"description"),
+        new_value: ascii::string(new_description),
+    });
+}
+
+/// Allows Admin to update the coin display name.
+public entry fun update_name(
+    state: &mut CoinState,
+    _admin: &AdminCap,
+    metadata: &mut CoinMetadata<CNGN>,
+    new_name: vector<u8>,
+) {
+    assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    let name_str = string::utf8(new_name);
+    coin::update_name(&state.treasury, metadata, name_str);
+    event::emit(MetadataUpdated {
+        field: ascii::string(b"name"),
+        new_value: ascii::string(new_name),
+    });
+}
+
+/// Allows Admin to update the coin symbol.
+public entry fun update_symbol(
+    state: &mut CoinState,
+    _admin: &AdminCap,
+    metadata: &mut CoinMetadata<CNGN>,
+    new_symbol: vector<u8>,
+) {
+    assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    let symbol_ascii = ascii::string(new_symbol);
+    coin::update_symbol(&state.treasury, metadata, symbol_ascii);
+    event::emit(MetadataUpdated {
+        field: ascii::string(b"symbol"),
+        new_value: symbol_ascii,
     });
 }
 
