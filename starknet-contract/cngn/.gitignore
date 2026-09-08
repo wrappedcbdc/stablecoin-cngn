@@ -1,0 +1,10 @@
+target
+.snfoundry_cache/
+snfoundry_trace/
+coverage/
+profile/
+
+node_modules/
+dist/
+.env
+deployments/

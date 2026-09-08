@@ -1,0 +1,38 @@
+module Tests.Common where
+
+import Daml.Script
+import Admin
+import CNGN ()
+
+-- Four standard parties shared by every module and flow test: an issuer
+-- acting as administrator, a holder, a second party to receive transfers,
+-- and a minter.
+setupParties : Script (Party, Party, Party, Party)
+setupParties = do
+  issuer    <- allocateParty "Issuer"
+  holder    <- allocateParty "Holder"
+  recipient <- allocateParty "Recipient"
+  minter    <- allocateParty "Minter"
+  return (issuer, holder, recipient, minter)
+
+-- The four registries a compliant issuer stands up together: compliance
+-- (blacklist + global pause), mint authorization, forwarder allowlist,
+-- and trusted contracts.
+data Registries = Registries
+  with
+    complianceCid : ContractId AdminState
+    mintCid        : ContractId MintRegistry
+    forwarderCid   : ContractId ForwarderRegistry
+    trustCid       : ContractId TrustedContractRegistry
+
+createRegistries : Party -> [Party] -> [Party] -> [(Party, Text, Int)] -> Script Registries
+createRegistries owner blackListed canMint mintGrants = do
+  complianceCid <- submit owner do
+    createCmd AdminState with owner; blackListed; globalPaused = False
+  mintCid <- submit owner do
+    createCmd MintRegistry with owner; canMint; mintGrants
+  forwarderCid <- submit owner do
+    createCmd ForwarderRegistry with owner; canForward = []
+  trustCid <- submit owner do
+    createCmd TrustedContractRegistry with owner; trustedContracts = []
+  return (Registries complianceCid mintCid forwarderCid trustCid)

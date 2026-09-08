@@ -1,0 +1,24 @@
+# Visit https://foundry-rs.github.io/starknet-foundry/appendix/snfoundry-toml.html
+# and https://foundry-rs.github.io/starknet-foundry/projects/configuration.html for more information
+
+[sncast.local]
+url = "http://127.0.0.1:5050"
+accounts-file = "./accounts.json"
+account = "devnet-account"
+wait-params = { timeout = 60, retry-interval = 5 }
+
+[sncast.sepolia]
+url = "https://starknet-sepolia.public.blastapi.io/rpc/v0_7"
+# accounts-file = "./account.json"
+# account = "deployer"
+wait-params = { timeout = 300, retry-interval = 10 }
+block-explorer = "StarkScan"
+show-explorer-links = true
+
+[sncast.mainnet]
+url = "https://starknet-mainnet.public.blastapi.io/rpc/v0_7"
+# accounts-file = "./account.json"
+# account = "deployer"
+wait-params = { timeout = 600, retry-interval = 15 }
+block-explorer = "StarkScan"
+show-explorer-links = true

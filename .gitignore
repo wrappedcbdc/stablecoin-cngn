@@ -8,6 +8,29 @@ artifacts/
 package-lock.json
 scripts/
 
+# Contracts / legacy
 tron-contract
-
 solana-contract-old
+evm
+
+# Canton/DAML build output
+canton-contract/.daml/
+*.dar
+
+# Solana/Anchor build output
+solana-contract/target/
+solana-contract/.anchor/
+
+# Tron build output
+tron-contract/build/
+
+# Sui Move build output
+sui-contract/build/
+sui-contract/traces/
+sui-contract/*.mvcov
+sui-contract/.coverage_map.mvcov
+sui-contract/.env
+sui-contract/deployment.json
+
+# OS cruft
+.DS_Store
