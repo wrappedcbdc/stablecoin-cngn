@@ -29,7 +29,6 @@ export async function addCanMint(target: PublicKey): Promise<string> {
         const message = buildAddCanMintMessage(
             context.pdas.canMint,
             target,
-            context.program.programId,
             context.multisigAccount.nonce.toNumber()
         );
 
@@ -38,7 +37,7 @@ export async function addCanMint(target: PublicKey): Promise<string> {
             .accounts({
                 mint: context.cngnMint,
                 tokenConfig: context.pdas.tokenConfig,
-                
+                blacklist: context.pdas.blacklist,
                 canMint: context.pdas.canMint,
                 trustedContracts: context.pdas.trustedContracts,
                 multisig: context.pdas.multisig,

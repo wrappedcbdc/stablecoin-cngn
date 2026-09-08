@@ -184,10 +184,6 @@ pub fn validate_multisig_authorization(
     Ok(())
 }
 
-// ============================================================================
-// Multisig helper functions (methods on Multisig)
-// ============================================================================
-
 /// Build message for updating multisig configuration
 pub fn build_update_multisig_message(
     multisig: &Pubkey,
@@ -198,7 +194,6 @@ pub fn build_update_multisig_message(
     let mut hasher = Sha256::new();
 
     hasher.update(b"UPDATE_MULTISIG");
-    hasher.update(crate::id().as_ref());
     hasher.update(multisig.as_ref());
 
     for owner in new_owners {
@@ -216,7 +211,6 @@ pub fn build_add_can_mint_message(can_mint_account: &Pubkey, user: &Pubkey, nonc
     let mut hasher = Sha256::new();
 
     hasher.update(b"ADD_CAN_MINT");
-    hasher.update(crate::id().as_ref());
     hasher.update(can_mint_account.as_ref());
     hasher.update(user.as_ref());
     hasher.update(&nonce.to_le_bytes());
@@ -233,7 +227,6 @@ pub fn build_remove_can_mint_message(
     let mut hasher = Sha256::new();
 
     hasher.update(b"REMOVE_CAN_MINT");
-    hasher.update(crate::id().as_ref());
     hasher.update(can_mint_account.as_ref());
     hasher.update(user.as_ref());
     hasher.update(&nonce.to_le_bytes());
@@ -244,16 +237,13 @@ pub fn build_remove_can_mint_message(
 pub fn build_set_mint_amount_message(
     can_mint_account: &Pubkey,
     user: &Pubkey,
-    amount: u64,
     nonce: u64,
 ) -> Vec<u8> {
     let mut hasher = Sha256::new();
 
     hasher.update(b"SET_MINT_AMOUNT");
-    hasher.update(crate::id().as_ref());
     hasher.update(can_mint_account.as_ref());
     hasher.update(user.as_ref());
-    hasher.update(&amount.to_le_bytes()); // Included amount in hash
     hasher.update(&nonce.to_le_bytes());
 
     hasher.finalize().to_vec()
@@ -267,7 +257,6 @@ pub fn build_remove_mint_amount_message(
     let mut hasher = Sha256::new();
 
     hasher.update(b"REMOVE_MINT_AMOUNT");
-    hasher.update(crate::id().as_ref());
     hasher.update(can_mint_account.as_ref());
     hasher.update(user.as_ref());
     hasher.update(&nonce.to_le_bytes());
@@ -283,7 +272,6 @@ pub fn build_add_can_forward_message(
     let mut hasher = Sha256::new();
 
     hasher.update(b"ADD_CAN_FORWARD");
-    hasher.update(crate::id().as_ref());
     hasher.update(can_forward_account.as_ref());
     hasher.update(forwarder.as_ref());
     hasher.update(&nonce.to_le_bytes());
@@ -300,9 +288,40 @@ pub fn build_remove_can_forward_message(
     let mut hasher = Sha256::new();
 
     hasher.update(b"REMOVE_CAN_FORWARD");
-    hasher.update(crate::id().as_ref());
     hasher.update(can_forward_account.as_ref());
     hasher.update(forwarder.as_ref());
+    hasher.update(&nonce.to_le_bytes());
+
+    hasher.finalize().to_vec()
+}
+
+/// Build message for adding to blacklist
+pub fn build_add_blacklist_message(
+    blacklist_account: &Pubkey,
+    user: &Pubkey,
+    nonce: u64,
+) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+
+    hasher.update(b"ADD_BLACKLIST");
+    hasher.update(blacklist_account.as_ref());
+    hasher.update(user.as_ref());
+    hasher.update(&nonce.to_le_bytes());
+
+    hasher.finalize().to_vec()
+}
+
+/// Build message for removing from blacklist
+pub fn build_remove_blacklist_message(
+    blacklist_account: &Pubkey,
+    user: &Pubkey,
+    nonce: u64,
+) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+
+    hasher.update(b"REMOVE_BLACKLIST");
+    hasher.update(blacklist_account.as_ref());
+    hasher.update(user.as_ref());
     hasher.update(&nonce.to_le_bytes());
 
     hasher.finalize().to_vec()
@@ -317,7 +336,6 @@ pub fn build_add_trusted_contract_message(
     let mut hasher = Sha256::new();
 
     hasher.update(b"ADD_TRUSTED_CONTRACT");
-    hasher.update(crate::id().as_ref());
     hasher.update(trusted_contracts_account.as_ref());
     hasher.update(contract.as_ref());
     hasher.update(&nonce.to_le_bytes());
@@ -334,7 +352,6 @@ pub fn build_remove_trusted_contract_message(
     let mut hasher = Sha256::new();
 
     hasher.update(b"REMOVE_TRUSTED_CONTRACT");
-    hasher.update(crate::id().as_ref());
     hasher.update(trusted_contracts_account.as_ref());
     hasher.update(contract.as_ref());
     hasher.update(&nonce.to_le_bytes());
@@ -342,17 +359,85 @@ pub fn build_remove_trusted_contract_message(
     hasher.finalize().to_vec()
 }
 
-pub fn build_pause_mint_message(
-    token_config_account: &Pubkey,
-    pause_mint: bool,
+/// Build message for whitelisting internal user
+pub fn build_whitelist_internal_message(
+    internal_whitelist_account: &Pubkey,
+    user: &Pubkey,
     nonce: u64,
 ) -> Vec<u8> {
     let mut hasher = Sha256::new();
 
+    hasher.update(b"WHITELIST_INTERNAL");
+    hasher.update(internal_whitelist_account.as_ref());
+    hasher.update(user.as_ref());
+    hasher.update(&nonce.to_le_bytes());
+
+    hasher.finalize().to_vec()
+}
+
+/// Build message for whitelisting external user
+pub fn build_whitelist_external_message(
+    external_whitelist_account: &Pubkey,
+    user: &Pubkey,
+    nonce: u64,
+) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+
+    hasher.update(b"WHITELIST_EXTERNAL");
+    hasher.update(external_whitelist_account.as_ref());
+    hasher.update(user.as_ref());
+    hasher.update(&nonce.to_le_bytes());
+
+    hasher.finalize().to_vec()
+}
+
+/// Build message for blacklisting internal user (removing from internal whitelist)
+pub fn build_blacklist_internal_message(
+    internal_whitelist_account: &Pubkey,
+    user: &Pubkey,
+    nonce: u64,
+) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+
+    hasher.update(b"BLACKLIST_INTERNAL");
+    hasher.update(internal_whitelist_account.as_ref());
+    hasher.update(user.as_ref());
+    hasher.update(&nonce.to_le_bytes());
+
+    hasher.finalize().to_vec()
+}
+
+/// Build message for blacklisting external user (removing from external whitelist)
+pub fn build_blacklist_external_message(
+    external_whitelist_account: &Pubkey,
+    user: &Pubkey,
+    nonce: u64,
+) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+
+    hasher.update(b"BLACKLIST_EXTERNAL");
+    hasher.update(external_whitelist_account.as_ref());
+    hasher.update(user.as_ref());
+    hasher.update(&nonce.to_le_bytes());
+
+    hasher.finalize().to_vec()
+}
+
+pub fn build_pause_mint_message(token_config_account: &Pubkey, nonce: u64) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+
     hasher.update(b"PAUSE_MINTING");
-    hasher.update(crate::id().as_ref());
     hasher.update(token_config_account.as_ref());
-    hasher.update(&[pause_mint as u8]); // Included pause state in hash
+    hasher.update(&nonce.to_le_bytes());
+
+    hasher.finalize().to_vec()
+}
+
+pub fn build_pause_transfer_message(token_config_account: &Pubkey, nonce: u64) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+
+    hasher.update(b"PAUSE_TRANSFER");
+    hasher.update(token_config_account.as_ref());
     hasher.update(&nonce.to_le_bytes());
 
     hasher.finalize().to_vec()

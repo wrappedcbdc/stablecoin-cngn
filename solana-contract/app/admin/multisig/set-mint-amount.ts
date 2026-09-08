@@ -31,8 +31,6 @@ export async function setMintAmount(target: PublicKey, amount: number): Promise<
         const message = buildSetMintAmountMessage(
             context.pdas.canMint,
             target,
-            amount,
-             context.program.programId,
             context.multisigAccount.nonce.toNumber()
         );
 

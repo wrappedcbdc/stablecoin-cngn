@@ -19,10 +19,7 @@ pub struct MintTokens<'info> {
     )]
     pub mint: InterfaceAccount<'info, Mint>,
 
-    #[account(
-        seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
-        bump
-    )]
+    #[account()]
     pub mint_authority: Account<'info, MintAuthority>,
 
     #[account(
@@ -31,17 +28,13 @@ pub struct MintTokens<'info> {
     )]
     pub token_account: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(
-        mut,
-        seeds = [CAN_MINT_SEED, token_config.mint.as_ref()],
-        bump,
-    )]
+    #[account(mut)]
+    pub blacklist: Account<'info, BlackList>,
+
+    #[account(mut)]
     pub can_mint: Account<'info, CanMint>,
 
-    #[account(
-        seeds = [TRUSTED_CONTRACTS_SEED, token_config.mint.as_ref()],
-        bump,
-    )]
+    #[account(mut)]
     pub trusted_contracts: Account<'info, TrustedContracts>,
 
     pub token_program: Interface<'info, TokenInterface>,
@@ -49,6 +42,19 @@ pub struct MintTokens<'info> {
 
 pub fn handler(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
     let signer = ctx.accounts.authority.key();
+    let mint_to = ctx.accounts.token_account.owner;
+
+    // Check if signer is blacklisted
+    require!(
+        !ctx.accounts.blacklist.is_blacklisted(&signer),
+        ErrorCode::SignerBlacklisted
+    );
+
+    // Check if receiver is blacklisted
+    require!(
+        !ctx.accounts.blacklist.is_blacklisted(&mint_to),
+        ErrorCode::ReceiverBlacklisted
+    );
 
     // Check if signer is authorized to mint
     require!(
@@ -97,11 +103,11 @@ pub fn handler(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
             authority: signer,
         });
     }
-    let mint_to = ctx.accounts.token_account.owner;
+
     // Emit minting event
     emit!(TokensMintedEvent {
         mint: ctx.accounts.mint.key(),
-        to: mint_to,
+        to: ctx.accounts.token_account.key(),
         amount,
     });
 
