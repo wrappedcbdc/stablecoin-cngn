@@ -5,6 +5,13 @@
 cache/
 node_modules/
 artifacts/
+package-lock.json
+scripts/
+
+# Contracts / legacy
+tron-contract
+solana-contract-old
+evm
 
 # Canton/DAML build output
 canton-contract/.daml/
@@ -24,8 +31,6 @@ sui-contract/*.mvcov
 sui-contract/.coverage_map.mvcov
 sui-contract/.env
 sui-contract/deployment.json
-
-evm
 
 # OS cruft
 .DS_Store

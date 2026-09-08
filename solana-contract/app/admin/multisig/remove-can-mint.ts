@@ -27,7 +27,6 @@ export async function removeCanMint(target: PublicKey): Promise<string> {
     const message = buildRemoveCanMintMessage(
       context.pdas.canMint,
       target,
-       context.program.programId,
       context.multisigAccount.nonce.toNumber()
     );
 

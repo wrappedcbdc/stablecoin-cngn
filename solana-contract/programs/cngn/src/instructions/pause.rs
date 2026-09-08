@@ -6,8 +6,7 @@ use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct PauseMint<'info> {
-    #[account(
-        mut,
+       #[account(
         seeds = [Multisig::MULTISIG_SEED,token_config.mint.key().as_ref()],
         bump = multisig.bump
     )]
@@ -20,16 +19,19 @@ pub struct PauseMint<'info> {
     )]
     pub token_config: Account<'info, TokenConfig>,
 
-    /// CHECK: This is the instructions sysvar
+        /// CHECK: This is the instructions sysvar
     #[account(address = solana_program::sysvar::instructions::ID)]
     pub instructions: AccountInfo<'info>,
 }
 
 pub fn pause_mint_handler(ctx: Context<PauseMint>, pause_mint: bool) -> Result<()> {
     let multisig = &mut ctx.accounts.multisig;
-
-    let message =
-        build_pause_mint_message(&ctx.accounts.token_config.key(), pause_mint, multisig.nonce);
+    require_keys_eq!(
+        multisig.key(),
+        ctx.accounts.token_config.admin,
+        ErrorCode::Unauthorized
+    );
+    let message = build_pause_mint_message(&ctx.accounts.token_config.key(), multisig.nonce);
 
     validate_multisig_authorization(multisig, &ctx.accounts.instructions, &message)?;
     let token_config = &mut ctx.accounts.token_config;
@@ -49,3 +51,4 @@ pub fn pause_mint_handler(ctx: Context<PauseMint>, pause_mint: bool) -> Result<(
 
     Ok(())
 }
+

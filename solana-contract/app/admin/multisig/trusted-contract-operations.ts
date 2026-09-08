@@ -14,7 +14,6 @@ export async function addTrustedContract(target: PublicKey): Promise<string> {
     const message = buildAddTrustedContractMessage(
       context.pdas.trustedContracts,
       target,
-       context.program.programId,
       context.multisigAccount.nonce.toNumber()
     );
 

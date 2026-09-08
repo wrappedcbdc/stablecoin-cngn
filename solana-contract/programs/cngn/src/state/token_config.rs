@@ -1,8 +1,10 @@
 // state/token_config.rs
 use anchor_lang::prelude::*;
 
-
+pub const META_LIST_ACCOUNT_SEED: &[u8] = b"extra-account-metas";
 pub const TOKEN_CONFIG_SEED: &[u8] = b"token-config";
+pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
+    solana_program::pubkey!("GovernoR1LQdaQKK7Kpz9QYCwvBtVpXQXbXHX2d5vNpL");
 
 #[account]
 pub struct TokenConfig {
@@ -14,7 +16,6 @@ pub struct TokenConfig {
     pub mint_paused: bool,     // Flag to track if minting is paused
     pub transfer_paused: bool, // Flag to track if transfers are paused
     pub bump: u8,              // PDA bump
-   
 }
 
 // state/token_config.rs
@@ -33,7 +34,7 @@ impl TokenConfig {
         32 + // admin
         1 +  // mint_paused
         1 +  // transfer_paused
-        1 ; // bump
+        1; // bump
 
     
 }
