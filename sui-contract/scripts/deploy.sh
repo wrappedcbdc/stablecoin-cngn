@@ -29,23 +29,26 @@ fi
 
 echo "=== Parsing Deployment Outputs ==="
 
+# Strip non-JSON compiler diagnostics from output
+PUBLISH_JSON=$(echo "${PUBLISH_RES}" | sed -n '/^{/,$p')
+
 # Extract Package ID
-PACKAGE_ID=$(echo "${PUBLISH_RES}" | jq -r '.objectChanges[] | select(.type == "published") | .packageId')
+PACKAGE_ID=$(echo "${PUBLISH_JSON}" | jq -r '.objectChanges[] | select(.type == "published") | .packageId')
 
 # Extract UpgradeCap ID
-UPGRADE_CAP_ID=$(echo "${PUBLISH_RES}" | jq -r '.objectChanges[] | select(.objectType | contains("::package::UpgradeCap")) | .objectId')
+UPGRADE_CAP_ID=$(echo "${PUBLISH_JSON}" | jq -r '.objectChanges[] | select(.objectType | contains("::package::UpgradeCap")) | .objectId')
 
 # Extract AdminCap ID
-ADMIN_CAP_ID=$(echo "${PUBLISH_RES}" | jq -r '.objectChanges[] | select(.objectType | contains("::admin::AdminCap")) | .objectId')
+ADMIN_CAP_ID=$(echo "${PUBLISH_JSON}" | jq -r '.objectChanges[] | select(.objectType | contains("::admin::AdminCap")) | .objectId')
 
 # Extract AdminRegistry Shared Object ID
-ADMIN_REGISTRY_ID=$(echo "${PUBLISH_RES}" | jq -r '.objectChanges[] | select(.objectType | contains("::admin::AdminRegistry")) | .objectId')
+ADMIN_REGISTRY_ID=$(echo "${PUBLISH_JSON}" | jq -r '.objectChanges[] | select(.objectType | contains("::admin::AdminRegistry")) | .objectId')
 
 # Extract CoinState Shared Object ID
-COIN_STATE_ID=$(echo "${PUBLISH_RES}" | jq -r '.objectChanges[] | select(.objectType | contains("::cngn::CoinState")) | .objectId')
+COIN_STATE_ID=$(echo "${PUBLISH_JSON}" | jq -r '.objectChanges[] | select(.objectType | contains("::cngn::CoinState")) | .objectId')
 
 # Extract CoinMetadata Object ID
-COIN_METADATA_ID=$(echo "${PUBLISH_RES}" | jq -r '.objectChanges[] | select(.objectType | contains("::coin::CoinMetadata")) | .objectId')
+COIN_METADATA_ID=$(echo "${PUBLISH_JSON}" | jq -r '.objectChanges[] | select(.objectType | contains("::coin::CoinMetadata")) | .objectId')
 
 # Standard DenyList shared object address on Sui (0x403)
 DENY_LIST_ID="0x0000000000000000000000000000000000000000000000000000000000000403"

@@ -17,6 +17,14 @@ solana-contract/.anchor/
 # Tron build output
 tron-contract/build/
 
+# Sui Move build output
+sui-contract/build/
+sui-contract/traces/
+sui-contract/*.mvcov
+sui-contract/.coverage_map.mvcov
+sui-contract/.env
+sui-contract/deployment.json
+
 evm
 
 # OS cruft
