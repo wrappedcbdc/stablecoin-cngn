@@ -101,6 +101,7 @@ cNGN is currently deployed on the following blockchain protocols:
 | ARC        | 0x3afDf1831D1FFe96093533aF81120A903DAf0bE0         |
 | SOLANA     | HfJWS8vJHvxKn5xW3uLXkTmEy4jny3G45QnS1Eab5sg         |
 | CELO       | 0xa188439ccCEe9A6aa0E842f9c17C1b00C7B4dd4D         |
+| ADI        | 0x75020B2E73aed1C95B9243340164b060dFBdE341         |
 
 ## Developer Guide
 
