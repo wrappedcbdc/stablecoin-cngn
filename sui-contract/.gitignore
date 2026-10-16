@@ -1,0 +1,11 @@
+# Move compiler build artifacts
+build/
+
+# Move coverage and test artifacts
+traces/
+*.mvcov
+.coverage_map.mvcov
+
+# Environment & deployment artifacts
+.env
+deployment.json
