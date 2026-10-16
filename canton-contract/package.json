@@ -1,0 +1,35 @@
+{
+  "name": "cngn-canton-sdk",
+  "version": "1.0.0",
+  "description": "cNGN Stablecoin TypeScript SDK and CLI for Canton Network / Daml",
+  "main": "dist/cngn.js",
+  "types": "dist/cngn.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "query": "tsx src/query-tokens.ts",
+    "mint:propose": "tsx src/create-mint-proposal.ts",
+    "mint:execute": "tsx src/execute-mint.ts",
+    "transfer": "tsx src/transfer.ts",
+    "burn": "tsx src/burn.ts",
+    "allowance": "tsx src/allowance.ts",
+    "admin": "tsx src/admin.ts",
+    "forwarder": "tsx src/forwarder.ts",
+    "merge": "tsx src/merge.ts"
+  },
+  "keywords": [
+    "canton",
+    "daml",
+    "cngn",
+    "stablecoin",
+    "web3"
+  ],
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^18.0.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
