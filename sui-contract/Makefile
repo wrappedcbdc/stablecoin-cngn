@@ -318,7 +318,7 @@ burn:
 		--package "$(PACKAGE_ID)" \
 		--module "cngn" \
 		--function "burn_by_user" \
-		--args "$(COIN_STATE_ID)" "$(COIN_ID)" \
+		--args "$(COIN_STATE_ID)" "0x403" "$(COIN_ID)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
 # =============================================================================

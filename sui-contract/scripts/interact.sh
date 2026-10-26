@@ -85,7 +85,7 @@ case "${COMMAND}" in
       --package "${PACKAGE_ID}" \
       --module "cngn" \
       --function "burn_by_user" \
-      --args "${COIN_STATE_ID}" "${COIN_ID}" \
+      --args "${COIN_STATE_ID}" "${DENY_LIST_ID}" "${COIN_ID}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 

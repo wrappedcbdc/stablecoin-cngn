@@ -112,6 +112,7 @@ export class CNGNClient {
       target: `${this.config.packageId}::cngn::burn_by_user`,
       arguments: [
         tx.object(this.config.coinStateId),
+        tx.object(this.config.denyListId),
         tx.object(coinObjectId),
       ],
     });
