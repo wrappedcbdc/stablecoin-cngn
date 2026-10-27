@@ -82,6 +82,8 @@ cNGN is currently deployed on the following blockchain protocols:
 | LISK    | 0xC7aB2C35Ea37236e644C24A4E4a1911c082887c0          |
 | SOLANA    | 3jiqwBQVRC5zRwHyqvnkQurebJ5RNxg3F5fXMwaxgkv8          |
 | CELO    | 0xF6829D7393dAe24509eb1E52eE8e572e2E271a4f          |
+| MONAD      | 0x567BB1CA4748cD316F25fa502E77362A632771eE          |
+| ARC        | 0x717a8e49a4632B204BC1f11c498ba9bCdcE1C677         |
 
 
 
@@ -91,17 +93,17 @@ cNGN is currently deployed on the following blockchain protocols:
 | Network    | cNGN Contract Address                                |
 | ---------- | ---------------------------------------------------- |
 | BANTU      | GAE7E56N3XIC6JGJI54SD3VN4EDY3OZVFA7CLHXAMMTHLU4LIFYJMFSI |
-| ASSETCHAIN | 0x1Aa7635b7ac3E59D2a654052F95feA6e1CeeB00F           |
-| BASE       | 0xe2387F04d3858e7Cb64Ef5Ed6617f9B2fcEEAfa2           |
-| BNBCHAIN   | 0x8a078b182bA9649c03982c2a80CDcc81cdc99dA8           |
-| ETHEREUM   | 0x0b2b22cCfd95B1Ff2De52F192749986385B1a6b6           |
+| ASSETCHAIN | 0x35000B21746daA9B63a362aBfB2ebb5ab216d686           |
+| BASE       | 0xb2AA139FF5314e92eF4bb79FfBDB2c09d2C53BAE           |
+| BNBCHAIN   | 0x9538F41EE9f9d5B5A9f3154f355B88f4B1372E89           |
+| ETHEREUM   | 0xAE83084c1411abdEF714ce407d94EC2B43c64A00           |
 | POLYGON    | 0x995Ba562E513a22122C499622b193C91b32E2A28          |
 | LISK       | 0x9a9c18A371d98200FE910f62c45875f1abb68d20           |
-| MONAD      | 0x82838136c74f20D42493d3401bF92c00cb37bFbC *         |
-| ARC        | 0x3afDf1831D1FFe96093533aF81120A903DAf0bE0         |
+| MONAD      | 0xae950739118Ca31fEc74517Ffd8dFE11B64985bA          |
+| ARC        | 0xecC44d16a3eC43E5c1F423eb53DB608eE7591266         |
 | SOLANA     | HfJWS8vJHvxKn5xW3uLXkTmEy4jny3G45QnS1Eab5sg         |
-| CELO       | 0xa188439ccCEe9A6aa0E842f9c17C1b00C7B4dd4D         |
-| ADI        | 0x75020B2E73aed1C95B9243340164b060dFBdE341         |
+| CELO       | 0x25ee8dCcDcF1b028FDC68dcFa89333c51A5C5335         |
+| ADI        | 0xecC44d16a3eC43E5c1F423eb53DB608eE7591266         |
 
 ## Developer Guide
 
