@@ -263,7 +263,7 @@ fun token_mint_coin_composable() {
         assert_eq!(coin.value(), MINT_AMOUNT);
         assert_eq!(state.total_supply(), MINT_AMOUNT);
 
-        state.burn_by_user(coin, scenario.ctx());
+        state.burn_by_user(&deny_list, coin, scenario.ctx());
         assert_eq!(state.total_supply(), 0);
 
         ts::return_shared(state);
@@ -576,19 +576,21 @@ fun token_partial_and_full_self_burn() {
     scenario.next_tx(ALICE);
     {
         let mut state = scenario.take_shared<CoinState>();
+        let deny_list = scenario.take_shared<DenyList>();
         let mut coin = scenario.take_from_sender<Coin<CNGN>>();
 
         let burn_coin = coin.split(HALF_MINT_AMOUNT, scenario.ctx());
-        state.burn_by_user(burn_coin, scenario.ctx());
+        state.burn_by_user(&deny_list, burn_coin, scenario.ctx());
 
         assert_eq!(state.total_supply(), HALF_MINT_AMOUNT);
         assert_eq!(coin.value(), HALF_MINT_AMOUNT);
 
         // ALICE burns the remaining half
-        state.burn_by_user(coin, scenario.ctx());
+        state.burn_by_user(&deny_list, coin, scenario.ctx());
         assert_eq!(state.total_supply(), 0);
 
         ts::return_shared(state);
+        ts::return_shared(deny_list);
     };
 
     scenario.end();
@@ -601,10 +603,141 @@ fun token_burn_zero_balance_fails() {
     scenario.next_tx(ADMIN);
     {
         let mut state = scenario.take_shared<CoinState>();
+        let deny_list = scenario.take_shared<DenyList>();
         let zero_bal = balance::zero<CNGN>();
-        state.burn_balance(zero_bal, scenario.ctx());
+        state.burn_balance(&deny_list, zero_bal, scenario.ctx());
 
         ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = cngn::EBlacklisted)]
+fun token_burn_fails_if_burner_is_blacklisted() {
+    let mut scenario = setup();
+
+    // 1. Admin grants mint permission to MINTER
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        registry.grant_mint_permission(&cap, MINTER, MINT_AMOUNT);
+        scenario.return_to_sender(cap);
+        ts::return_shared(registry);
+    };
+
+    // 2. MINTER mints to ALICE
+    scenario.next_tx(MINTER);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        let deny_list = scenario.take_shared<DenyList>();
+
+        state.mint(
+            &mut registry,
+            &deny_list,
+            MINT_AMOUNT,
+            ALICE,
+            scenario.ctx(),
+        );
+
+        ts::return_shared(state);
+        ts::return_shared(registry);
+        ts::return_shared(deny_list);
+    };
+
+    // 3. Admin blacklists ALICE
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+        let mut deny_list = scenario.take_shared<DenyList>();
+
+        state.add_black_list(&cap, &mut deny_list, ALICE, scenario.ctx());
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    // 4. ALICE attempts to burn her coins -> fails with EBlacklisted
+    scenario.next_tx(ALICE);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let deny_list = scenario.take_shared<DenyList>();
+        let coin = scenario.take_from_sender<Coin<CNGN>>();
+
+        state.burn_by_user(&deny_list, coin, scenario.ctx());
+
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = cngn::EBlacklisted)]
+fun token_burn_balance_fails_if_burner_is_blacklisted() {
+    let mut scenario = setup();
+
+    // 1. Admin grants mint permission to MINTER
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        registry.grant_mint_permission(&cap, MINTER, MINT_AMOUNT);
+        scenario.return_to_sender(cap);
+        ts::return_shared(registry);
+    };
+
+    // 2. MINTER mints to ALICE
+    scenario.next_tx(MINTER);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        let deny_list = scenario.take_shared<DenyList>();
+
+        state.mint(
+            &mut registry,
+            &deny_list,
+            MINT_AMOUNT,
+            ALICE,
+            scenario.ctx(),
+        );
+
+        ts::return_shared(state);
+        ts::return_shared(registry);
+        ts::return_shared(deny_list);
+    };
+
+    // 3. Admin blacklists ALICE
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+        let mut deny_list = scenario.take_shared<DenyList>();
+
+        state.add_black_list(&cap, &mut deny_list, ALICE, scenario.ctx());
+
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    // 4. ALICE attempts to burn a balance -> fails with EBlacklisted
+    scenario.next_tx(ALICE);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let deny_list = scenario.take_shared<DenyList>();
+        let coin = scenario.take_from_sender<Coin<CNGN>>();
+        let bal = coin.into_balance();
+
+        state.burn_balance(&deny_list, bal, scenario.ctx());
+
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
     };
 
     scenario.end();
@@ -807,21 +940,21 @@ fun token_metadata_updates() {
             b"https://cngn.co/assets/logo.png",
         );
 
-        // 2. Update description
+        // 2. Update description (including non-ASCII UTF-8 characters)
         state.update_description(
             &cap,
             &mut metadata,
-            b"Updated cNGN stablecoin description.",
+            b"Updated cNGN stablecoin: \xc3\xa9 \xe2\x9a\xa1",
         );
-        assert_eq!(coin::get_description(&metadata), std::string::utf8(b"Updated cNGN stablecoin description."));
+        assert_eq!(coin::get_description(&metadata), std::string::utf8(b"Updated cNGN stablecoin: \xc3\xa9 \xe2\x9a\xa1"));
 
-        // 3. Update name
+        // 3. Update name (including non-ASCII UTF-8 characters)
         state.update_name(
             &cap,
             &mut metadata,
-            b"Convexity NGN",
+            b"Convexity NGN \xc3\xa9",
         );
-        assert_eq!(coin::get_name(&metadata), std::string::utf8(b"Convexity NGN"));
+        assert_eq!(coin::get_name(&metadata), std::string::utf8(b"Convexity NGN \xc3\xa9"));
 
         // 4. Update symbol
         state.update_symbol(

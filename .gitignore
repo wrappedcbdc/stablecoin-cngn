@@ -6,7 +6,7 @@ cache/
 node_modules/
 artifacts/
 package-lock.json
-scripts/
+/scripts/
 
 # Contracts / legacy
 tron-contract

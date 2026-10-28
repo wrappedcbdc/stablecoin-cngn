@@ -58,7 +58,7 @@ public struct BlacklistUpdated has copy, drop {
 
 public struct MetadataUpdated has copy, drop {
     field: std::ascii::String,
-    new_value: std::ascii::String,
+    new_value: std::string::String,
 }
 
 // --- Error Constants (EPascalCase) ---
@@ -196,10 +196,12 @@ public(package) fun mint_balance(
 /// User-initiated burn of a `Coin<CNGN>` for off-chain fiat redemption.
 public fun burn_by_user(
     state: &mut CoinState,
+    deny_list: &DenyList,
     c: Coin<CNGN>,
     ctx: &mut TxContext,
 ) {
     assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    assert!(!coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, ctx.sender()), EBlacklisted);
     let amount = c.value();
     assert!(amount > 0, EZeroAmount);
     state.treasury.burn(c);
@@ -213,10 +215,12 @@ public fun burn_by_user(
 /// Burns a raw `Balance<CNGN>`.
 public fun burn_balance(
     state: &mut CoinState,
+    deny_list: &DenyList,
     b: Balance<CNGN>,
     ctx: &mut TxContext,
 ) {
     assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    assert!(!coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, ctx.sender()), EBlacklisted);
     let amount = b.value();
     assert!(amount > 0, EZeroAmount);
     balance::decrease_supply(state.treasury.supply_mut(), b);
@@ -315,7 +319,7 @@ public fun update_icon_url(
     coin::update_icon_url(&state.treasury, metadata, url_ascii);
     event::emit(MetadataUpdated {
         field: ascii::string(b"icon_url"),
-        new_value: url_ascii,
+        new_value: string::from_ascii(url_ascii),
     });
 }
 
@@ -331,7 +335,7 @@ public fun update_description(
     coin::update_description(&state.treasury, metadata, desc_str);
     event::emit(MetadataUpdated {
         field: ascii::string(b"description"),
-        new_value: ascii::string(new_description),
+        new_value: desc_str,
     });
 }
 
@@ -347,7 +351,7 @@ public fun update_name(
     coin::update_name(&state.treasury, metadata, name_str);
     event::emit(MetadataUpdated {
         field: ascii::string(b"name"),
-        new_value: ascii::string(new_name),
+        new_value: name_str,
     });
 }
 
@@ -363,7 +367,7 @@ public fun update_symbol(
     coin::update_symbol(&state.treasury, metadata, symbol_ascii);
     event::emit(MetadataUpdated {
         field: ascii::string(b"symbol"),
-        new_value: symbol_ascii,
+        new_value: string::from_ascii(symbol_ascii),
     });
 }
 
