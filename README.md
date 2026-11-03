@@ -79,7 +79,6 @@ cNGN is currently deployed on the following blockchain protocols:
 | BNBCHAIN   | 0xa8AEA66B361a8d53e8865c62D142167Af28Af058           |
 | ETHEREUM   | 0x17CDB2a01e7a34CbB3DD4b83260B05d0274C8dab           |
 | POLYGON    | 0x52828daa48C1a9A06F37500882b42daf0bE04C3B          |
-| LISK    | 0xC7aB2C35Ea37236e644C24A4E4a1911c082887c0          |
 | SOLANA    | 3jiqwBQVRC5zRwHyqvnkQurebJ5RNxg3F5fXMwaxgkv8          |
 | CELO    | 0xF6829D7393dAe24509eb1E52eE8e572e2E271a4f          |
 | MONAD      | 0x567BB1CA4748cD316F25fa502E77362A632771eE          |
