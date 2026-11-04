@@ -1,0 +1,15 @@
+[Unit]
+Description=Canton Ledger Node for cNGN
+After=network.target
+
+[Service]
+Type=simple
+User=ayoseun
+WorkingDirectory=/home/ayoseun/stablecoin-cngn/canton-contract
+ExecStart=/home/ayoseun/.daml/bin/daml sandbox --dar /home/ayoseun/stablecoin-cngn/canton-contract/.daml/dist/cngn-1.0.0.dar --port 6865 --address 0.0.0.0
+Restart=always
+RestartSec=10
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
