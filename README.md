@@ -106,6 +106,28 @@ cNGN is currently deployed on the following blockchain protocols:
 | ARC        | 0xecC44d16a3eC43E5c1F423eb53DB608eE7591266         |
 | STELLAR    | GBHN3ODJZO6M5IEFHQLWL57GOHSDVEZAKNW2W3PWTKSGKU3NNVU5QY43        |
 
+### Stellar & Bantu: Adding cNGN to Your Wallet
+
+> [!IMPORTANT]
+> On **Stellar** and **Bantu**, the addresses listed above are **issuer addresses**, not smart contract addresses. To hold or receive cNGN, you must first create a trustline to the cNGN asset.
+
+When adding cNGN in the Stellar/Bantu Laboratory (or any wallet), always use **both** of the following:
+
+| Field      | Value                                                                                  |
+| ---------- | -------------------------------------------------------------------------------------- |
+| Asset Code | `CNGN`                                                                                 |
+| Issuer     | The Stellar or Bantu issuer address for your network (Mainnet or Testnet) from the tables above |
+
+**Steps to create a trustline in the Laboratory:**
+
+1. Open the Laboratory for your network ([Stellar Laboratory](https://laboratory.stellar.org/) or the Bantu Laboratory).
+2. Build a new transaction with your account as the source account.
+3. Add a **Change Trust** operation.
+4. Set the asset type to **Alphanumeric 4**, enter Asset Code `CNGN`, and enter the cNGN **Issuer address** for the correct network.
+5. Sign and submit the transaction.
+
+Once the trustline is set up, your account can receive and hold cNGN. Transfers to an account that has no `CNGN` trustline to the correct issuer will fail.
+
 ## Developer Guide
 
 ### Environment Setup
