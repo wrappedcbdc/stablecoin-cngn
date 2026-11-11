@@ -262,3 +262,10 @@ clean-all: stop clean
 	@echo "==> Removing ledger data directories and logs..."
 	rm -rf .canton-data canton-data "$(SANDBOX_LOG_FILE)"
 	@echo "==> Full clean done."
+
+genrate-token:
+	@echo "==> Generating token..."
+	@echo "CANTON_JWT=$(CANTON_JWT)"
+	node ./src/make-token.mjs \
+      "Owner::12208eaecdda35fc2ee0dfd41d51606833f0c42f4e44230482643f1cfe667fe5a5dd" \
+      "Minter::12208eaecdda35fc2ee0dfd41d51606833f0c42f4e44230482643f1cfe667fe5a5dd"

@@ -6,6 +6,7 @@
   "types": "dist/cngn.d.ts",
   "scripts": {
     "build": "tsc",
+    "mint:grant": "tsx src/add-mint-grant.ts",
     "query": "tsx src/query-tokens.ts",
     "mint:propose": "tsx src/create-mint-proposal.ts",
     "mint:execute": "tsx src/execute-mint.ts",

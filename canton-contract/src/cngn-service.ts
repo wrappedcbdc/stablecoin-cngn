@@ -433,6 +433,47 @@ export class CNGNService {
     );
   }
 
+
+async createMintProposalWithGrant(params: CreateMintProposalParams) {
+  // 1. Find the issuer's MintRegistry
+  const registries = await this.getMintRegistry(params.issuer);
+
+  if (!registries.length) {
+    throw new Error(
+      `MintRegistry not found for issuer: ${params.issuer}`
+    );
+  }
+
+  const registry = registries[0];
+
+  // 2. Check whether the minter is already authorized
+  const authorized = registry.payload.canMint.includes(params.minter);
+
+  if (!authorized) {
+    throw new Error(
+      `Minter ${params.minter} is not authorized. Run AddCanMint first.`
+    );
+  }
+
+  // 3. Create the mint proposal
+  const proposal = await this.createMintProposal(params);
+
+  // 4. Register the exact proposal ID and amount
+  await this.addMintGrant(
+    registry.contractId,
+    params.minter,
+    params.proposalId,
+    params.amount
+  );
+
+  return {
+    proposal,
+    proposalId: params.proposalId,
+    grantRegistered: true,
+  };
+}
+
+
   /**
    * Remove a mint grant for a minter (RemoveMintGrant choice).
    */

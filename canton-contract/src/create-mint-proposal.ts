@@ -21,7 +21,7 @@ async function main() {
   console.log(`Amount:   ${amount} units`);
   console.log(`Proposal: ${proposalId}`);
 
-  const result = await service.createMintProposal({
+const result = await service.createMintProposalWithGrant({
     issuer: owner,
     minter,
     mintTo,
