@@ -3,7 +3,4 @@ name = "cngn"
 edition = "2024.beta"
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
-
-[addresses]
-cngn = "0x0"
+pas = { git = "https://github.com/MystenLabs/pas.git", subdir = "packages/pas", rev = "main" }
