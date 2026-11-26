@@ -321,6 +321,113 @@ burn:
 		--args "$(COIN_STATE_ID)" "0x403" "$(COIN_ID)" \
 		--gas-budget $(GAS_BUDGET_CALL)
 
+
+
+# =============================================================================
+# cNGN Sui — Ownership Transfer Targets
+# =============================================================================
+# Add to the bottom of your Makefile:
+#     -include ownership.mk
+# (or paste the contents in directly)
+#
+# Usage:
+#   make check-owner
+#   make transfer-ownership NEW_OWNER=0x... DRY_RUN=1     (simulate only)
+#   make transfer-ownership NEW_OWNER=0x...               (AdminCap + UpgradeCap, atomic)
+#   make transfer-admin     NEW_OWNER=0x...
+#   make transfer-upgrade   NEW_OWNER=0x...
+#   make verify-owner       NEW_OWNER=0x...
+# =============================================================================
+
+# Load IDs from .env (overrides deployment.json values). Quotes are stripped.
+ENV_FILE ?= .env
+-include $(ENV_FILE)
+unquote = $(strip $(subst ",,$(subst ',,$(1))))
+# Map SUI_-prefixed names from .env onto the names the Makefile uses
+$(foreach v,PACKAGE_ID UPGRADE_CAP_ID ADMIN_CAP_ID ADMIN_REGISTRY_ID COIN_STATE_ID COIN_METADATA_ID DENY_LIST_ID,$(if $(SUI_$(v)),$(eval $(v) := $(SUI_$(v)))))
+ADMIN_CAP_ID   := $(call unquote,$(ADMIN_CAP_ID))
+UPGRADE_CAP_ID := $(call unquote,$(UPGRADE_CAP_ID))
+
+ADDR_RE      := ^0x[0-9a-fA-F]{64}$$
+ACTIVE_ADDR   = $(shell sui client active-address 2>/dev/null)
+PTB_DRY       = $(if $(DRY_RUN),--dry-run,)
+OWNER_JQ     := '.owner.AddressOwner // "NOT_ADDRESS_OWNED"'
+
+# --- Guards ------------------------------------------------------------------
+
+.PHONY: _guard-new-owner
+_guard-new-owner:
+	@[ -n "$(NEW_OWNER)" ] || (echo "Usage: make <target> NEW_OWNER=<address> [DRY_RUN=1]"; exit 1)
+	@echo "$(NEW_OWNER)" | grep -Eq '$(ADDR_RE)' || (echo "Error: NEW_OWNER must be 0x + 64 hex chars."; exit 1)
+	@[ "$(NEW_OWNER)" != "$(ACTIVE_ADDR)" ] || (echo "Error: NEW_OWNER is the active address. Nothing to do."; exit 1)
+
+.PHONY: _guard-admin
+_guard-admin:
+	@[ -n "$(ADMIN_CAP_ID)" ] || (echo "Error: adminCapId missing from deployment.json."; exit 1)
+	@[ "$$(sui client object $(ADMIN_CAP_ID) --json | jq -r $(OWNER_JQ))" = "$(ACTIVE_ADDR)" ] || \
+		(echo "Error: AdminCap is not held by the active address $(ACTIVE_ADDR)."; exit 1)
+
+.PHONY: _guard-upgrade
+_guard-upgrade:
+	@[ -n "$(UPGRADE_CAP_ID)" ] || (echo "Error: upgradeCapId missing from deployment.json."; exit 1)
+	@[ "$$(sui client object $(UPGRADE_CAP_ID) --json | jq -r $(OWNER_JQ))" = "$(ACTIVE_ADDR)" ] || \
+		(echo "Error: UpgradeCap is not held by the active address $(ACTIVE_ADDR)."; exit 1)
+
+.PHONY: _confirm
+_confirm:
+	@[ -n "$(DRY_RUN)" ] || { \
+		echo ""; \
+		echo "From: $(ACTIVE_ADDR)"; \
+		echo "To:   $(NEW_OWNER)"; \
+		echo "WARNING: this is irreversible."; \
+		printf "Type the first 10 chars of the new owner address to confirm: "; \
+		read ans; \
+		[ "$$ans" = "$$(echo '$(NEW_OWNER)' | cut -c1-10)" ] || { echo "Mismatch. Aborted."; exit 1; }; \
+	}
+
+# --- Transfers ---------------------------------------------------------------
+
+.PHONY: transfer-ownership
+transfer-ownership: _guard-new-owner _guard-admin _guard-upgrade _confirm
+	@echo "Transferring AdminCap + UpgradeCap to $(NEW_OWNER)..."
+	sui client ptb \
+		--transfer-objects "[@$(ADMIN_CAP_ID), @$(UPGRADE_CAP_ID)]" "@$(NEW_OWNER)" \
+		--gas-budget $(GAS_BUDGET_CALL) $(PTB_DRY)
+
+.PHONY: transfer-admin
+transfer-admin: _guard-new-owner _guard-admin _confirm
+	@echo "Transferring AdminCap to $(NEW_OWNER)..."
+	sui client ptb \
+		--transfer-objects "[@$(ADMIN_CAP_ID)]" "@$(NEW_OWNER)" \
+		--gas-budget $(GAS_BUDGET_CALL) $(PTB_DRY)
+
+.PHONY: transfer-upgrade
+transfer-upgrade: _guard-new-owner _guard-upgrade _confirm
+	@echo "Transferring UpgradeCap to $(NEW_OWNER)..."
+	sui client ptb \
+		--transfer-objects "[@$(UPGRADE_CAP_ID)]" "@$(NEW_OWNER)" \
+		--gas-budget $(GAS_BUDGET_CALL) $(PTB_DRY)
+
+# --- Inspect -----------------------------------------------------------------
+
+.PHONY: check-owner
+check-owner:
+	@echo "Active address: $(ACTIVE_ADDR)"
+	@echo "AdminCap   $(ADMIN_CAP_ID)"
+	@echo "  owner:   $$(sui client object $(ADMIN_CAP_ID) --json | jq -r $(OWNER_JQ))"
+	@echo "UpgradeCap $(UPGRADE_CAP_ID)"
+	@echo "  owner:   $$(sui client object $(UPGRADE_CAP_ID) --json | jq -r $(OWNER_JQ))"
+
+.PHONY: verify-owner
+verify-owner:
+	@[ -n "$(NEW_OWNER)" ] || (echo "Usage: make verify-owner NEW_OWNER=<address>"; exit 1)
+	@ok=1; \
+	a=$$(sui client object $(ADMIN_CAP_ID) --json | jq -r $(OWNER_JQ)); \
+	u=$$(sui client object $(UPGRADE_CAP_ID) --json | jq -r $(OWNER_JQ)); \
+	if [ "$$a" = "$(NEW_OWNER)" ]; then echo "OK   AdminCap owned by $(NEW_OWNER)"; else echo "FAIL AdminCap owned by $$a"; ok=0; fi; \
+	if [ "$$u" = "$(NEW_OWNER)" ]; then echo "OK   UpgradeCap owned by $(NEW_OWNER)"; else echo "FAIL UpgradeCap owned by $$u"; ok=0; fi; \
+	[ $$ok -eq 1 ]
+
 # =============================================================================
 # INSPECT & CLEANUP
 # =============================================================================

@@ -19,7 +19,7 @@ cd "${PACKAGE_DIR}"
 sui move build
 
 echo "=== Publishing Package to Active Sui Network ==="
-GAS_BUDGET=100000000 # 0.1 SUI
+GAS_BUDGET=150000000 # 0.15 SUI
 
 if ! PUBLISH_RES=$(sui client publish --gas-budget "${GAS_BUDGET}" --json "${PACKAGE_DIR}" 2>&1); then
     echo "❌ Publishing to Sui network failed:"

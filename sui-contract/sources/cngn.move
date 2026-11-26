@@ -7,6 +7,12 @@
 module cngn::cngn;
 
 use cngn::admin::{Self, AdminCap, AdminRegistry};
+use pas::account::{Self, Account};
+use pas::clawback_funds::{Self, ClawbackFunds};
+use pas::namespace::Namespace;
+use pas::policy::{Self, Policy, PolicyCap};
+use pas::request::Request;
+use pas::send_funds::SendFunds;
 use std::ascii;
 use std::string;
 use sui::balance::{Self, Balance};
@@ -60,6 +66,17 @@ public struct MetadataUpdated has copy, drop {
     field: std::ascii::String,
     new_value: std::string::String,
 }
+
+public struct DestroyedBlackFunds has copy, drop {
+    user: address,
+    amount: u64,
+}
+
+/// Witness stamp for authorized regulatory clawbacks.
+public struct ClawbackApproval() has drop;
+
+/// Witness stamp for compliant PAS transfers.
+public struct TransferApproval() has drop;
 
 // --- Error Constants (EPascalCase) ---
 
@@ -368,6 +385,123 @@ public fun update_symbol(
     event::emit(MetadataUpdated {
         field: ascii::string(b"symbol"),
         new_value: string::from_ascii(symbol_ascii),
+    });
+}
+
+// --- Permissioned Asset Standard (PAS) Compliance & Clawback ---
+
+/// Initializes the PAS Policy for cNGN with clawback enabled.
+/// Callable by Admin holding `AdminCap`.
+public fun setup_pas_policy(
+    state: &mut CoinState,
+    _cap: &AdminCap,
+    namespace: &mut Namespace,
+): PolicyCap<Balance<CNGN>> {
+    assert!(state.version == CURRENT_VERSION, EWrongVersion);
+
+    // 1. Create policy with clawback_allowed = true
+    let (mut policy, policy_cap) = policy::new_for_currency(
+        namespace,
+        &mut state.treasury,
+        true, // clawback_allowed: true
+    );
+
+    // 2. Set required approval stamps
+    policy.set_required_approval<_, TransferApproval>(
+        &policy_cap,
+        b"send_funds".to_string(),
+    );
+    policy.set_required_approval<_, ClawbackApproval>(
+        &policy_cap,
+        b"clawback_funds".to_string(),
+    );
+
+    // 3. Share the policy object
+    policy.share();
+
+    policy_cap
+}
+
+/// Validates and approves a PAS transfer request for cNGN.
+/// Enforces compliance: the currency must not be paused and the recipient must not be blacklisted.
+public fun approve_pas_transfer(
+    deny_list: &DenyList,
+    request: &mut Request<SendFunds<Balance<CNGN>>>,
+) {
+    assert!(!coin::deny_list_v2_is_global_pause_enabled_next_epoch<CNGN>(deny_list), EAlreadyPaused);
+    assert!(!coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, request.data().recipient()), ERecipientBlacklisted);
+    request.approve(TransferApproval());
+}
+
+/// Mints cNGN tokens directly into a user's PAS Account.
+public fun mint_to_account(
+    state: &mut CoinState,
+    registry: &mut AdminRegistry,
+    deny_list: &DenyList,
+    to_account: &Account,
+    amount: u64,
+    ctx: &mut TxContext,
+) {
+    assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    let recipient = to_account.owner();
+    assert!(recipient != @0x0, EZeroAddress);
+    assert!(!coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, recipient), ERecipientBlacklisted);
+
+    let minted_balance = state.mint_balance(registry, deny_list, amount, ctx);
+    to_account.deposit_balance(minted_balance);
+
+    event::emit(Minted {
+        minter: ctx.sender(),
+        recipient,
+        amount,
+    });
+}
+
+/// Deposits a `Coin<CNGN>` into a PAS Account.
+public fun deposit_coin_to_account(
+    account: &Account,
+    coin: Coin<CNGN>,
+) {
+    account.deposit_balance(coin.into_balance());
+}
+
+/// Admin claws back and burns cNGN from a blacklisted user's PAS account.
+/// Matches the behavior of `destroyBlackFunds` in EVM, Starknet, and Solana.
+public fun destroy_black_funds(
+    state: &mut CoinState,
+    _admin: &AdminCap,
+    policy: &Policy<Balance<CNGN>>,
+    from_account: &mut Account,
+    deny_list: &DenyList,
+    amount: u64,
+    ctx: &mut TxContext,
+) {
+    assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    let target_user = from_account.owner();
+
+    // 1. Enforce that target user is on the DenyList
+    assert!(
+        coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, target_user),
+        ENotBlacklisted
+    );
+    assert!(amount > 0, EZeroAmount);
+
+    // 2. Initiate clawback request from target user's shared Account
+    let mut request = from_account.clawback_balance<CNGN>(amount, ctx);
+
+    // 3. Admin stamps the request with ClawbackApproval
+    request.approve(ClawbackApproval());
+
+    // 4. Resolve the request against the PAS Policy, extracting the Balance<CNGN>
+    let clawed_balance = clawback_funds::resolve(request, policy);
+
+    // 5. Burn from treasury supply
+    balance::decrease_supply(state.treasury.supply_mut(), clawed_balance);
+
+    // 6. Emit event
+    event::emit(DestroyedBlackFunds {
+        user: target_user,
+        amount,
     });
 }
 
