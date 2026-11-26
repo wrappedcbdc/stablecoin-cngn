@@ -13,6 +13,7 @@ use pas::namespace::Namespace;
 use pas::policy::{Self, Policy, PolicyCap};
 use pas::request::Request;
 use pas::send_funds::SendFunds;
+use pas::unlock_funds::{Self, UnlockFunds};
 use std::ascii;
 use std::string;
 use sui::balance::{Self, Balance};
@@ -77,6 +78,9 @@ public struct ClawbackApproval() has drop;
 
 /// Witness stamp for compliant PAS transfers.
 public struct TransferApproval() has drop;
+
+/// Witness stamp for authorized PAS unlocks and self-burns.
+public struct UnlockApproval() has drop;
 
 // --- Error Constants (EPascalCase) ---
 
@@ -415,6 +419,10 @@ public fun setup_pas_policy(
         &policy_cap,
         b"clawback_funds".to_string(),
     );
+    policy.set_required_approval<_, UnlockApproval>(
+        &policy_cap,
+        b"unlock_funds".to_string(),
+    );
 
     // 3. Share the policy object
     policy.share();
@@ -431,6 +439,52 @@ public fun approve_pas_transfer(
     assert!(!coin::deny_list_v2_is_global_pause_enabled_next_epoch<CNGN>(deny_list), EAlreadyPaused);
     assert!(!coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, request.data().recipient()), ERecipientBlacklisted);
     request.approve(TransferApproval());
+}
+
+/// Validates and approves an unlock request for cNGN (withdrawing from PAS account to wallet).
+/// Enforces compliance: the currency must not be paused and the owner must not be blacklisted.
+public fun approve_pas_unlock(
+    deny_list: &DenyList,
+    request: &mut Request<UnlockFunds<Balance<CNGN>>>,
+) {
+    assert!(!coin::deny_list_v2_is_global_pause_enabled_next_epoch<CNGN>(deny_list), EAlreadyPaused);
+    assert!(!coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, request.data().owner()), EBlacklisted);
+    request.approve(UnlockApproval());
+}
+
+/// Allows a legitimate PAS account holder to burn cNGN directly from their account.
+public fun burn_from_pas_account(
+    state: &mut CoinState,
+    deny_list: &DenyList,
+    policy: &Policy<Balance<CNGN>>,
+    account: &mut Account,
+    auth: &account::Auth,
+    amount: u64,
+    ctx: &mut TxContext,
+) {
+    assert!(state.version == CURRENT_VERSION, EWrongVersion);
+    let burner = account.owner();
+    assert!(!coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, burner), EBlacklisted);
+    assert!(!coin::deny_list_v2_contains_next_epoch<CNGN>(deny_list, ctx.sender()), EBlacklisted);
+    assert!(amount > 0, EZeroAmount);
+
+    // 1. Initiate unlock request from caller's PAS account
+    let mut request = account.unlock_balance<CNGN>(auth, amount, ctx);
+
+    // 2. Attach UnlockApproval stamp
+    request.approve(UnlockApproval());
+
+    // 3. Resolve the balance from PAS
+    let burned_balance = unlock_funds::resolve(request, policy);
+
+    // 4. Burn from treasury supply
+    balance::decrease_supply(state.treasury.supply_mut(), burned_balance);
+
+    // 5. Emit Burned event
+    event::emit(Burned {
+        burner,
+        amount,
+    });
 }
 
 /// Mints cNGN tokens directly into a user's PAS Account.
