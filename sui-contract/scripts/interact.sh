@@ -133,49 +133,41 @@ case "${COMMAND}" in
       --gas-budget "${GAS_BUDGET}"
     ;;
 
-  # --- Forwarder Whitelist Management (Object first, Cap second) ---
-  "add-forwarder")
-    FORWARDER=${2:?"Usage: ./interact.sh add-forwarder <forwarder_address>"}
-    echo "Adding forwarder ${FORWARDER}..."
+  # --- Permissioned Asset Standard (PAS) Operations ---
+  "mint-to-account")
+    ACCOUNT=${2:?"Usage: ./interact.sh mint-to-account <account_id> <amount>"}
+    AMOUNT=${3:?"Usage: ./interact.sh mint-to-account <account_id> <amount>"}
+    echo "Minting ${AMOUNT} cNGN to PAS Account ${ACCOUNT}..."
     sui client call \
       --package "${PACKAGE_ID}" \
-      --module "admin" \
-      --function "add_can_forward" \
-      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${FORWARDER}" \
+      --module "cngn" \
+      --function "mint_to_account" \
+      --args "${COIN_STATE_ID}" "${ADMIN_REGISTRY_ID}" "${DENY_LIST_ID}" "${ACCOUNT}" "${AMOUNT}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
-  "remove-forwarder")
-    FORWARDER=${2:?"Usage: ./interact.sh remove-forwarder <forwarder_address>"}
-    echo "Removing forwarder ${FORWARDER}..."
+  "deposit-to-account")
+    ACCOUNT=${2:?"Usage: ./interact.sh deposit-to-account <account_id> <coin_id>"}
+    COIN_ID=${3:?"Usage: ./interact.sh deposit-to-account <account_id> <coin_id>"}
+    echo "Depositing coin ${COIN_ID} into PAS Account ${ACCOUNT}..."
     sui client call \
       --package "${PACKAGE_ID}" \
-      --module "admin" \
-      --function "remove_can_forward" \
-      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${FORWARDER}" \
+      --module "cngn" \
+      --function "deposit_coin_to_account" \
+      --args "${ACCOUNT}" "${COIN_ID}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
-  # --- Trusted Contract Management (Object first, Cap second) ---
-  "add-trusted-contract")
-    CONTRACT=${2:?"Usage: ./interact.sh add-trusted-contract <contract_address>"}
-    echo "Adding trusted contract ${CONTRACT}..."
+  "destroy-black-funds")
+    POLICY_ID=${2:?"Usage: ./interact.sh destroy-black-funds <policy_id> <account_id> <amount>"}
+    ACCOUNT=${3:?"Usage: ./interact.sh destroy-black-funds <policy_id> <account_id> <amount>"}
+    AMOUNT=${4:?"Usage: ./interact.sh destroy-black-funds <policy_id> <account_id> <amount>"}
+    echo "Admin destroying ${AMOUNT} blacklisted funds from Account ${ACCOUNT}..."
     sui client call \
       --package "${PACKAGE_ID}" \
-      --module "admin" \
-      --function "add_trusted_contract" \
-      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${CONTRACT}" \
-      --gas-budget "${GAS_BUDGET}"
-    ;;
-
-  "remove-trusted-contract")
-    CONTRACT=${2:?"Usage: ./interact.sh remove-trusted-contract <contract_address>"}
-    echo "Removing trusted contract ${CONTRACT}..."
-    sui client call \
-      --package "${PACKAGE_ID}" \
-      --module "admin" \
-      --function "remove_trusted_contract" \
-      --args "${ADMIN_REGISTRY_ID}" "${ADMIN_CAP_ID}" "${CONTRACT}" \
+      --module "cngn" \
+      --function "destroy_black_funds" \
+      --args "${COIN_STATE_ID}" "${ADMIN_CAP_ID}" "${POLICY_ID}" "${ACCOUNT}" "${DENY_LIST_ID}" "${AMOUNT}" \
       --gas-budget "${GAS_BUDGET}"
     ;;
 
@@ -220,10 +212,9 @@ case "${COMMAND}" in
     echo "  unpause"
     echo "  add-blacklist <user>"
     echo "  remove-blacklist <user>"
-    echo "  add-forwarder <forwarder>"
-    echo "  remove-forwarder <forwarder>"
-    echo "  add-trusted-contract <contract>"
-    echo "  remove-trusted-contract <contract>"
+    echo "  mint-to-account <account_id> <amount>"
+    echo "  deposit-to-account <account_id> <coin_id>"
+    echo "  destroy-black-funds <policy_id> <account_id> <amount>"
     echo "  update-icon <icon_url>"
     echo "  update-description <description>"
     echo "  query-state"

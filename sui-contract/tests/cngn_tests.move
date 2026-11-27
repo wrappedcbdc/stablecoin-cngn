@@ -9,6 +9,7 @@ use pas::account::{Self, Account};
 use pas::namespace::{Self, Namespace};
 use pas::policy::Policy;
 use pas::send_funds;
+use pas::unlock_funds;
 use std::unit_test::assert_eq;
 use sui::balance;
 use sui::coin::{Self, Coin};
@@ -1278,6 +1279,167 @@ fun token_pas_compliant_transfer_flow() {
         ts::return_shared(policy);
         ts::return_shared(alice_account);
         ts::return_shared(bob_account);
+    };
+
+    scenario.end();
+}
+
+#[test]
+fun token_pas_user_can_burn_wallet_coin_when_pas_is_configured() {
+    let mut scenario = setup();
+
+    // 1. Setup Namespace & PAS Policy
+    scenario.next_tx(ADMIN);
+    {
+        let mut namespace = setup_namespace_for_testing(&mut scenario);
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+
+        let policy_cap = state.setup_pas_policy(&cap, &mut namespace);
+
+        namespace.share_for_testing();
+        sui::transfer::public_transfer(policy_cap, ADMIN);
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+    };
+
+    // 2. Admin grants mint permission to MINTER
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        registry.grant_mint_permission(&cap, MINTER, MINT_AMOUNT);
+        scenario.return_to_sender(cap);
+        ts::return_shared(registry);
+    };
+
+    // 3. MINTER mints regular Coin<CNGN> to ALICE's wallet
+    scenario.next_tx(MINTER);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        let deny_list = scenario.take_shared<DenyList>();
+
+        state.mint(
+            &mut registry,
+            &deny_list,
+            MINT_AMOUNT,
+            ALICE,
+            scenario.ctx(),
+        );
+
+        assert_eq!(state.total_supply(), MINT_AMOUNT);
+
+        ts::return_shared(state);
+        ts::return_shared(registry);
+        ts::return_shared(deny_list);
+    };
+
+    // 4. ALICE burns her own tokens using burn_by_user while PAS is configured
+    scenario.next_tx(ALICE);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let deny_list = scenario.take_shared<DenyList>();
+        let coin = scenario.take_from_sender<Coin<CNGN>>();
+
+        state.burn_by_user(&deny_list, coin, scenario.ctx());
+
+        assert_eq!(state.total_supply(), 0);
+
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+    };
+
+    scenario.end();
+}
+
+#[test]
+fun token_pas_user_can_burn_from_pas_account() {
+    let mut scenario = setup();
+
+    // 1. Setup Namespace & PAS Policy
+    scenario.next_tx(ADMIN);
+    {
+        let mut namespace = setup_namespace_for_testing(&mut scenario);
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut state = scenario.take_shared<CoinState>();
+
+        let policy_cap = state.setup_pas_policy(&cap, &mut namespace);
+
+        account::create_and_share(&mut namespace, ALICE);
+
+        namespace.share_for_testing();
+        sui::transfer::public_transfer(policy_cap, ADMIN);
+        scenario.return_to_sender(cap);
+        ts::return_shared(state);
+    };
+
+    // 2. Admin grants mint permission to MINTER
+    scenario.next_tx(ADMIN);
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        registry.grant_mint_permission(&cap, MINTER, MINT_AMOUNT);
+        scenario.return_to_sender(cap);
+        ts::return_shared(registry);
+    };
+
+    // 3. MINTER mints into ALICE's PAS Account
+    scenario.next_tx(MINTER);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let mut registry = scenario.take_shared<AdminRegistry>();
+        let deny_list = scenario.take_shared<DenyList>();
+        let namespace = scenario.take_shared<Namespace>();
+
+        let alice_account_id = namespace.account_address(ALICE).to_id();
+        let alice_account = scenario.take_shared_by_id<Account>(alice_account_id);
+
+        state.mint_to_account(
+            &mut registry,
+            &deny_list,
+            &alice_account,
+            MINT_AMOUNT,
+            scenario.ctx(),
+        );
+
+        assert_eq!(state.total_supply(), MINT_AMOUNT);
+
+        ts::return_shared(state);
+        ts::return_shared(registry);
+        ts::return_shared(deny_list);
+        ts::return_shared(namespace);
+        ts::return_shared(alice_account);
+    };
+
+    // 4. ALICE burns her tokens directly from her PAS Account
+    scenario.next_tx(ALICE);
+    {
+        let mut state = scenario.take_shared<CoinState>();
+        let deny_list = scenario.take_shared<DenyList>();
+        let namespace = scenario.take_shared<Namespace>();
+        let policy = scenario.take_shared<Policy<sui::balance::Balance<CNGN>>>();
+
+        let alice_account_id = namespace.account_address(ALICE).to_id();
+        let mut alice_account = scenario.take_shared_by_id<Account>(alice_account_id);
+
+        let auth = account::new_auth(scenario.ctx());
+        state.burn_from_pas_account(
+            &deny_list,
+            &policy,
+            &mut alice_account,
+            &auth,
+            MINT_AMOUNT,
+            scenario.ctx(),
+        );
+
+        assert_eq!(state.total_supply(), 0);
+
+        ts::return_shared(state);
+        ts::return_shared(deny_list);
+        ts::return_shared(namespace);
+        ts::return_shared(policy);
+        ts::return_shared(alice_account);
     };
 
     scenario.end();
