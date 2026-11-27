@@ -1,0 +1,6 @@
+[package]
+name = "cngn"
+edition = "2024.beta"
+
+[dependencies]
+pas = { git = "https://github.com/MystenLabs/pas.git", subdir = "packages/pas", rev = "main" }

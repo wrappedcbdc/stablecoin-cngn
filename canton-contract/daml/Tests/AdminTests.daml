@@ -1,0 +1,283 @@
+module Tests.AdminTests where
+
+import DA.Assert
+import Daml.Script
+import Admin
+import Tests.Common
+
+-- ── AdminState: global pause ──────────────────────────────────────────
+
+pauseAll_setsGlobalPaused : Script ()
+pauseAll_setsGlobalPaused = do
+  (issuer, _, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  pausedCid <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  Some paused <- queryContractId issuer pausedCid
+  paused.globalPaused === True
+
+pauseAll_rejectsDoublePause : Script ()
+pauseAll_rejectsDoublePause = do
+  (issuer, _, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  pausedCid <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  submitMustFail issuer do exerciseCmd pausedCid PauseAll
+
+unpauseAll_clearsGlobalPaused : Script ()
+unpauseAll_clearsGlobalPaused = do
+  (issuer, _, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  pausedCid <- submit issuer do exerciseCmd registries.complianceCid PauseAll
+  unpausedCid <- submit issuer do exerciseCmd pausedCid UnpauseAll
+  Some unpaused <- queryContractId issuer unpausedCid
+  unpaused.globalPaused === False
+
+unpauseAll_rejectsWhenNotPaused : Script ()
+unpauseAll_rejectsWhenNotPaused = do
+  (issuer, _, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  submitMustFail issuer do exerciseCmd registries.complianceCid UnpauseAll
+
+-- ── AdminState: blacklist ──────────────────────────────────────────────
+
+addBlackList_removeBlackList_roundTrip : Script ()
+addBlackList_removeBlackList_roundTrip = do
+  (issuer, holder, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  blacklistedCid <- submit issuer do
+    exerciseCmd registries.complianceCid AddBlackList with user = holder
+  Some blacklisted <- queryContractId issuer blacklistedCid
+  (holder `elem` blacklisted.blackListed) === True
+
+  cleanCid <- submit issuer do
+    exerciseCmd blacklistedCid RemoveBlackList with user = holder
+  Some clean <- queryContractId issuer cleanCid
+  (holder `elem` clean.blackListed) === False
+
+addBlackList_rejectsDuplicate : Script ()
+addBlackList_rejectsDuplicate = do
+  (issuer, holder, _, _) <- setupParties
+  registries <- createRegistries issuer [holder] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.complianceCid AddBlackList with user = holder
+
+removeBlackList_rejectsWhenNotBlacklisted : Script ()
+removeBlackList_rejectsWhenNotBlacklisted = do
+  (issuer, holder, _, _) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.complianceCid RemoveBlackList with user = holder
+
+isBlackListedQuery_reflectsCurrentState : Script ()
+isBlackListedQuery_reflectsCurrentState = do
+  (issuer, holder, _, _) <- setupParties
+  registries <- createRegistries issuer [holder] [] []
+
+  result <- submit issuer do
+    exerciseCmd registries.complianceCid IsBlackListed with user = holder
+  result === True
+
+-- ── MintRegistry: mint authorization ───────────────────────────────────
+
+addCanMint_removeCanMint_roundTrip : Script ()
+addCanMint_removeCanMint_roundTrip = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  authorizedCid <- submit issuer do
+    exerciseCmd registries.mintCid AddCanMint with user = minter
+  Some authorized <- queryContractId issuer authorizedCid
+  (minter `elem` authorized.canMint) === True
+
+  revokedCid <- submit issuer do
+    exerciseCmd authorizedCid RemoveCanMint with user = minter
+  Some revoked <- queryContractId issuer revokedCid
+  (minter `elem` revoked.canMint) === False
+
+addCanMint_rejectsBlacklistedUser : Script ()
+addCanMint_rejectsBlacklistedUser = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [minter] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.mintCid AddCanMint with user = minter
+
+removeCanMint_rejectsWhenNotAuthorized : Script ()
+removeCanMint_rejectsWhenNotAuthorized = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.mintCid RemoveCanMint with user = minter
+
+addMintGrant_removeMintGrant_roundTrip : Script ()
+addMintGrant_removeMintGrant_roundTrip = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [minter] []
+
+  grantedCid <- submit issuer do
+    exerciseCmd registries.mintCid AddMintGrant with
+      user = minter; proposalId = "admin-test-grant"; amount = 500
+  amt <- submit issuer do exerciseCmd grantedCid GetMintAmount with user = minter
+  amt === 500
+
+  clearedCid <- submit issuer do
+    exerciseCmd grantedCid RemoveMintGrant with user = minter
+  amt2 <- submit issuer do exerciseCmd clearedCid GetMintAmount with user = minter
+  amt2 === 0
+
+addMintGrant_rejectsUnauthorizedMinter : Script ()
+addMintGrant_rejectsUnauthorizedMinter = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.mintCid AddMintGrant with
+      user = minter; proposalId = "unauthorized-grant"; amount = 100
+
+addMintGrant_rejectsNonPositiveAmount : Script ()
+addMintGrant_rejectsNonPositiveAmount = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [minter] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.mintCid AddMintGrant with
+      user = minter; proposalId = "zero-grant"; amount = 0
+
+addMintGrant_rejectsEmptyProposalId : Script ()
+addMintGrant_rejectsEmptyProposalId = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [minter] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.mintCid AddMintGrant with
+      user = minter; proposalId = ""; amount = 100
+
+canMintQuery_reflectsCurrentState : Script ()
+canMintQuery_reflectsCurrentState = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [minter] []
+
+  result <- submit issuer do
+    exerciseCmd registries.mintCid CanMintQuery with user = minter
+  result === True
+
+getMintAmount_defaultsToZeroWithNoGrant : Script ()
+getMintAmount_defaultsToZeroWithNoGrant = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [minter] []
+
+  amt <- submit issuer do exerciseCmd registries.mintCid GetMintAmount with user = minter
+  amt === 0
+
+-- ── ForwarderRegistry: relayer allowlist ───────────────────────────────
+
+addCanForward_removeCanForward_roundTrip : Script ()
+addCanForward_removeCanForward_roundTrip = do
+  (issuer, _, _, _) <- setupParties
+  relayer <- allocateParty "AdminTestRelayer"
+  registries <- createRegistries issuer [] [] []
+
+  addedCid <- submit issuer do
+    exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+  Some added <- queryContractId issuer addedCid
+  (relayer `elem` added.canForward) === True
+
+  removedCid <- submit issuer do
+    exerciseCmd addedCid RemoveCanForward with user = relayer
+  Some removed <- queryContractId issuer removedCid
+  (relayer `elem` removed.canForward) === False
+
+addCanForward_rejectsBlacklistedUser : Script ()
+addCanForward_rejectsBlacklistedUser = do
+  (issuer, _, _, _) <- setupParties
+  relayer <- allocateParty "AdminTestBlacklistedRelayer"
+  registries <- createRegistries issuer [relayer] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+
+removeCanForward_rejectsWhenNotAForwarder : Script ()
+removeCanForward_rejectsWhenNotAForwarder = do
+  (issuer, _, _, _) <- setupParties
+  relayer <- allocateParty "AdminTestNonForwarder"
+  registries <- createRegistries issuer [] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.forwarderCid RemoveCanForward with user = relayer
+
+canForwardQuery_reflectsCurrentState : Script ()
+canForwardQuery_reflectsCurrentState = do
+  (issuer, _, _, _) <- setupParties
+  relayer <- allocateParty "AdminTestQueryRelayer"
+  registries <- createRegistries issuer [] [] []
+  addedCid <- submit issuer do
+    exerciseCmd registries.forwarderCid AddCanForward with user = relayer
+
+  result <- submit issuer do exerciseCmd addedCid CanForwardQuery with user = relayer
+  result === True
+
+-- ── TrustedContractRegistry ─────────────────────────────────────────────
+
+addTrustedContract_removeTrustedContract_roundTrip : Script ()
+addTrustedContract_removeTrustedContract_roundTrip = do
+  (issuer, _, _, _) <- setupParties
+  counterparty <- allocateParty "AdminTestCounterparty"
+  registries <- createRegistries issuer [] [] []
+
+  addedCid <- submit issuer do
+    exerciseCmd registries.trustCid AddTrustedContract with contract = counterparty
+  Some added <- queryContractId issuer addedCid
+  (counterparty `elem` added.trustedContracts) === True
+
+  removedCid <- submit issuer do
+    exerciseCmd addedCid RemoveTrustedContract with contract = counterparty
+  Some removed <- queryContractId issuer removedCid
+  (counterparty `elem` removed.trustedContracts) === False
+
+addTrustedContract_rejectsBlacklistedParty : Script ()
+addTrustedContract_rejectsBlacklistedParty = do
+  (issuer, _, _, _) <- setupParties
+  counterparty <- allocateParty "AdminTestBlacklistedCounterparty"
+  registries <- createRegistries issuer [counterparty] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.trustCid AddTrustedContract with contract = counterparty
+
+removeTrustedContract_rejectsWhenNotPresent : Script ()
+removeTrustedContract_rejectsWhenNotPresent = do
+  (issuer, _, _, _) <- setupParties
+  counterparty <- allocateParty "AdminTestAbsentCounterparty"
+  registries <- createRegistries issuer [] [] []
+
+  submitMustFail issuer do
+    exerciseCmd registries.trustCid RemoveTrustedContract with contract = counterparty
+
+-- ── Cross-registry cascade ──────────────────────────────────────────────
+
+addBlackList_cascadesIntoMintForwardAndTrust : Script ()
+addBlackList_cascadesIntoMintForwardAndTrust = do
+  (issuer, _, _, minter) <- setupParties
+  registries <- createRegistries issuer [] [minter] [(minter, "cascade-grant", 100)]
+  forwarderCid <- submit issuer do
+    exerciseCmd registries.forwarderCid AddCanForward with user = minter
+  trustCid <- submit issuer do
+    exerciseCmd registries.trustCid AddTrustedContract with contract = minter
+
+  _ <- submit issuer do
+    exerciseCmd registries.complianceCid AddBlackList with user = minter
+
+  Some (_, mintRegistry) <- queryContractKey @MintRegistry issuer issuer
+  Some (_, forwarderRegistry) <- queryContractKey @ForwarderRegistry issuer issuer
+  Some (_, trustRegistry) <- queryContractKey @TrustedContractRegistry issuer issuer
+
+  (minter `elem` mintRegistry.canMint) === False
+  findMintGrant minter mintRegistry.mintGrants === None
+  (minter `elem` forwarderRegistry.canForward) === False
+  (minter `elem` trustRegistry.trustedContracts) === False
