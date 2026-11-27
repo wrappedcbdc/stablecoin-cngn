@@ -3,13 +3,15 @@
  *
  * All actions are cleanly modularized under `./actions/`:
  * - config.ts:      Configuration & SuiClient initialization
- * - admin.ts:       Mint grant authorizations & revocations
- * - tokens.ts:      Standard coin minting & user burning
+ * - mint.ts:        Grant management & token minting (wallet + PAS accounts)
+ * - transfer.ts:    Standard coin & PAS account transfers
+ * - burn.ts:        Self-burn from wallet coin & PAS accounts
+ * - clawback.ts:    Administrative regulatory clawback & destroy
  * - compliance.ts:  Circuit-breaker pause/unpause & DenyList sanctions
- * - pas.ts:         Permissioned Asset Standard (PAS) account operations
- * - queries.ts:     On-chain state inspection
+ * - policy.ts:      PAS policy configuration
+ * - queries.ts:     On-chain state & metadata inspection
  *
- * You can import either the unified `CNGNClient` class or individual action functions.
+ * You can import either the unified `CNGNClient` facade class or individual action functions.
  */
 
 export * from './actions';

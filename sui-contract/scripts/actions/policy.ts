@@ -4,23 +4,22 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { DeploymentConfig } from './config';
 
 /**
- * Grants a minter single-use mint authority for an exact amount.
+ * Hybrid cNGN: Initializes the PAS Policy for cNGN on a shared Namespace.
+ * Sets up required approvals for send_funds, clawback_funds, and unlock_funds.
  */
-export async function grantMintPermission(
+export async function setupPasPolicy(
   client: SuiClient,
   config: DeploymentConfig,
   adminSigner: Ed25519Keypair,
-  minterAddress: string,
-  amount: bigint
+  namespaceId: string
 ) {
   const tx = new Transaction();
   tx.moveCall({
-    target: `${config.packageId}::admin::grant_mint_permission`,
+    target: `${config.packageId}::cngn::setup_pas_policy`,
     arguments: [
-      tx.object(config.adminRegistryId),
+      tx.object(config.coinStateId),
       tx.object(config.adminCapId),
-      tx.pure.address(minterAddress),
-      tx.pure.u64(amount),
+      tx.object(namespaceId),
     ],
   });
 
@@ -32,21 +31,24 @@ export async function grantMintPermission(
 }
 
 /**
- * Revokes mint authority from a minter.
+ * Pure PAS cNGN: Initializes the PAS Policy for cNGN_PAS on a shared Namespace.
  */
-export async function revokeMintPermission(
+export async function setupPasPolicyPurePas(
   client: SuiClient,
   config: DeploymentConfig,
   adminSigner: Ed25519Keypair,
-  minterAddress: string
+  namespaceId: string
 ) {
+  if (!config.pasCoinStateId) {
+    throw new Error('pasCoinStateId not found in deployment config');
+  }
   const tx = new Transaction();
   tx.moveCall({
-    target: `${config.packageId}::admin::revoke_mint_permission`,
+    target: `${config.packageId}::cngn_pas::setup_pas_policy`,
     arguments: [
-      tx.object(config.adminRegistryId),
+      tx.object(config.pasCoinStateId),
       tx.object(config.adminCapId),
-      tx.pure.address(minterAddress),
+      tx.object(namespaceId),
     ],
   });
 
