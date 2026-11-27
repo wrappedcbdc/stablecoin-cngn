@@ -15,6 +15,8 @@ interface DeploymentConfig {
   coinStateId: string;
   coinMetadataId: string;
   denyListId: string;
+  pasCoinStateId?: string;
+  pasCoinMetadataId?: string;
 }
 
 export class CNGNClient {
@@ -219,59 +221,203 @@ export class CNGNClient {
   }
 
   // ==========================================
-  // 5. Forwarders & Trusted Contracts (Object first, Cap second)
+  // 5. Permissioned Asset Standard (PAS) Operations
   // ==========================================
 
-  async addForwarder(adminSigner: Ed25519Keypair, forwarderAddress: string) {
+  /**
+   * Initializes the PAS Policy for cNGN on a shared Namespace.
+   */
+  async setupPasPolicy(adminSigner: Ed25519Keypair, namespaceId: string) {
     const tx = new Transaction();
     tx.moveCall({
-      target: `${this.config.packageId}::admin::add_can_forward`,
+      target: `${this.config.packageId}::cngn::setup_pas_policy`,
       arguments: [
-        tx.object(this.config.adminRegistryId),
+        tx.object(this.config.coinStateId),
         tx.object(this.config.adminCapId),
-        tx.pure.address(forwarderAddress),
+        tx.object(namespaceId),
       ],
     });
-    return await this.client.signAndExecuteTransaction({ signer: adminSigner, transaction: tx });
+    return await this.client.signAndExecuteTransaction({
+      signer: adminSigner,
+      transaction: tx,
+      options: { showEffects: true, showEvents: true },
+    });
   }
 
-  async removeForwarder(adminSigner: Ed25519Keypair, forwarderAddress: string) {
+  /**
+   * Mints tokens directly into a recipient's PAS Account.
+   */
+  async mintToAccount(minterSigner: Ed25519Keypair, toAccountId: string, amount: bigint) {
     const tx = new Transaction();
     tx.moveCall({
-      target: `${this.config.packageId}::admin::remove_can_forward`,
+      target: `${this.config.packageId}::cngn::mint_to_account`,
       arguments: [
+        tx.object(this.config.coinStateId),
         tx.object(this.config.adminRegistryId),
-        tx.object(this.config.adminCapId),
-        tx.pure.address(forwarderAddress),
+        tx.object(this.config.denyListId),
+        tx.object(toAccountId),
+        tx.pure.u64(amount),
       ],
     });
-    return await this.client.signAndExecuteTransaction({ signer: adminSigner, transaction: tx });
+    return await this.client.signAndExecuteTransaction({
+      signer: minterSigner,
+      transaction: tx,
+      options: { showEffects: true, showEvents: true },
+    });
   }
 
-  async addTrustedContract(adminSigner: Ed25519Keypair, contractAddress: string) {
+  /**
+   * Deposits a standard Coin<CNGN> into a PAS Account.
+   */
+  async depositCoinToAccount(userSigner: Ed25519Keypair, accountId: string, coinObjectId: string) {
     const tx = new Transaction();
     tx.moveCall({
-      target: `${this.config.packageId}::admin::add_trusted_contract`,
+      target: `${this.config.packageId}::cngn::deposit_coin_to_account`,
       arguments: [
-        tx.object(this.config.adminRegistryId),
-        tx.object(this.config.adminCapId),
-        tx.pure.address(contractAddress),
+        tx.object(accountId),
+        tx.object(coinObjectId),
       ],
     });
-    return await this.client.signAndExecuteTransaction({ signer: adminSigner, transaction: tx });
+    return await this.client.signAndExecuteTransaction({
+      signer: userSigner,
+      transaction: tx,
+      options: { showEffects: true, showEvents: true },
+    });
   }
 
-  async removeTrustedContract(adminSigner: Ed25519Keypair, contractAddress: string) {
+  /**
+   * Allows an account owner to self-burn their cNGN balance directly from their PAS Account.
+   */
+  async burnFromPasAccount(userSigner: Ed25519Keypair, policyId: string, accountId: string, amount: bigint) {
     const tx = new Transaction();
+    const auth = tx.moveCall({
+      target: 'pas::account::new_auth',
+      arguments: [],
+    });
     tx.moveCall({
-      target: `${this.config.packageId}::admin::remove_trusted_contract`,
+      target: `${this.config.packageId}::cngn::burn_from_pas_account`,
       arguments: [
-        tx.object(this.config.adminRegistryId),
-        tx.object(this.config.adminCapId),
-        tx.pure.address(contractAddress),
+        tx.object(this.config.coinStateId),
+        tx.object(this.config.denyListId),
+        tx.object(policyId),
+        tx.object(accountId),
+        auth,
+        tx.pure.u64(amount),
       ],
     });
-    return await this.client.signAndExecuteTransaction({ signer: adminSigner, transaction: tx });
+    return await this.client.signAndExecuteTransaction({
+      signer: userSigner,
+      transaction: tx,
+      options: { showEffects: true, showEvents: true },
+    });
+  }
+
+  /**
+   * Admin claws back and burns cNGN from a blacklisted user's PAS account.
+   */
+  async destroyBlackFunds(adminSigner: Ed25519Keypair, policyId: string, fromAccountId: string, amount: bigint) {
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${this.config.packageId}::cngn::destroy_black_funds`,
+      arguments: [
+        tx.object(this.config.coinStateId),
+        tx.object(this.config.adminCapId),
+        tx.object(policyId),
+        tx.object(fromAccountId),
+        tx.object(this.config.denyListId),
+        tx.pure.u64(amount),
+      ],
+    });
+    return await this.client.signAndExecuteTransaction({
+      signer: adminSigner,
+      transaction: tx,
+      options: { showEffects: true, showEvents: true },
+    });
+  }
+
+  // ==========================================
+  // 6. Pure PAS Module Operations (cngn_pas)
+  // ==========================================
+
+  /**
+   * Mints directly into an account using the pure cngn_pas module.
+   */
+  async mintToAccountPurePas(minterSigner: Ed25519Keypair, toAccountId: string, amount: bigint) {
+    if (!this.config.pasCoinStateId) {
+      throw new Error('pasCoinStateId not found in deployment config');
+    }
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${this.config.packageId}::cngn_pas::mint_to_account`,
+      arguments: [
+        tx.object(this.config.pasCoinStateId),
+        tx.object(this.config.adminRegistryId),
+        tx.object(this.config.denyListId),
+        tx.object(toAccountId),
+        tx.pure.u64(amount),
+      ],
+    });
+    return await this.client.signAndExecuteTransaction({
+      signer: minterSigner,
+      transaction: tx,
+      options: { showEffects: true, showEvents: true },
+    });
+  }
+
+  /**
+   * Self-burns directly from account using the pure cngn_pas module.
+   */
+  async burnFromPasAccountPurePas(userSigner: Ed25519Keypair, policyId: string, accountId: string, amount: bigint) {
+    if (!this.config.pasCoinStateId) {
+      throw new Error('pasCoinStateId not found in deployment config');
+    }
+    const tx = new Transaction();
+    const auth = tx.moveCall({
+      target: 'pas::account::new_auth',
+      arguments: [],
+    });
+    tx.moveCall({
+      target: `${this.config.packageId}::cngn_pas::burn_from_pas_account`,
+      arguments: [
+        tx.object(this.config.pasCoinStateId),
+        tx.object(this.config.denyListId),
+        tx.object(policyId),
+        tx.object(accountId),
+        auth,
+        tx.pure.u64(amount),
+      ],
+    });
+    return await this.client.signAndExecuteTransaction({
+      signer: userSigner,
+      transaction: tx,
+      options: { showEffects: true, showEvents: true },
+    });
+  }
+
+  /**
+   * Regulatory clawback & burn using the pure cngn_pas module.
+   */
+  async destroyBlackFundsPurePas(adminSigner: Ed25519Keypair, policyId: string, fromAccountId: string, amount: bigint) {
+    if (!this.config.pasCoinStateId) {
+      throw new Error('pasCoinStateId not found in deployment config');
+    }
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${this.config.packageId}::cngn_pas::destroy_black_funds`,
+      arguments: [
+        tx.object(this.config.pasCoinStateId),
+        tx.object(this.config.adminCapId),
+        tx.object(policyId),
+        tx.object(fromAccountId),
+        tx.object(this.config.denyListId),
+        tx.pure.u64(amount),
+      ],
+    });
+    return await this.client.signAndExecuteTransaction({
+      signer: adminSigner,
+      transaction: tx,
+      options: { showEffects: true, showEvents: true },
+    });
   }
 
   // ==========================================

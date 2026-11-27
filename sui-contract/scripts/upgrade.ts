@@ -18,6 +18,8 @@ interface DeploymentConfig {
   coinStateId: string;
   coinMetadataId: string;
   denyListId: string;
+  pasCoinStateId?: string;
+  pasCoinMetadataId?: string;
   packageHistory?: string[];
 }
 
